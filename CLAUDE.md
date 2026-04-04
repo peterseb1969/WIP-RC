@@ -2,7 +2,7 @@
 
 ## What This App Does
 
-> TODO: Describe what this app does in one paragraph.
+RC-Console is a React + TypeScript replacement for WIP's existing Vue 3 admin console. It visualizes and manages all WIP data (namespaces, terminologies, templates, documents, files, registry) across all namespaces, provides direct infrastructure inspection (PostgreSQL, MongoDB, NATS), referential integrity checks, and a natural language query interface for data exploration. See DESIGN.md for the full implementation plan.
 
 ## The Golden Rule
 
