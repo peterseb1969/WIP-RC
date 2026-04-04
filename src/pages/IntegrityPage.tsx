@@ -1,21 +1,62 @@
 import { useState } from 'react'
 import { ShieldCheck, Play, AlertTriangle, CheckCircle, XCircle, RefreshCw } from 'lucide-react'
-import { useIntegrityCheck } from '@wip/react'
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import { cn } from '@/lib/cn'
 
-export default function IntegrityPage() {
-  const [runCheck, setRunCheck] = useState(false)
-  const { data, isLoading, error, refetch } = useIntegrityCheck(
-    runCheck ? { check_term_refs: true } : undefined
-  )
-
-  const handleRun = () => {
-    setRunCheck(true)
-    refetch()
+interface IntegrityResult {
+  status: string
+  checked_at: string
+  services_checked: string[]
+  summary: {
+    total_templates: number
+    total_documents: number
+    documents_checked: number
+    templates_with_issues: number
+    documents_with_issues: number
+    orphaned_terminology_refs: number
+    orphaned_template_refs: number
+    orphaned_term_refs: number
+    inactive_refs: number
   }
+  issues: Array<{
+    type: string
+    severity: string
+    source: string
+    entity_id?: string
+    field_path?: string
+    message?: string
+    details?: Record<string, unknown>
+  }>
+}
+
+export default function IntegrityPage() {
+  const [result, setResult] = useState<IntegrityResult | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleRun = async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/wip/api/reporting-sync/health/integrity')
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        throw new Error(`HTTP ${res.status}: ${text}`)
+      }
+      const data = await res.json() as IntegrityResult
+      setResult(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Integrity check failed')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const statusColor = (s: string) =>
+    s === 'healthy' || s === 'ok' ? 'healthy' as const :
+    s === 'warning' ? 'warning' as const : 'error' as const
 
   return (
     <div className="space-y-4 max-w-5xl">
@@ -37,7 +78,7 @@ export default function IntegrityPage() {
         </button>
       </div>
 
-      {!runCheck && !data && (
+      {!result && !isLoading && !error && (
         <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
           <ShieldCheck size={32} className="text-gray-300 mx-auto mb-3" />
           <p className="text-sm text-gray-500">Click "Run Check" to verify referential integrity across all services.</p>
@@ -46,57 +87,94 @@ export default function IntegrityPage() {
       )}
 
       {isLoading && <LoadingState label="Running integrity checks..." />}
-      {error && <ErrorState message={error.message} onRetry={handleRun} />}
+      {error && <ErrorState message={error} onRetry={handleRun} />}
 
-      {data && (
+      {result && (
         <div className="space-y-4">
           {/* Status banner */}
           <div className={cn(
             'flex items-center gap-3 p-4 rounded-lg border',
-            data.status === 'healthy' ? 'bg-green-50 border-green-200' :
-            data.status === 'warning' ? 'bg-yellow-50 border-yellow-200' :
+            statusColor(result.status) === 'healthy' ? 'bg-green-50 border-green-200' :
+            statusColor(result.status) === 'warning' ? 'bg-yellow-50 border-yellow-200' :
             'bg-red-50 border-red-200'
           )}>
-            {data.status === 'healthy' ? (
+            {statusColor(result.status) === 'healthy' ? (
               <CheckCircle size={20} className="text-green-500" />
-            ) : data.status === 'warning' ? (
+            ) : statusColor(result.status) === 'warning' ? (
               <AlertTriangle size={20} className="text-yellow-500" />
             ) : (
               <XCircle size={20} className="text-red-500" />
             )}
             <div>
-              <span className="text-sm font-medium text-gray-800 capitalize">{data.status}</span>
+              <span className="text-sm font-medium text-gray-800 capitalize">{result.status}</span>
               <p className="text-xs text-gray-500">
-                {(data.issues ?? []).length === 0
-                  ? 'No integrity issues found.'
-                  : `${(data.issues ?? []).length} issue${(data.issues ?? []).length !== 1 ? 's' : ''} detected.`
-                }
+                Checked at {new Date(result.checked_at).toLocaleString()}
+                {' · '}Services: {result.services_checked.join(', ')}
               </p>
             </div>
           </div>
 
+          {/* Summary stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: 'Templates', value: result.summary.total_templates, sub: `${result.summary.templates_with_issues} with issues` },
+              { label: 'Documents checked', value: result.summary.documents_checked.toLocaleString(), sub: `${result.summary.documents_with_issues} with issues` },
+              { label: 'Orphaned term refs', value: result.summary.orphaned_term_refs },
+              { label: 'Orphaned terminology refs', value: result.summary.orphaned_terminology_refs },
+            ].map((stat) => (
+              <div key={stat.label} className="bg-white border border-gray-200 rounded-lg px-4 py-3">
+                <div className="text-lg font-semibold text-gray-800">{stat.value}</div>
+                <div className="text-xs text-gray-500">{stat.label}</div>
+                {stat.sub && <div className="text-[10px] text-gray-400 mt-0.5">{stat.sub}</div>}
+              </div>
+            ))}
+          </div>
+
           {/* Issues list */}
-          {(data.issues ?? []).length > 0 && (
-            <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
-              {(data.issues as Array<Record<string, unknown>>).map((issue, i) => (
-                <div key={i} className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <StatusBadge
-                      status={String(issue.severity) === 'error' ? 'error' : 'warning'}
-                      label={String(issue.severity ?? 'warning')}
-                    />
-                    <span className="text-xs text-gray-400 font-mono">{String(issue.type ?? '')}</span>
+          {result.issues.length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">
+                Issues ({result.issues.length})
+              </h3>
+              <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-[500px] overflow-y-auto">
+                {result.issues.map((issue, i) => (
+                  <div key={i} className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <StatusBadge
+                        status={issue.severity === 'error' ? 'error' : 'warning'}
+                        label={issue.severity}
+                      />
+                      <span className="text-xs text-gray-500 font-mono">{issue.type}</span>
+                      <span className="text-xs text-gray-400 ml-auto">{issue.source}</span>
+                    </div>
+                    {issue.message && (
+                      <p className="text-sm text-gray-700 mt-1">{issue.message}</p>
+                    )}
+                    {issue.entity_id && (
+                      <span className="text-xs text-gray-400 font-mono mt-0.5 block">{issue.entity_id}</span>
+                    )}
+                    {issue.field_path && (
+                      <span className="text-xs text-gray-400 mt-0.5 block">Field: {issue.field_path}</span>
+                    )}
+                    {issue.details && (
+                      <details className="mt-1">
+                        <summary className="text-[10px] text-gray-400 cursor-pointer hover:text-gray-600">Details</summary>
+                        <pre className="text-[10px] text-gray-500 mt-1 bg-gray-50 p-2 rounded overflow-x-auto">
+                          {JSON.stringify(issue.details, null, 2)}
+                        </pre>
+                      </details>
+                    )}
                   </div>
-                  <p className="text-sm text-gray-700 mt-1">{String(issue.message ?? '')}</p>
-                  {issue.entity_id && (
-                    <span className="text-xs text-gray-400 font-mono mt-0.5 block">{String(issue.entity_id)}</span>
-                  )}
-                  {issue.field_path && (
-                    <span className="text-xs text-gray-400 mt-0.5 block">Field: {String(issue.field_path)}</span>
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
+          )}
+
+          {result.issues.length === 0 && (
+            <p className="text-sm text-green-600 flex items-center gap-1.5">
+              <CheckCircle size={14} />
+              No integrity issues found.
+            </p>
           )}
         </div>
       )}
