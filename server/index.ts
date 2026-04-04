@@ -14,7 +14,13 @@ const PORT = parseInt(process.env.PORT || '3010')
 const app = express()
 
 app.use(cors())
-app.use(express.json())
+// Parse JSON only for our own routes — NOT for /wip, which @wip/proxy
+// needs to forward as a raw stream. express.json() consumes the body
+// stream, causing "stream is not readable" in the proxy's body-parser.
+app.use((req, res, next) => {
+  if (req.path.startsWith('/wip')) return next()
+  express.json()(req, res, next)
+})
 
 // Session (required for OIDC auth)
 app.use(session({
