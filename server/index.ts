@@ -2,6 +2,8 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import session from 'express-session'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { wipProxy } from '@wip/proxy'
 import { initAuth, requireAuth, handleCallback, handleLogout } from './auth.js'
 import mongoRouter from './infra/mongo.js'
@@ -57,6 +59,17 @@ app.get('/api/me', (req, res) => {
     res.json({ anonymous: true })
   }
 })
+
+// In production, serve the built frontend from dist/
+if (process.env.NODE_ENV === 'production') {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url))
+  const distPath = path.resolve(__dirname, '..', 'dist')
+  app.use(express.static(distPath))
+  // SPA fallback — serve index.html for all unmatched routes
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'))
+  })
+}
 
 async function main() {
   await initAuth()

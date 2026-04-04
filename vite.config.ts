@@ -18,4 +18,10 @@ export default defineConfig({
       '/auth': 'http://localhost:3010',
     },
   },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./tests/setup.ts'],
+    css: true,
+  },
 })
