@@ -10,9 +10,12 @@ import {
   AlertCircle,
   History,
   Columns3,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react'
 import {
   useReportTables,
+  useTableColumns,
   useTablePreview,
   useRunQuery,
   useSyncStatus,
@@ -21,7 +24,6 @@ import {
 import DataTable from '@/components/common/DataTable'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
-import StatusBadge from '@/components/common/StatusBadge'
 import { cn } from '@/lib/cn'
 
 // ---------------------------------------------------------------------------
@@ -59,21 +61,28 @@ function SyncStatusBar() {
 
   if (isLoading || !data) return null
 
+  const isHealthy = data.running && data.connected_to_nats && data.connected_to_postgres
+
   return (
     <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-500">
       <span className="font-medium">Reporting-Sync</span>
-      <StatusBadge
-        status={data.status === 'healthy' || data.status === 'ok' ? 'healthy' : 'warning'}
-        label={data.status}
-      />
-      {data.pending_events !== undefined && (
-        <span>Pending: {data.pending_events}</span>
+      <span className={cn('inline-flex items-center gap-1', isHealthy ? 'text-green-600' : 'text-amber-600')}>
+        {isHealthy ? <CheckCircle size={12} /> : <XCircle size={12} />}
+        {data.running ? 'Running' : 'Stopped'}
+      </span>
+      <span className={cn(data.connected_to_nats ? 'text-green-600' : 'text-red-500')}>
+        NATS: {data.connected_to_nats ? 'connected' : 'disconnected'}
+      </span>
+      <span className={cn(data.connected_to_postgres ? 'text-green-600' : 'text-red-500')}>
+        PG: {data.connected_to_postgres ? 'connected' : 'disconnected'}
+      </span>
+      <span>Events: {data.events_processed.toLocaleString()}</span>
+      {data.events_failed > 0 && (
+        <span className="text-amber-600">{data.events_failed} failed</span>
       )}
-      {data.lag_ms !== undefined && (
-        <span>Lag: {data.lag_ms}ms</span>
-      )}
-      {data.last_sync && (
-        <span>Last sync: {new Date(data.last_sync).toLocaleTimeString()}</span>
+      <span>Tables: {data.tables_managed}</span>
+      {data.last_event_processed && (
+        <span className="ml-auto">Last: {new Date(data.last_event_processed).toLocaleTimeString()}</span>
       )}
     </div>
   )
@@ -103,19 +112,18 @@ function TableBrowser({
     <div className="divide-y divide-gray-100">
       {tables.map((table, i) => (
         <button
-          key={`${table.table_name}-${i}`}
-          onClick={() => onSelectTable(table.table_name)}
+          key={`${table.name}-${i}`}
+          onClick={() => onSelectTable(table.name)}
           className={cn(
             'w-full text-left px-3 py-2.5 flex items-center gap-2 text-sm hover:bg-gray-50 transition-colors',
-            selectedTable === table.table_name && 'bg-blue-50 text-blue-700'
+            selectedTable === table.name && 'bg-blue-50 text-blue-700'
           )}
         >
           <Table2 size={14} className="text-gray-400 shrink-0" />
           <div className="flex-1 min-w-0">
-            <div className="truncate font-medium">{table.table_name}</div>
+            <div className="truncate font-medium">{table.name}</div>
             <div className="text-xs text-gray-400">
-              {(table.columns ?? []).length} cols
-              {table.row_count !== undefined && ` · ${table.row_count.toLocaleString()} rows`}
+              {table.column_count} cols · {table.row_count.toLocaleString()} rows
             </div>
           </div>
           <ChevronRight size={14} className="text-gray-300 shrink-0" />
@@ -131,22 +139,32 @@ function TableBrowser({
 
 function TableDetail({ tableName }: { tableName: string }) {
   const { data: tables } = useReportTables()
-  const { data: preview, isLoading, error } = useTablePreview(tableName)
+  const { data: columnData, isLoading: columnsLoading } = useTableColumns(tableName)
+  const { data: preview, isLoading: previewLoading, error } = useTablePreview(tableName)
 
-  const table = tables?.find(t => t.table_name === tableName)
+  const table = tables?.find(t => t.name === tableName)
 
   return (
     <div className="space-y-4">
+      {/* Table summary */}
+      {table && (
+        <div className="text-sm text-gray-500">
+          <span className="font-mono font-medium text-gray-700">{table.name}</span>
+          {' — '}{table.column_count} columns, {table.row_count.toLocaleString()} rows
+        </div>
+      )}
+
       {/* Column schema */}
-      {table && (table.columns ?? []).length > 0 && (
+      {columnsLoading && <LoadingState label="Loading columns..." />}
+      {columnData && columnData.columns.length > 0 && (
         <div>
           <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1.5">
             <Columns3 size={14} />
-            Columns ({table.columns.length})
+            Columns ({columnData.columns.length})
           </h3>
           <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
             <div className="grid grid-cols-2 gap-1 text-xs">
-              {table.columns.map(col => (
+              {columnData.columns.map(col => (
                 <div key={col.name} className="flex items-center gap-2 py-0.5">
                   <span className="font-mono text-gray-700">{col.name}</span>
                   <span className="text-gray-400">{col.type}</span>
@@ -160,7 +178,7 @@ function TableDetail({ tableName }: { tableName: string }) {
       {/* Sample data */}
       <div>
         <h3 className="text-sm font-medium text-gray-700 mb-2">Sample Data (first 10 rows)</h3>
-        {isLoading && <LoadingState label="Loading preview..." />}
+        {previewLoading && <LoadingState label="Loading preview..." />}
         {error && <ErrorState message={error.message} />}
         {preview && preview.rows.length > 0 && (
           <DataTable columns={preview.columns} rows={preview.rows} maxHeight="300px" />

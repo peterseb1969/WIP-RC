@@ -1,16 +1,21 @@
 import { useQuery, useMutation } from '@tanstack/react-query'
 
 // ---------------------------------------------------------------------------
-// Types
+// Types — matched to actual reporting-sync API responses
 // ---------------------------------------------------------------------------
 
 export interface ReportTable {
-  table_name: string
-  columns?: Array<{
+  name: string
+  row_count: number
+  column_count: number
+}
+
+export interface TableColumns {
+  table: string
+  columns: Array<{
     name: string
     type: string
   }>
-  row_count?: number
 }
 
 export interface QueryResult {
@@ -21,10 +26,13 @@ export interface QueryResult {
 }
 
 export interface SyncStatus {
-  status: string
-  pending_events?: number
-  last_sync?: string
-  lag_ms?: number
+  running: boolean
+  connected_to_nats: boolean
+  connected_to_postgres: boolean
+  last_event_processed?: string
+  events_processed: number
+  events_failed: number
+  tables_managed: number
 }
 
 // ---------------------------------------------------------------------------
@@ -52,6 +60,36 @@ export function useReportTables() {
   })
 }
 
+/**
+ * Get column details for a specific table by running a LIMIT 0 query
+ * and inspecting the result columns. The /tables endpoint only returns
+ * column_count, not the actual column names/types.
+ */
+export function useTableColumns(tableName: string | null) {
+  return useQuery({
+    queryKey: ['rc-console', 'table-columns', tableName],
+    queryFn: async (): Promise<TableColumns> => {
+      // Use information_schema to get actual column names and types
+      const result = await fetchJson<QueryResult>('/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sql: `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tableName}' ORDER BY ordinal_position`,
+        }),
+      })
+      return {
+        table: tableName!,
+        columns: result.rows.map(r => ({
+          name: String(r.column_name ?? ''),
+          type: String(r.data_type ?? ''),
+        })),
+      }
+    },
+    enabled: !!tableName,
+    staleTime: 300_000,
+  })
+}
+
 export function useTablePreview(tableName: string | null) {
   return useQuery({
     queryKey: ['rc-console', 'table-preview', tableName],
@@ -71,7 +109,7 @@ export function useRunQuery() {
     mutationFn: async (sql: string): Promise<QueryResult> => {
       const trimmed = sql.trim()
       // Client-side safety: only SELECT allowed
-      if (!/^\s*SELECT\b/i.test(trimmed)) {
+      if (!/^\s*(SELECT|WITH)\b/i.test(trimmed)) {
         throw new Error('Only SELECT queries are allowed')
       }
       return fetchJson<QueryResult>('/query', {
