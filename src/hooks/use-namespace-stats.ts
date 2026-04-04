@@ -23,13 +23,14 @@ export function useNamespaceStats() {
           .filter(ns => ns.prefix !== 'ptest')
           .map(async (ns) => {
             try {
-              const stats = await client.registry.getNamespaceStats(ns.prefix)
+              const stats = await client.registry.getNamespaceStats(ns.prefix) as any
+              const counts = stats.entity_counts ?? stats
               return {
                 prefix: ns.prefix,
                 description: ns.description,
-                terminologies: stats.terminologies ?? 0,
-                templates: stats.templates ?? 0,
-                documents: stats.documents ?? 0,
+                terminologies: counts.terminologies ?? 0,
+                templates: counts.templates ?? 0,
+                documents: counts.documents ?? 0,
               }
             } catch {
               return {
