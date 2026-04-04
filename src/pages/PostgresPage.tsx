@@ -101,9 +101,9 @@ function TableBrowser({
 
   return (
     <div className="divide-y divide-gray-100">
-      {tables.map(table => (
+      {tables.map((table, i) => (
         <button
-          key={table.table_name}
+          key={`${table.table_name}-${i}`}
           onClick={() => onSelectTable(table.table_name)}
           className={cn(
             'w-full text-left px-3 py-2.5 flex items-center gap-2 text-sm hover:bg-gray-50 transition-colors',
