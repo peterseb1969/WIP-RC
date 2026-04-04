@@ -1,5 +1,15 @@
 # RC-Console — Changelog
 
+## 2026-04-05 — CSV export, global namespace selector, bug fixes
+
+### Session APP-RC-20260405-0119
+- Added: Streaming CSV export buttons in PostgreSQL page — hover icon per table, button in detail header, Export CSV in query pad (CASE-12)
+- Added: Global namespace selector in TopBar with localStorage persistence, replacing per-page dropdowns
+- Fixed: Dashboard health checks — moved from client-side `/health` (404) to server-side probing via Express backend
+- Fixed: TerminologyListPage duplicate React keys when same terminology_id appears across namespaces
+- Fixed: Dashboard namespace stats reading `entity_counts` wrapper correctly
+- Fixed: Files page namespace requirement — workaround removed after BE-YAC deployed CASE-08 fix making `namespace` optional (CASE-13)
+
 ## 2026-04-05 — Initial build complete (Steps 1-13)
 
 ### Session APP-RC-20260404-2358

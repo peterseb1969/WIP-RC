@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileIcon, Calendar, Hash, RefreshCw, HardDrive, FolderTree } from 'lucide-react'
+import { FileIcon, Calendar, Hash, RefreshCw, HardDrive } from 'lucide-react'
 import { useFiles } from '@wip/react'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
@@ -11,11 +11,8 @@ export default function FileListPage() {
   const { namespace } = useNamespaceFilter()
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState<'active' | 'inactive' | ''>('active')
-  // Files API requires a namespace — pass a dummy value when none selected
-  // and hide the results (the query will fail but we won't show it)
-  const hasNamespace = !!namespace
   const { data, isLoading, error, refetch } = useFiles({
-    namespace: namespace || '__none__',
+    namespace: namespace || undefined,
     status: status || undefined,
     page,
     page_size: 25,
@@ -46,17 +43,10 @@ export default function FileListPage() {
         </div>
       </div>
 
-      {!hasNamespace && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-3">
-          <FolderTree size={16} className="text-amber-500 shrink-0" />
-          <p className="text-sm text-amber-700">Select a namespace from the top bar to browse files. The file API requires a namespace.</p>
-        </div>
-      )}
+      {isLoading && <LoadingState label="Loading files..." />}
+      {error && <ErrorState message={error.message} onRetry={() => refetch()} />}
 
-      {hasNamespace && isLoading && <LoadingState label="Loading files..." />}
-      {hasNamespace && error && <ErrorState message={error.message} onRetry={() => refetch()} />}
-
-      {hasNamespace && data && (
+      {data && (
         <>
           <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
             {items.length === 0 ? (
@@ -71,6 +61,9 @@ export default function FileListPage() {
                       <span>{f.content_type}</span>
                       <span className="flex items-center gap-1"><HardDrive size={10} />{formatBytes(f.size_bytes ?? 0)}</span>
                       <span className="flex items-center gap-1"><Hash size={10} />{f.file_id}</span>
+                      {!namespace && (f as any).namespace && (
+                        <span className="text-blue-500">{(f as any).namespace}</span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
