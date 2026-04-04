@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { connect, type NatsConnection, type JetStreamManager, type StreamInfo, type ConsumerInfo } from 'nats'
+import { connect, type NatsConnection } from 'nats'
 
 const router = Router()
 
@@ -16,6 +16,19 @@ async function getConnection(): Promise<NatsConnection> {
     })
   }
   return nc
+}
+
+/**
+ * Drain all items from a nats Lister (which returns batches via .next()).
+ */
+async function drainLister<T>(lister: { next(): Promise<T[]> }): Promise<T[]> {
+  const all: T[] = []
+  let batch = await lister.next()
+  while (batch.length > 0) {
+    all.push(...batch)
+    batch = await lister.next()
+  }
+  return all
 }
 
 // GET /api/infra/nats/status — connection status
@@ -41,36 +54,25 @@ router.get('/streams', async (_req, res) => {
   try {
     const conn = await getConnection()
     const jsm = await conn.jetstreamManager()
+    const items = await drainLister(jsm.streams.list())
 
-    const streams: Array<{
-      name: string
-      subjects: string[]
-      messages: number
-      bytes: number
-      consumers: number
-      created: string
-      config: Record<string, unknown>
-    }> = []
-
-    for await (const si of jsm.streams()) {
-      streams.push({
-        name: si.config.name,
-        subjects: si.config.subjects ?? [],
-        messages: si.state.messages,
-        bytes: si.state.bytes,
-        consumers: si.state.consumer_count,
-        created: si.created?.toISOString?.() ?? '',
-        config: {
-          retention: si.config.retention,
-          storage: si.config.storage,
-          max_msgs: si.config.max_msgs,
-          max_bytes: si.config.max_bytes,
-          max_age: si.config.max_age,
-          num_replicas: si.config.num_replicas,
-          discard: si.config.discard,
-        },
-      })
-    }
+    const streams = items.map((si: any) => ({
+      name: si.config.name,
+      subjects: si.config.subjects ?? [],
+      messages: si.state.messages,
+      bytes: si.state.bytes,
+      consumers: si.state.consumer_count,
+      created: si.created ?? '',
+      config: {
+        retention: si.config.retention,
+        storage: si.config.storage,
+        max_msgs: si.config.max_msgs,
+        max_bytes: si.config.max_bytes,
+        max_age: si.config.max_age,
+        num_replicas: si.config.num_replicas,
+        discard: si.config.discard,
+      },
+    }))
 
     res.json({ streams })
   } catch (err: unknown) {
@@ -84,32 +86,19 @@ router.get('/consumers/:stream', async (req, res) => {
   try {
     const conn = await getConnection()
     const jsm = await conn.jetstreamManager()
+    const items = await drainLister(jsm.consumers.list(req.params.stream))
 
-    const consumers: Array<{
-      name: string
-      stream: string
-      ackPending: number
-      numPending: number
-      delivered: number
-      deliverPolicy: string
-      ackPolicy: string
-      replayPolicy: string
-      created: string
-    }> = []
-
-    for await (const ci of jsm.consumers.list(req.params.stream)) {
-      consumers.push({
-        name: ci.config.durable_name ?? ci.name,
-        stream: req.params.stream,
-        ackPending: ci.num_ack_pending,
-        numPending: ci.num_pending,
-        delivered: ci.delivered?.stream_seq ?? 0,
-        deliverPolicy: ci.config.deliver_policy ?? 'all',
-        ackPolicy: ci.config.ack_policy ?? 'explicit',
-        replayPolicy: ci.config.replay_policy ?? 'instant',
-        created: ci.created?.toISOString?.() ?? '',
-      })
-    }
+    const consumers = items.map((ci: any) => ({
+      name: ci.config.durable_name ?? ci.name,
+      stream: req.params.stream,
+      ackPending: ci.num_ack_pending,
+      numPending: ci.num_pending,
+      delivered: ci.delivered?.stream_seq ?? 0,
+      deliverPolicy: ci.config.deliver_policy ?? 'all',
+      ackPolicy: ci.config.ack_policy ?? 'explicit',
+      replayPolicy: ci.config.replay_policy ?? 'instant',
+      created: ci.created ?? '',
+    }))
 
     res.json({ stream: req.params.stream, consumers })
   } catch (err: unknown) {
