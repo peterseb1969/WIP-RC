@@ -5,6 +5,7 @@ import session from 'express-session'
 import { wipProxy } from '@wip/proxy'
 import { initAuth, requireAuth, handleCallback, handleLogout } from './auth.js'
 import mongoRouter from './infra/mongo.js'
+import natsRouter from './infra/nats.js'
 
 const PORT = parseInt(process.env.PORT || '3010')
 const app = express()
@@ -42,6 +43,7 @@ app.use('/wip', wipProxy({
 
 // Infrastructure routes
 app.use('/api/infra/mongo', mongoRouter)
+app.use('/api/infra/nats', natsRouter)
 
 // NL Query route — added in Step 11
 // app.use('/api/nl', nlRouter)
