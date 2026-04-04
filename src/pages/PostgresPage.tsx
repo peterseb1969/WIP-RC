@@ -114,7 +114,7 @@ function TableBrowser({
           <div className="flex-1 min-w-0">
             <div className="truncate font-medium">{table.table_name}</div>
             <div className="text-xs text-gray-400">
-              {table.columns.length} cols
+              {(table.columns ?? []).length} cols
               {table.row_count !== undefined && ` · ${table.row_count.toLocaleString()} rows`}
             </div>
           </div>
@@ -138,7 +138,7 @@ function TableDetail({ tableName }: { tableName: string }) {
   return (
     <div className="space-y-4">
       {/* Column schema */}
-      {table && (
+      {table && (table.columns ?? []).length > 0 && (
         <div>
           <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1.5">
             <Columns3 size={14} />

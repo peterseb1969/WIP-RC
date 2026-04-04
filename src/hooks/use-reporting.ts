@@ -6,7 +6,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 
 export interface ReportTable {
   table_name: string
-  columns: Array<{
+  columns?: Array<{
     name: string
     type: string
   }>
