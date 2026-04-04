@@ -50,6 +50,58 @@ app.use('/wip', wipProxy({
   apiKey: process.env.WIP_API_KEY || '',
 }))
 
+// WIP service health checks — probes each service via Caddy
+const WIP_SERVICES = [
+  { name: 'Registry', slug: 'registry', path: '/api/registry/terminologies?page_size=1' },
+  { name: 'Def-Store', slug: 'def-store', path: '/api/def-store/terminologies?page_size=1' },
+  { name: 'Template-Store', slug: 'template-store', path: '/api/template-store/templates?page_size=1' },
+  { name: 'Document-Store', slug: 'document-store', path: '/api/document-store/documents?page_size=1' },
+  { name: 'Reporting-Sync', slug: 'reporting-sync', path: '/api/reporting-sync/status' },
+  { name: 'Ingest-Gateway', slug: 'ingest-gateway', path: '/api/ingest-gateway/status' },
+]
+
+app.get('/api/infra/health', async (_req, res) => {
+  const wipBase = process.env.WIP_BASE_URL || 'https://localhost:8443'
+  const apiKey = process.env.WIP_API_KEY || ''
+
+  const results = await Promise.allSettled(
+    WIP_SERVICES.map(async (svc) => {
+      const start = performance.now()
+      try {
+        const resp = await fetch(`${wipBase}${svc.path}`, {
+          headers: { 'X-API-Key': apiKey },
+          signal: AbortSignal.timeout(5000),
+        })
+        const ms = Math.round(performance.now() - start)
+        return {
+          name: svc.name,
+          slug: svc.slug,
+          status: resp.ok ? 'healthy' : 'unhealthy',
+          responseTimeMs: ms,
+          ...(resp.ok ? {} : { error: `HTTP ${resp.status}` }),
+        }
+      } catch (err: unknown) {
+        const ms = Math.round(performance.now() - start)
+        return {
+          name: svc.name,
+          slug: svc.slug,
+          status: 'unhealthy',
+          responseTimeMs: ms,
+          error: err instanceof Error ? err.message : 'Connection failed',
+        }
+      }
+    })
+  )
+
+  const services = results.map((r, i) =>
+    r.status === 'fulfilled'
+      ? r.value
+      : { name: WIP_SERVICES[i]!.name, slug: WIP_SERVICES[i]!.slug, status: 'unknown', responseTimeMs: null, error: 'Check failed' }
+  )
+
+  res.json({ services })
+})
+
 // Infrastructure routes
 app.use('/api/infra/mongo', mongoRouter)
 app.use('/api/infra/nats', natsRouter)

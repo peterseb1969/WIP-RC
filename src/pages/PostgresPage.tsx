@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, type MouseEvent } from 'react'
 import {
   Database,
   Play,
@@ -108,6 +108,11 @@ function TableBrowser({
     return <p className="text-sm text-gray-400 p-4">No reporting tables found.</p>
   }
 
+  const handleDownloadCsv = (e: MouseEvent, tableName: string) => {
+    e.stopPropagation()
+    window.open(`/wip/api/reporting-sync/export/csv?table=${encodeURIComponent(tableName)}`, '_blank')
+  }
+
   return (
     <div className="divide-y divide-gray-100">
       {tables.map((table, i) => (
@@ -115,7 +120,7 @@ function TableBrowser({
           key={`${table.name}-${i}`}
           onClick={() => onSelectTable(table.name)}
           className={cn(
-            'w-full text-left px-3 py-2.5 flex items-center gap-2 text-sm hover:bg-gray-50 transition-colors',
+            'w-full text-left px-3 py-2.5 flex items-center gap-2 text-sm hover:bg-gray-50 transition-colors group',
             selectedTable === table.name && 'bg-blue-50 text-blue-700'
           )}
         >
@@ -126,6 +131,12 @@ function TableBrowser({
               {table.column_count} cols · {table.row_count.toLocaleString()} rows
             </div>
           </div>
+          <Download
+            size={14}
+            className="text-gray-300 shrink-0 opacity-0 group-hover:opacity-100 hover:text-blue-500 transition-all"
+            onClick={(e) => handleDownloadCsv(e as unknown as MouseEvent, table.name)}
+            title={`Download ${table.name} as CSV`}
+          />
           <ChevronRight size={14} className="text-gray-300 shrink-0" />
         </button>
       ))}
@@ -148,9 +159,19 @@ function TableDetail({ tableName }: { tableName: string }) {
     <div className="space-y-4">
       {/* Table summary */}
       {table && (
-        <div className="text-sm text-gray-500">
-          <span className="font-mono font-medium text-gray-700">{table.name}</span>
-          {' — '}{table.column_count} columns, {table.row_count.toLocaleString()} rows
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-500">
+            <span className="font-mono font-medium text-gray-700">{table.name}</span>
+            {' — '}{table.column_count} columns, {table.row_count.toLocaleString()} rows
+          </div>
+          <button
+            onClick={() => window.open(`/wip/api/reporting-sync/export/csv?table=${encodeURIComponent(tableName)}`, '_blank')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:bg-gray-50 hover:text-blue-600 transition-colors"
+            title={`Download ${tableName} as CSV`}
+          >
+            <Download size={12} />
+            Download CSV
+          </button>
         </div>
       )}
 
@@ -249,27 +270,28 @@ function QueryPad() {
     saveHistory([])
   }
 
-  const handleExportCsv = () => {
-    if (!result || result.rows.length === 0) return
-    const header = result.columns.join(',')
-    const rows = result.rows.map(row =>
-      result.columns.map(col => {
-        const val = row[col]
-        if (val === null || val === undefined) return ''
-        const str = typeof val === 'object' ? JSON.stringify(val) : String(val)
-        return str.includes(',') || str.includes('"') || str.includes('\n')
-          ? `"${str.replace(/"/g, '""')}"`
-          : str
-      }).join(',')
-    )
-    const csv = [header, ...rows].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `query-result-${Date.now()}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+  const handleExportCsv = async () => {
+    if (!sql.trim()) return
+    try {
+      const resp = await fetch('/wip/api/reporting-sync/export/csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sql: sql.trim() }),
+      })
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => '')
+        throw new Error(`Export failed: HTTP ${resp.status} ${text}`)
+      }
+      const blob = await resp.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `query-result-${Date.now()}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('CSV export failed:', err)
+    }
   }
 
   // Auto-resize textarea
@@ -321,13 +343,13 @@ function QueryPad() {
           History ({history.length})
         </button>
 
-        {result && result.rows.length > 0 && (
+        {result && (
           <button
             onClick={handleExportCsv}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-200 rounded-md text-gray-500 hover:bg-gray-50"
           >
             <Download size={14} />
-            CSV
+            Export CSV
           </button>
         )}
 

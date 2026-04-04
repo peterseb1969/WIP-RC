@@ -99,7 +99,7 @@ export default function TerminologyListPage() {
             ) : (
               items.map(t => (
                 <Link
-                  key={t.terminology_id}
+                  key={`${t.terminology_id}-${t.namespace}`}
                   to={`/terminologies/${t.terminology_id}`}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
                 >
