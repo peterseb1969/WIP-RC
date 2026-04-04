@@ -18,6 +18,7 @@ import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import { cn } from '@/lib/cn'
+import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 
 // ---------------------------------------------------------------------------
 // Namespace Stats Hook (per-namespace detail)
@@ -128,6 +129,7 @@ function NamespaceRow({
   isExpanded: boolean
   onToggle: () => void
 }) {
+  const { setNamespace } = useNamespaceFilter()
   const { data: stats } = useNamespaceDetail(isExpanded ? ns.prefix : null)
 
   return (
@@ -163,7 +165,8 @@ function NamespaceRow({
           {stats && (
             <div className="grid grid-cols-3 gap-3">
               <Link
-                to={`/terminologies?namespace=${ns.prefix}`}
+                to="/terminologies"
+                onClick={() => setNamespace(ns.prefix)}
                 className="bg-gray-50 rounded-lg px-3 py-2 hover:bg-gray-100 transition-colors"
               >
                 <div className="flex items-center gap-1.5 text-xs text-gray-500">
@@ -175,7 +178,8 @@ function NamespaceRow({
                 </div>
               </Link>
               <Link
-                to={`/templates?namespace=${ns.prefix}`}
+                to="/templates"
+                onClick={() => setNamespace(ns.prefix)}
                 className="bg-gray-50 rounded-lg px-3 py-2 hover:bg-gray-100 transition-colors"
               >
                 <div className="flex items-center gap-1.5 text-xs text-gray-500">
@@ -187,7 +191,8 @@ function NamespaceRow({
                 </div>
               </Link>
               <Link
-                to={`/documents?namespace=${ns.prefix}`}
+                to="/documents"
+                onClick={() => setNamespace(ns.prefix)}
                 className="bg-gray-50 rounded-lg px-3 py-2 hover:bg-gray-100 transition-colors"
               >
                 <div className="flex items-center gap-1.5 text-xs text-gray-500">

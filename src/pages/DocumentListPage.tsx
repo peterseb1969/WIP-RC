@@ -9,7 +9,8 @@ import {
   Table2,
   Calendar,
 } from 'lucide-react'
-import { useTemplates, useDocuments, useNamespaces } from '@wip/react'
+import { useTemplates, useDocuments } from '@wip/react'
+import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 import SearchInput from '@/components/common/SearchInput'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
@@ -28,7 +29,8 @@ function TemplateSelector({
   selectedTemplate: string | null
   onSelect: (templateId: string, templateValue: string) => void
 }) {
-  const { data, isLoading } = useTemplates({ status: 'active', latest_only: true, page_size: 100 })
+  const { namespace } = useNamespaceFilter()
+  const { data, isLoading } = useTemplates({ status: 'active', latest_only: true, namespace: namespace || undefined, page_size: 100 })
 
   if (isLoading) return <LoadingState label="Loading templates..." />
 

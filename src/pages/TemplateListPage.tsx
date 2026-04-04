@@ -1,24 +1,23 @@
 import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { FileCode2, ChevronRight, Hash, Layers, RefreshCw } from 'lucide-react'
-import { useTemplates, useNamespaces } from '@wip/react'
+import { useTemplates } from '@wip/react'
 import SearchInput from '@/components/common/SearchInput'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
+import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 
 export default function TemplateListPage() {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const nsFilter = searchParams.get('namespace') || ''
+  const { namespace } = useNamespaceFilter()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
 
-  const { data: namespaces } = useNamespaces()
   const { data, isLoading, error, refetch } = useTemplates({
     status: 'active',
     latest_only: true,
-    namespace: nsFilter || undefined,
+    namespace: namespace || undefined,
     page,
     page_size: 25,
   })
@@ -48,19 +47,6 @@ export default function TemplateListPage() {
       {/* Filters */}
       <div className="flex items-center gap-3">
         <SearchInput value={search} onChange={setSearch} placeholder="Search templates..." className="flex-1 max-w-sm" />
-        <select
-          value={nsFilter}
-          onChange={e => {
-            setSearchParams(prev => { if (e.target.value) prev.set('namespace', e.target.value); else prev.delete('namespace'); return prev })
-            setPage(1)
-          }}
-          className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
-        >
-          <option value="">All namespaces</option>
-          {namespaces?.filter(ns => ns.prefix !== 'ptest').map(ns => (
-            <option key={ns.prefix} value={ns.prefix}>{ns.prefix}</option>
-          ))}
-        </select>
       </div>
 
       {isLoading && <LoadingState label="Loading templates..." />}

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { WipProvider } from '@wip/react'
 import { wipClient } from '@/lib/wip'
+import { NamespaceFilterProvider } from '@/hooks/use-namespace-filter'
 import AppLayout from '@/components/layout/AppLayout'
 import DashboardPage from '@/pages/DashboardPage'
 import NamespacesPage from '@/pages/NamespacesPage'
@@ -33,6 +34,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <WipProvider client={wipClient}>
+        <NamespaceFilterProvider>
         <BrowserRouter>
           <Routes>
             <Route element={<AppLayout />}>
@@ -55,6 +57,7 @@ export default function App() {
             </Route>
           </Routes>
         </BrowserRouter>
+        </NamespaceFilterProvider>
       </WipProvider>
     </QueryClientProvider>
   )
