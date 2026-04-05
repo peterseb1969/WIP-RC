@@ -3,7 +3,6 @@ import {
   Radio,
   Wifi,
   WifiOff,
-  Server,
   Users,
   ChevronDown,
   ChevronRight,
@@ -11,11 +10,16 @@ import {
   HardDrive,
   Clock,
   Settings2,
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react'
 import {
   useNatsStatus,
   useNatsStreams,
   useNatsConsumers,
+  useIngestGatewayStatus,
   type NatsStream,
   type NatsConsumer,
 } from '@/hooks/use-nats'
@@ -192,6 +196,83 @@ function ConsumerRow({ consumer }: { consumer: NatsConsumer }) {
 }
 
 // ---------------------------------------------------------------------------
+// Ingest Gateway Stats
+// ---------------------------------------------------------------------------
+
+function IngestGatewayPanel() {
+  const { data: status } = useIngestGatewayStatus()
+
+  if (status === undefined) return null // loading
+  if (status === null) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center gap-3 text-sm text-gray-400">
+        <Activity size={16} />
+        <span>Ingest Gateway unavailable</span>
+      </div>
+    )
+  }
+
+  const rate = status.uptime_seconds > 0
+    ? (status.messages_processed / status.uptime_seconds)
+    : 0
+
+  const uptimeDisplay = formatUptime(status.uptime_seconds)
+
+  return (
+    <div>
+      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+        Ingest Gateway
+      </h2>
+      <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+        <div className="flex items-center gap-3 text-sm">
+          {status.running && status.nats_connected ? (
+            <CheckCircle2 size={16} className="text-green-500" />
+          ) : status.nats_connected ? (
+            <AlertTriangle size={16} className="text-yellow-500" />
+          ) : (
+            <XCircle size={16} className="text-red-400" />
+          )}
+          <StatusBadge
+            status={status.running && status.nats_connected ? 'healthy' : status.nats_connected ? 'degraded' : 'unhealthy'}
+            label={status.running && status.nats_connected ? 'Running' : status.nats_connected ? 'Degraded' : 'Disconnected'}
+          />
+          <span className="text-xs text-gray-400">Uptime: {uptimeDisplay}</span>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-gray-50 rounded-lg px-3 py-2">
+            <div className="text-xs text-gray-500 flex items-center gap-1">
+              <MessageSquare size={12} />
+              Processed
+            </div>
+            <div className="text-lg font-semibold text-gray-800 mt-0.5">
+              {status.messages_processed.toLocaleString()}
+            </div>
+          </div>
+          <div className="bg-gray-50 rounded-lg px-3 py-2">
+            <div className="text-xs text-gray-500 flex items-center gap-1">
+              <AlertTriangle size={12} />
+              Failed
+            </div>
+            <div className={cn('text-lg font-semibold mt-0.5', status.messages_failed > 0 ? 'text-red-600' : 'text-gray-800')}>
+              {status.messages_failed.toLocaleString()}
+            </div>
+          </div>
+          <div className="bg-gray-50 rounded-lg px-3 py-2">
+            <div className="text-xs text-gray-500 flex items-center gap-1">
+              <Activity size={12} />
+              Throughput
+            </div>
+            <div className="text-lg font-semibold text-gray-800 mt-0.5">
+              {rate < 0.01 && status.messages_processed === 0 ? '—' : `${rate.toFixed(2)}/s`}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // NATS Page
 // ---------------------------------------------------------------------------
 
@@ -214,6 +295,8 @@ export default function NatsPage() {
       </div>
 
       <NatsStatusBar />
+
+      <IngestGatewayPanel />
 
       <div>
         <div className="flex items-center justify-between mb-3">
@@ -258,6 +341,15 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+}
+
+function formatUptime(seconds: number): string {
+  if (seconds < 60) return `${Math.round(seconds)}s`
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m`
+  if (seconds < 86400) return `${Math.round(seconds / 3600)}h`
+  const days = Math.floor(seconds / 86400)
+  const hours = Math.round((seconds % 86400) / 3600)
+  return `${days}d ${hours}h`
 }
 
 function formatConfigValue(val: unknown): string {

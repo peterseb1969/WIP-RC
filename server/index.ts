@@ -52,12 +52,12 @@ app.use('/wip', wipProxy({
 
 // WIP service health checks — probes each service via Caddy
 const WIP_SERVICES = [
-  { name: 'Registry', slug: 'registry', path: '/api/registry/terminologies?page_size=1' },
+  { name: 'Registry', slug: 'registry', path: '/api/registry/namespaces' },
   { name: 'Def-Store', slug: 'def-store', path: '/api/def-store/terminologies?page_size=1' },
   { name: 'Template-Store', slug: 'template-store', path: '/api/template-store/templates?page_size=1' },
   { name: 'Document-Store', slug: 'document-store', path: '/api/document-store/documents?page_size=1' },
   { name: 'Reporting-Sync', slug: 'reporting-sync', path: '/api/reporting-sync/status' },
-  { name: 'Ingest-Gateway', slug: 'ingest-gateway', path: '/api/ingest-gateway/status' },
+  { name: 'Ingest-Gateway', slug: 'ingest-gateway', path: '/api/ingest-gateway/health' },
 ]
 
 app.get('/api/infra/health', async (_req, res) => {

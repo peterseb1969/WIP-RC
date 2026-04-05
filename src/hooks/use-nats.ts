@@ -56,6 +56,31 @@ export function useNatsStreams() {
   })
 }
 
+export interface IngestGatewayStatus {
+  running: boolean
+  nats_connected: boolean
+  messages_processed: number
+  messages_failed: number
+  uptime_seconds: number
+}
+
+export function useIngestGatewayStatus() {
+  return useQuery({
+    queryKey: ['rc-console', 'ingest-gateway', 'status'],
+    queryFn: async (): Promise<IngestGatewayStatus | null> => {
+      try {
+        const res = await fetch('/wip/api/ingest-gateway/status')
+        if (!res.ok) return null
+        return res.json()
+      } catch {
+        return null
+      }
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  })
+}
+
 export function useNatsConsumers(stream: string | null) {
   return useQuery({
     queryKey: ['rc-console', 'nats', 'consumers', stream],
