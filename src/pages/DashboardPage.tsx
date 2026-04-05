@@ -105,7 +105,7 @@ function ServiceCard({ service }: { service: ServiceHealth }) {
       <div className="text-sm font-medium text-gray-700 truncate">{service.name}</div>
       <div className="text-xs text-gray-400">
         {service.responseTimeMs !== null ? `${service.responseTimeMs}ms` : '—'}
-        <span className="ml-1 text-gray-300">:{service.port}</span>
+        <span className="ml-1 text-gray-300">{service.slug}</span>
       </div>
       {service.error && (
         <div className="text-xs text-red-500 truncate" title={service.error}>

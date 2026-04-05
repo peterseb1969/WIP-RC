@@ -32,7 +32,6 @@ export default function NLQueryPage() {
     sendQuery,
     clearHistory,
     status,
-    statusLoading,
     checkStatus,
   } = useNLQuery()
 

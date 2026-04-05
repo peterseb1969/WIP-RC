@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Search,
@@ -11,7 +11,6 @@ import {
   Copy,
   Check,
   ExternalLink,
-  RefreshCw,
   Calendar,
   LinkIcon,
 } from 'lucide-react'
@@ -185,8 +184,6 @@ function ResultRow({
   onClick: () => void
 }) {
   const matchedViaSynonym = result.matched_via === 'synonym_key_value'
-  const link = entityLink(result)
-
   return (
     <button
       onClick={onClick}

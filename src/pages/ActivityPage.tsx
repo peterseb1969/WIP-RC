@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Activity as ActivityIcon, Clock, RefreshCw } from 'lucide-react'
 import { useActivity } from '@wip/react'
-import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 

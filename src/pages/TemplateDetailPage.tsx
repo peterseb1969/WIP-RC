@@ -8,7 +8,6 @@ import {
   Tag,
   FileText,
   Link2,
-  AlertCircle,
 } from 'lucide-react'
 import { useTemplate } from '@wip/react'
 import type { FieldDefinition } from '@wip/client'
@@ -173,7 +172,7 @@ export default function TemplateDetailPage() {
 
       {/* Quick link to documents */}
       <Link
-        to={`/documents?template=${template.value}`}
+        to={`/documents?template=${template.value}${template.namespace ? `&ns=${template.namespace}` : ''}`}
         className="inline-flex items-center gap-1.5 text-sm text-blue-500 hover:text-blue-700"
       >
         <FileText size={14} />

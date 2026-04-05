@@ -29,7 +29,6 @@ import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
-import { cn } from '@/lib/cn'
 
 // ---------------------------------------------------------------------------
 // Create Term Form (inline)

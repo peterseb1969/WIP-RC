@@ -18,7 +18,6 @@ import { useQuery } from '@tanstack/react-query'
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
-import { cn } from '@/lib/cn'
 
 // ---------------------------------------------------------------------------
 // Namespace Stats Hook (per-namespace detail)

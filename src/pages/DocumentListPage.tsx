@@ -136,7 +136,7 @@ function TemplateCombobox({
       setOpen(false)
       setSearch('')
     } else if (e.key === 'Enter' && filtered.length === 1) {
-      handleSelect(filtered[0])
+      if (filtered[0]) handleSelect(filtered[0])
     }
   }, [filtered])
 
@@ -374,15 +374,26 @@ export default function DocumentListPage() {
 
   // auto-recall last-used template when templates finish loading
   const handleTemplatesLoaded = useCallback((templates: Array<{ template_id: string; value: string }>) => {
-    // don't override if already selected (e.g. from URL param)
+    // don't override if already selected
     if (selectedTemplateId) return
+
+    // resolve URL ?template= param to an ID
+    if (templateParam) {
+      const match = templates.find(t => t.value === templateParam)
+      if (match) {
+        setSelectedTemplateId(match.template_id)
+        setSelectedTemplateValue(match.value)
+        setLastTemplate(nsKey, match.template_id, match.value)
+        return
+      }
+    }
 
     const last = getLastTemplate(nsKey)
     if (last && templates.some(t => t.template_id === last.id)) {
       setSelectedTemplateId(last.id)
       setSelectedTemplateValue(last.value)
     }
-  }, [nsKey, selectedTemplateId])
+  }, [nsKey, selectedTemplateId, templateParam])
 
   // reset selection when namespace changes
   useEffect(() => {

@@ -233,7 +233,7 @@ function IngestGatewayPanel() {
             <XCircle size={16} className="text-red-400" />
           )}
           <StatusBadge
-            status={status.running && status.nats_connected ? 'healthy' : status.nats_connected ? 'degraded' : 'unhealthy'}
+            status={status.running && status.nats_connected ? 'healthy' : status.nats_connected ? 'warning' : 'unhealthy'}
             label={status.running && status.nats_connected ? 'Running' : status.nats_connected ? 'Degraded' : 'Disconnected'}
           />
           <span className="text-xs text-gray-400">Uptime: {uptimeDisplay}</span>

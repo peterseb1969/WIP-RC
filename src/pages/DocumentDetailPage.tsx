@@ -13,7 +13,7 @@ import {
   FolderTree,
   FileCode2,
 } from 'lucide-react'
-import { useDocument, useDocumentVersions, useTemplateByValue, useTerms } from '@wip/react'
+import { useDocument, useDocumentVersions, useTemplateByValue } from '@wip/react'
 import type { FieldDefinition } from '@wip/client'
 import JsonViewer from '@/components/common/JsonViewer'
 import LoadingState from '@/components/common/LoadingState'
@@ -67,7 +67,7 @@ function isSimpleArray(val: unknown): boolean {
 // Term-resolved field value
 // ---------------------------------------------------------------------------
 
-function TermFieldValue({ terminologyRef, value }: { terminologyRef: string; value: string }) {
+function TermFieldValue({ value }: { terminologyRef: string; value: string }) {
   // terminologyRef can be either an ID (UUID) or a value (UPPER_SNAKE)
   // useTerms needs a terminology ID — if it's a value, we can't easily resolve here
   // For now, show the raw value but styled as a term pill

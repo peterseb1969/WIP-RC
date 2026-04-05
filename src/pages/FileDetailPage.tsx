@@ -16,7 +16,6 @@ import {
   LinkIcon,
 } from 'lucide-react'
 import { useFile, useDownloadUrl, useWipClient } from '@wip/react'
-import type { FileEntity } from '@wip/client'
 import { useQuery } from '@tanstack/react-query'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
