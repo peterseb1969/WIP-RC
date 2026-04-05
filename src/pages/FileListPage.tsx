@@ -61,8 +61,8 @@ export default function FileListPage() {
                       <span>{f.content_type}</span>
                       <span className="flex items-center gap-1"><HardDrive size={10} />{formatBytes(f.size_bytes ?? 0)}</span>
                       <span className="flex items-center gap-1"><Hash size={10} />{f.file_id}</span>
-                      {!namespace && (f as any).namespace && (
-                        <span className="text-blue-500">{(f as any).namespace}</span>
+                      {!namespace && f.namespace && (
+                        <span className="text-blue-500">{f.namespace}</span>
                       )}
                     </div>
                   </div>

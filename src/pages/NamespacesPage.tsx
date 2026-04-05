@@ -10,10 +10,11 @@ import {
   FileText,
   Settings2,
   RefreshCw,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
-import { useNamespaces, useWipClient } from '@wip/react'
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
-import { wipKeys } from '@wip/react'
+import { useNamespaces, useWipClient, useCreateNamespace, useUpdateNamespace, useDeleteNamespace } from '@wip/react'
+import { useQuery } from '@tanstack/react-query'
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
@@ -43,32 +44,24 @@ function useNamespaceDetail(prefix: string | null) {
 // ---------------------------------------------------------------------------
 
 function CreateNamespaceForm({ onClose }: { onClose: () => void }) {
-  const client = useWipClient()
-  const queryClient = useQueryClient()
   const [prefix, setPrefix] = useState('')
   const [description, setDescription] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  const create = useMutation({
-    mutationFn: async () => {
-      const trimmedPrefix = prefix.trim().toLowerCase()
-      if (!trimmedPrefix) throw new Error('Prefix is required')
-      if (!/^[a-z][a-z0-9-]*$/.test(trimmedPrefix)) {
-        throw new Error('Prefix must start with a letter and contain only lowercase letters, numbers, and hyphens')
-      }
-      return client.registry.createNamespace({
-        prefix: trimmedPrefix,
-        description: description.trim() || undefined,
-      })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: wipKeys.registry.namespaces() })
-      onClose()
-    },
-    onError: (err: Error) => {
-      setError(err.message)
-    },
+  const create = useCreateNamespace({
+    onSuccess: () => onClose(),
+    onError: (err: Error) => setError(err.message),
   })
+
+  const handleCreate = () => {
+    const trimmedPrefix = prefix.trim().toLowerCase()
+    if (!trimmedPrefix) { setError('Prefix is required'); return }
+    if (!/^[a-z][a-z0-9-]*$/.test(trimmedPrefix)) {
+      setError('Prefix must start with a letter and contain only lowercase letters, numbers, and hyphens')
+      return
+    }
+    create.mutate({ prefix: trimmedPrefix, description: description.trim() || undefined })
+  }
 
   return (
     <div className="bg-white border border-blue-200 rounded-lg p-4 mb-4">
@@ -98,7 +91,7 @@ function CreateNamespaceForm({ onClose }: { onClose: () => void }) {
         {error && <p className="text-xs text-red-500">{error}</p>}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => create.mutate()}
+            onClick={handleCreate}
             disabled={create.isPending || !prefix.trim()}
             className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
           >
@@ -125,12 +118,72 @@ function NamespaceRow({
   isExpanded,
   onToggle,
 }: {
-  ns: { prefix: string; description?: string; status?: string; isolation_mode?: string; created_at?: string }
+  ns: { prefix: string; description?: string; status?: string; isolation_mode?: string; deletion_mode?: string; created_at?: string }
   isExpanded: boolean
   onToggle: () => void
 }) {
+  const client = useWipClient()
   const { setNamespace } = useNamespaceFilter()
   const { data: stats } = useNamespaceDetail(isExpanded ? ns.prefix : null)
+
+  const [editing, setEditing] = useState(false)
+  const [editDesc, setEditDesc] = useState(ns.description ?? '')
+  const [editIsolation, setEditIsolation] = useState(ns.isolation_mode ?? 'open')
+  const [editDeletionMode, setEditDeletionMode] = useState(ns.deletion_mode ?? 'retain')
+  // Delete states: false → 'confirm' → 'confirm-retain' (second gate for protected namespaces)
+  const [deleteStep, setDeleteStep] = useState<false | 'confirm' | 'confirm-retain'>(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const update = useUpdateNamespace({
+    onSuccess: () => { setEditing(false) },
+  })
+
+  const remove = useDeleteNamespace({
+    onSuccess: () => { setDeleteStep(false); setDeleting(false) },
+    onError: (err: Error) => { setDeleteError(err.message); setDeleting(false) },
+  })
+
+  const handleDeleteClick = () => {
+    setDeleteError(null)
+    if (ns.deletion_mode === 'full') {
+      setDeleteStep('confirm')
+    } else {
+      setDeleteStep('confirm')
+    }
+  }
+
+  const handleDeleteConfirm = () => {
+    // If retain, require second confirmation
+    if (ns.deletion_mode !== 'full' && deleteStep === 'confirm') {
+      setDeleteStep('confirm-retain')
+      return
+    }
+    // Actually delete
+    performDelete()
+  }
+
+  const performDelete = async () => {
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      if (ns.deletion_mode !== 'full') {
+        await client.registry.updateNamespace(ns.prefix, { deletion_mode: 'full' })
+      }
+      remove.mutate({ prefix: ns.prefix, deletedBy: 'rc-console' })
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to prepare namespace for deletion')
+      setDeleting(false)
+    }
+  }
+
+  const startEdit = () => {
+    setEditDesc(ns.description ?? '')
+    setEditIsolation(ns.isolation_mode ?? 'open')
+    setEditDeletionMode(ns.deletion_mode ?? 'retain')
+    update.reset()
+    setEditing(true)
+  }
 
   return (
     <div className="border-b border-gray-100 last:border-0">
@@ -214,10 +267,130 @@ function NamespaceRow({
                 Isolation: {ns.isolation_mode}
               </span>
             )}
+            <span>Deletion: {ns.deletion_mode ?? 'retain'}</span>
             {ns.created_at && (
               <span>Created: {new Date(ns.created_at).toLocaleDateString()}</span>
             )}
           </div>
+
+          {/* Edit form */}
+          {editing ? (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Description</label>
+                <input
+                  type="text"
+                  value={editDesc}
+                  onChange={e => setEditDesc(e.target.value)}
+                  className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Isolation Mode</label>
+                  <select
+                    value={editIsolation}
+                    onChange={e => setEditIsolation(e.target.value)}
+                    className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                  >
+                    <option value="open">open</option>
+                    <option value="strict">strict</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Deletion Mode</label>
+                  <select
+                    value={editDeletionMode}
+                    onChange={e => setEditDeletionMode(e.target.value)}
+                    className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                  >
+                    <option value="retain">retain</option>
+                    <option value="full">full</option>
+                  </select>
+                </div>
+              </div>
+              {update.error && <p className="text-xs text-red-500">{update.error.message}</p>}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => update.mutate({ prefix: ns.prefix, data: { description: editDesc.trim() || undefined, isolation_mode: editIsolation as 'open' | 'strict', deletion_mode: editDeletionMode as 'retain' | 'full' } })}
+                  disabled={update.isPending}
+                  className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {update.isPending ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  onClick={() => setEditing(false)}
+                  className="px-3 py-1.5 border border-gray-200 text-sm rounded-md text-gray-500 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : deleteStep === 'confirm' ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
+              <p className="text-sm text-red-700">
+                Delete namespace <strong>{ns.prefix}</strong>? This will remove all terminologies, templates, and documents in this namespace.
+              </p>
+              {deleteError && <p className="text-xs text-red-500">{deleteError}</p>}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={deleting}
+                  className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deleting ? 'Deleting...' : 'Yes, delete'}
+                </button>
+                <button
+                  onClick={() => setDeleteStep(false)}
+                  className="px-3 py-1.5 border border-gray-200 text-sm rounded-md text-gray-500 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : deleteStep === 'confirm-retain' ? (
+            <div className="bg-red-100 border-2 border-red-300 rounded-lg p-3 space-y-2">
+              <p className="text-sm font-medium text-red-800">
+                This namespace is protected (deletion mode: retain).
+              </p>
+              <p className="text-sm text-red-700">
+                Deleting <strong>{ns.prefix}</strong> will permanently remove all its data. This protection exists because the namespace was marked as non-deletable. Are you absolutely sure?
+              </p>
+              {deleteError && <p className="text-xs text-red-500">{deleteError}</p>}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={performDelete}
+                  disabled={deleting}
+                  className="px-3 py-1.5 bg-red-700 text-white text-sm font-medium rounded-md hover:bg-red-800 disabled:opacity-50"
+                >
+                  {deleting ? 'Deleting...' : 'Yes, permanently delete'}
+                </button>
+                <button
+                  onClick={() => setDeleteStep(false)}
+                  className="px-3 py-1.5 border border-gray-200 text-sm rounded-md text-gray-500 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={startEdit}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+              >
+                <Pencil size={12} />
+                Edit
+              </button>
+              <button
+                onClick={handleDeleteClick}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-red-400 hover:text-red-600 hover:bg-red-50"
+              >
+                <Trash2 size={12} />
+                Delete
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
