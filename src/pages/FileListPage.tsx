@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { FileIcon, Calendar, Hash, RefreshCw, HardDrive } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { FileIcon, Calendar, Hash, RefreshCw, HardDrive, ChevronRight, AlertTriangle } from 'lucide-react'
 import { useFiles } from '@wip/react'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
@@ -53,31 +54,41 @@ export default function FileListPage() {
             {items.length === 0 ? (
               <p className="text-sm text-gray-400 p-6 text-center">No files found.</p>
             ) : (
-              items.map(f => (
-                <div key={f.file_id} className="flex items-center gap-3 px-4 py-3">
-                  <FileIcon size={16} className="text-gray-400 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-800 truncate">{f.filename}</div>
-                    <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
-                      <span>{f.content_type}</span>
-                      <span className="flex items-center gap-1"><HardDrive size={10} />{formatBytes(f.size_bytes ?? 0)}</span>
-                      <span className="flex items-center gap-1"><Hash size={10} />{f.file_id}</span>
-                      {!namespace && f.namespace && (
-                        <span className="text-blue-500">{f.namespace}</span>
-                      )}
+              items.map(f => {
+                const isOrphan = f.status === 'orphan' || f.reference_count === 0
+                return (
+                  <Link key={f.file_id} to={`/files/${f.file_id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+                    {fileTypeIcon(f.content_type)}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-800 truncate">{f.filename}</div>
+                      <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
+                        <span>{f.content_type}</span>
+                        <span className="flex items-center gap-1"><HardDrive size={10} />{formatBytes(f.size_bytes ?? 0)}</span>
+                        <span className="flex items-center gap-1"><Hash size={10} />{f.file_id}</span>
+                        {!namespace && f.namespace && (
+                          <span className="text-blue-500">{f.namespace}</span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {f.uploaded_at && (
-                      <span className="text-xs text-gray-400 flex items-center gap-1">
-                        <Calendar size={10} />
-                        {new Date(f.uploaded_at).toLocaleDateString()}
-                      </span>
-                    )}
-                    <StatusBadge status={f.status === 'active' ? 'active' : 'inactive'} label={f.status} />
-                  </div>
-                </div>
-              ))
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isOrphan && (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                          <AlertTriangle size={10} />
+                          orphan
+                        </span>
+                      )}
+                      {f.uploaded_at && (
+                        <span className="text-xs text-gray-400 flex items-center gap-1">
+                          <Calendar size={10} />
+                          {new Date(f.uploaded_at).toLocaleDateString()}
+                        </span>
+                      )}
+                      <StatusBadge status={f.status === 'active' ? 'active' : f.status === 'orphan' ? 'warning' : 'inactive'} label={f.status} />
+                    </div>
+                    <ChevronRight size={14} className="text-gray-300 shrink-0" />
+                  </Link>
+                )
+              })
             )}
           </div>
           <Pagination page={page} totalPages={data.pages ?? 1} onPageChange={setPage} />
@@ -86,6 +97,19 @@ export default function FileListPage() {
       )}
     </div>
   )
+}
+
+function fileTypeIcon(contentType: string) {
+  const size = 16
+  const cls = "shrink-0"
+  if (contentType.startsWith('image/')) return <FileIcon size={size} className={`${cls} text-pink-400`} />
+  if (contentType === 'application/pdf') return <FileIcon size={size} className={`${cls} text-red-400`} />
+  if (contentType.includes('csv') || contentType.includes('spreadsheet') || contentType.includes('excel'))
+    return <FileIcon size={size} className={`${cls} text-green-500`} />
+  if (contentType.startsWith('text/')) return <FileIcon size={size} className={`${cls} text-blue-400`} />
+  if (contentType.includes('json') || contentType.includes('xml'))
+    return <FileIcon size={size} className={`${cls} text-amber-400`} />
+  return <FileIcon size={size} className={`${cls} text-gray-400`} />
 }
 
 function formatBytes(bytes: number): string {

@@ -13,6 +13,7 @@ import TemplateDetailPage from '@/pages/TemplateDetailPage'
 import DocumentListPage from '@/pages/DocumentListPage'
 import DocumentDetailPage from '@/pages/DocumentDetailPage'
 import FileListPage from '@/pages/FileListPage'
+import FileDetailPage from '@/pages/FileDetailPage'
 import RegistryPage from '@/pages/RegistryPage'
 import PostgresPage from '@/pages/PostgresPage'
 import MongoPage from '@/pages/MongoPage'
@@ -47,6 +48,7 @@ export default function App() {
               <Route path="documents" element={<DocumentListPage />} />
               <Route path="documents/:templateValue/:id" element={<DocumentDetailPage />} />
               <Route path="files" element={<FileListPage />} />
+              <Route path="files/:id" element={<FileDetailPage />} />
               <Route path="registry" element={<RegistryPage />} />
               <Route path="postgres" element={<PostgresPage />} />
               <Route path="mongodb" element={<MongoPage />} />
