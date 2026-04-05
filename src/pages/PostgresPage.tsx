@@ -135,7 +135,7 @@ function TableBrowser({
             size={14}
             className="text-gray-300 shrink-0 opacity-0 group-hover:opacity-100 hover:text-blue-500 transition-all"
             onClick={(e) => handleDownloadCsv(e as unknown as MouseEvent, table.name)}
-            title={`Download ${table.name} as CSV`}
+            aria-label={`Download ${table.name} as CSV`}
           />
           <ChevronRight size={14} className="text-gray-300 shrink-0" />
         </button>

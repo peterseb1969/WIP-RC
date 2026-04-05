@@ -20,7 +20,7 @@ export default function SearchInput({
   autoFocus,
 }: SearchInputProps) {
   const [local, setLocal] = useState(value)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   useEffect(() => {
     setLocal(value)

@@ -11,6 +11,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { useTemplate } from '@wip/react'
+import type { FieldDefinition } from '@wip/client'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
@@ -49,13 +50,13 @@ function TypeBadge({ type }: { type: string }) {
 // Field Row
 // ---------------------------------------------------------------------------
 
-function FieldRow({ field, isIdentity }: { field: Record<string, unknown>; isIdentity: boolean }) {
-  const name = String(field.name ?? '')
-  const type = String(field.type ?? field.field_type ?? 'unknown')
-  const label = field.label ? String(field.label) : null
-  const mandatory = Boolean(field.mandatory ?? field.required)
-  const terminologyRef = field.terminology_value ?? field.terminology_ref
-  const referenceRef = field.reference_template ?? field.target_template
+function FieldRow({ field, isIdentity }: { field: FieldDefinition; isIdentity: boolean }) {
+  const name = field.name
+  const type = field.type ?? 'unknown'
+  const label = field.label || null
+  const mandatory = field.mandatory
+  const terminologyRef = field.terminology_ref
+  const referenceRef = field.template_ref
 
   return (
     <div className={cn(
@@ -65,7 +66,7 @@ function FieldRow({ field, isIdentity }: { field: Record<string, unknown>; isIde
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-sm font-mono text-gray-800">{name}</span>
-          {isIdentity && <Key size={12} className="text-amber-500" title="Identity field" />}
+          {isIdentity && <Key size={12} className="text-amber-500" aria-label="Identity field" />}
           {mandatory && <span className="text-red-400 text-xs">*</span>}
         </div>
         {label && label !== name && (
@@ -75,15 +76,15 @@ function FieldRow({ field, isIdentity }: { field: Record<string, unknown>; isIde
       <div className="flex items-center gap-2 shrink-0">
         <TypeBadge type={type} />
         {terminologyRef && (
-          <span className="flex items-center gap-1 text-xs text-orange-500" title={`Term: ${terminologyRef}`}>
+          <span className="flex items-center gap-1 text-xs text-orange-500">
             <Tag size={10} />
-            {String(terminologyRef)}
+            {terminologyRef}
           </span>
         )}
         {referenceRef && (
-          <span className="flex items-center gap-1 text-xs text-pink-500" title={`Ref: ${referenceRef}`}>
+          <span className="flex items-center gap-1 text-xs text-pink-500">
             <Link2 size={10} />
-            {String(referenceRef)}
+            {referenceRef}
           </span>
         )}
       </div>
@@ -103,7 +104,7 @@ export default function TemplateDetailPage() {
   if (error) return <ErrorState message={error.message} />
   if (!template) return <ErrorState message="Template not found" />
 
-  const fields = (template.fields ?? []) as Array<Record<string, unknown>>
+  const fields = template.fields ?? []
   const identityFields = new Set(
     Array.isArray(template.identity_fields) ? template.identity_fields.map(String) : []
   )

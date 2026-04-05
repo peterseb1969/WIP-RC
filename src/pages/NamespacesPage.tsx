@@ -227,7 +227,7 @@ function NamespaceRow({
                   Terminologies
                 </div>
                 <div className="text-lg font-semibold text-gray-800 mt-0.5">
-                  {(stats.terminologies ?? 0).toLocaleString()}
+                  {(stats.entity_counts.terminologies ?? 0).toLocaleString()}
                 </div>
               </Link>
               <Link
@@ -240,7 +240,7 @@ function NamespaceRow({
                   Templates
                 </div>
                 <div className="text-lg font-semibold text-gray-800 mt-0.5">
-                  {(stats.templates ?? 0).toLocaleString()}
+                  {(stats.entity_counts.templates ?? 0).toLocaleString()}
                 </div>
               </Link>
               <Link
@@ -253,7 +253,7 @@ function NamespaceRow({
                   Documents
                 </div>
                 <div className="text-lg font-semibold text-gray-800 mt-0.5">
-                  {(stats.documents ?? 0).toLocaleString()}
+                  {(stats.entity_counts.documents ?? 0).toLocaleString()}
                 </div>
               </Link>
             </div>

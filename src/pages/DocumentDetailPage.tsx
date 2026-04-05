@@ -119,28 +119,28 @@ export default function DocumentDetailPage() {
       </div>
 
       {/* Version History */}
-      {versions && (versions as Record<string, unknown>[]).length > 1 && (
+      {versions && versions.versions.length > 1 && (
         <div>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">
-            Version History ({(versions as Record<string, unknown>[]).length} versions)
+            Version History ({versions.versions.length} versions)
           </h2>
           <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
-            {(versions as Record<string, unknown>[]).map((v, i) => (
+            {versions.versions.map(v => (
               <div
-                key={i}
+                key={v.version}
                 className={cn(
                   'flex items-center gap-3 px-4 py-2.5',
                   v.version === doc.version && 'bg-blue-50/50'
                 )}
               >
                 <Layers size={14} className="text-gray-300" />
-                <span className="text-sm font-medium text-gray-700">Version {String(v.version)}</span>
+                <span className="text-sm font-medium text-gray-700">Version {v.version}</span>
                 {v.version === doc.version && (
                   <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">current</span>
                 )}
                 {v.created_at && (
                   <span className="text-xs text-gray-400 ml-auto">
-                    {new Date(String(v.created_at)).toLocaleString()}
+                    {new Date(v.created_at).toLocaleString()}
                   </span>
                 )}
               </div>

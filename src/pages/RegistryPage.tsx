@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { BookMarked, Search, Hash, Tag, Link2, RefreshCw } from 'lucide-react'
 import { useRegistrySearch, useWipClient } from '@wip/react'
 import { useQuery } from '@tanstack/react-query'
 import SearchInput from '@/components/common/SearchInput'
@@ -24,7 +23,7 @@ export default function RegistryPage() {
     staleTime: 30_000,
   })
 
-  const results = data?.results ?? []
+  const results = data?.items ?? []
 
   return (
     <div className="space-y-4 max-w-6xl">
@@ -54,26 +53,24 @@ export default function RegistryPage() {
               {results.length === 0 ? (
                 <p className="text-sm text-gray-400 p-6 text-center">No results for "{query}"</p>
               ) : (
-                results.map((r: Record<string, unknown>) => (
+                results.map(r => (
                   <button
-                    key={String(r.id ?? r.entry_id)}
-                    onClick={() => setSelectedEntryId(String(r.id ?? r.entry_id))}
+                    key={r.entry_id}
+                    onClick={() => setSelectedEntryId(r.entry_id)}
                     className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 transition-colors ${
-                      selectedEntryId === String(r.id ?? r.entry_id) ? 'bg-blue-50' : ''
+                      selectedEntryId === r.entry_id ? 'bg-blue-50' : ''
                     }`}
                   >
                     <div className="text-sm text-gray-800 truncate">
-                      {String(r.label ?? r.value ?? r.id)}
+                      {r.matched_value || r.entry_id}
                     </div>
                     <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
-                      <span className="font-mono">{String(r.id ?? r.entry_id)}</span>
-                      {r.type && <span>{String(r.type)}</span>}
-                      {r.status && (
-                        <StatusBadge
-                          status={r.status === 'active' ? 'active' : 'inactive'}
-                          label={String(r.status)}
-                        />
-                      )}
+                      <span className="font-mono">{r.entry_id}</span>
+                      <span>{r.entity_type}</span>
+                      <StatusBadge
+                        status={r.status === 'active' ? 'active' : 'inactive'}
+                        label={r.status}
+                      />
                     </div>
                   </button>
                 ))

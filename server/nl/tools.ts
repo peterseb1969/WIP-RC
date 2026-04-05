@@ -255,10 +255,13 @@ export async function executeTool(
         const terminologies = (await wipGet(
           `/api/def-store/terminologies?${params}`
         )) as { terminologies?: Array<{ id: string }> }
-        if (!terminologies.terminologies?.length) {
+        const tList = terminologies.terminologies ?? []
+        if (tList.length === 0) {
           return { error: `Terminology "${input.terminology_value}" not found` }
         }
-        const tid = terminologies.terminologies[0].id
+        const first = tList[0]
+        if (!first) return { error: `Terminology "${input.terminology_value}" not found` }
+        const tid = first.id
         return wipGet(`/api/def-store/terminologies/${tid}/terms?limit=500`)
       }
       return { error: 'Provide either terminology_id or terminology_value' }

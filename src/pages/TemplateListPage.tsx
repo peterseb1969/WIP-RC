@@ -74,7 +74,7 @@ export default function TemplateListPage() {
                   </div>
                   <div className="flex items-center gap-3 shrink-0 text-xs text-gray-500">
                     <span className="flex items-center gap-1"><Layers size={10} />v{t.version ?? 1}</span>
-                    <span className="flex items-center gap-1"><Hash size={10} />{t.field_count ?? '—'} fields</span>
+                    <span className="flex items-center gap-1"><Hash size={10} />{t.fields?.length ?? '—'} fields</span>
                     {t.namespace && <span className="text-gray-400">{t.namespace}</span>}
                     <StatusBadge status={t.status === 'active' ? 'active' : 'inactive'} label={t.status} />
                   </div>

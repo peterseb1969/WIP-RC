@@ -67,10 +67,10 @@ export default function FileListPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {f.created_at && (
+                    {f.uploaded_at && (
                       <span className="text-xs text-gray-400 flex items-center gap-1">
                         <Calendar size={10} />
-                        {new Date(f.created_at).toLocaleDateString()}
+                        {new Date(f.uploaded_at).toLocaleDateString()}
                       </span>
                     )}
                     <StatusBadge status={f.status === 'active' ? 'active' : 'inactive'} label={f.status} />

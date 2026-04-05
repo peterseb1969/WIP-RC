@@ -12,6 +12,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { useTerminology, useTerms } from '@wip/react'
+import type { Term } from '@wip/client'
 import SearchInput from '@/components/common/SearchInput'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
@@ -23,17 +24,17 @@ import { cn } from '@/lib/cn'
 // Term Row
 // ---------------------------------------------------------------------------
 
-function TermRow({ term }: { term: Record<string, unknown> }) {
+function TermRow({ term }: { term: Term }) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation()
-    navigator.clipboard.writeText(String(term.value ?? ''))
+    navigator.clipboard.writeText(term.value)
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
 
-  const aliases = Array.isArray(term.aliases) ? term.aliases : []
+  const aliases = term.aliases ?? []
 
   return (
     <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
@@ -58,7 +59,7 @@ function TermRow({ term }: { term: Record<string, unknown> }) {
           )}
         </div>
         {term.description && (
-          <p className="text-xs text-gray-400 mt-0.5 truncate">{String(term.description)}</p>
+          <p className="text-xs text-gray-400 mt-0.5 truncate">{term.description}</p>
         )}
       </div>
       <div className="shrink-0">
@@ -186,8 +187,8 @@ export default function TerminologyDetailPage() {
               {(termsData.items ?? []).length === 0 ? (
                 <p className="text-sm text-gray-400 p-6 text-center">No terms found.</p>
               ) : (
-                (termsData.items ?? []).map((term: Record<string, unknown>) => (
-                  <TermRow key={String(term.term_id)} term={term} />
+                (termsData.items ?? []).map(term => (
+                  <TermRow key={term.term_id} term={term} />
                 ))
               )}
             </div>

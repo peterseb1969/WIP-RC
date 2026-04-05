@@ -3,7 +3,7 @@ import { useWipClient, useNamespaces } from '@wip/react'
 
 export interface NamespaceWithStats {
   prefix: string
-  description?: string
+  description: string
   terminologies: number
   templates: number
   documents: number
