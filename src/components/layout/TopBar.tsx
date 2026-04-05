@@ -27,8 +27,7 @@ export default function TopBar() {
           >
             <option value="">All namespaces</option>
             {namespaces
-              ?.filter(ns => !ns.prefix.startsWith('ptest'))
-              .sort((a, b) => a.prefix.localeCompare(b.prefix))
+              ?.sort((a, b) => a.prefix.localeCompare(b.prefix))
               .map(ns => (
                 <option key={ns.prefix} value={ns.prefix}>{ns.prefix}</option>
               ))}

@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Activity as ActivityIcon,
+  ChevronDown,
   Database,
   FolderTree,
   BookOpen,
@@ -15,6 +17,7 @@ import {
 import { useActivity } from '@wip/react'
 import { useServiceHealth, type ServiceHealth } from '@/hooks/use-service-health'
 import { useNamespaceStats, type NamespaceWithStats } from '@/hooks/use-namespace-stats'
+import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import { cn } from '@/lib/cn'
@@ -23,10 +26,26 @@ import { cn } from '@/lib/cn'
 // Service Health Cards
 // ---------------------------------------------------------------------------
 
+const HEALTH_COLLAPSED_KEY = 'rc-console:health-collapsed'
+
 function ServiceHealthGrid() {
   const { data: services, isLoading, refetch, dataUpdatedAt } = useServiceHealth()
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem(HEALTH_COLLAPSED_KEY) === '1' } catch { return false }
+  })
+
+  const toggle = () => {
+    const next = !collapsed
+    setCollapsed(next)
+    try { localStorage.setItem(HEALTH_COLLAPSED_KEY, next ? '1' : '0') } catch { /* ignore */ }
+  }
 
   if (isLoading) return <LoadingState label="Checking services..." />
+
+  const total = services?.length ?? 0
+  const healthy = services?.filter(s => s.status === 'healthy').length ?? 0
+  const unhealthy = services?.filter(s => s.status === 'unhealthy') ?? []
+  const allHealthy = healthy === total
 
   const updatedAgo = dataUpdatedAt
     ? `${Math.round((Date.now() - dataUpdatedAt) / 1000)}s ago`
@@ -34,8 +53,19 @@ function ServiceHealthGrid() {
 
   return (
     <section>
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Service Health</h2>
+      <div className="flex items-center justify-between">
+        <button onClick={toggle} className="flex items-center gap-2 group">
+          <ChevronDown size={14} className={cn('text-gray-400 transition-transform', collapsed && '-rotate-90')} />
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider group-hover:text-gray-700 transition-colors">Service Health</h2>
+          {collapsed && (
+            <span className={cn(
+              'text-xs font-medium px-2 py-0.5 rounded-full',
+              allHealthy ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+            )}>
+              {allHealthy ? `${total}/${total} healthy` : `${healthy}/${total} healthy — ${unhealthy.map(s => s.name).join(', ')}`}
+            </span>
+          )}
+        </button>
         <button
           onClick={() => refetch()}
           className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"
@@ -45,11 +75,13 @@ function ServiceHealthGrid() {
           {updatedAgo}
         </button>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {services?.map(svc => (
-          <ServiceCard key={svc.slug} service={svc} />
-        ))}
-      </div>
+      {!collapsed && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mt-3">
+          {services?.map(svc => (
+            <ServiceCard key={svc.slug} service={svc} />
+          ))}
+        </div>
+      )}
     </section>
   )
 }
@@ -89,9 +121,14 @@ function ServiceCard({ service }: { service: ServiceHealth }) {
 // ---------------------------------------------------------------------------
 
 function NamespaceSummary() {
-  const { data: namespaces, isLoading } = useNamespaceStats()
+  const { namespace } = useNamespaceFilter()
+  const { data: allNamespaces, isLoading } = useNamespaceStats()
 
   if (isLoading) return <LoadingState label="Loading namespaces..." />
+
+  const namespaces = namespace
+    ? allNamespaces?.filter(ns => ns.prefix === namespace)
+    : allNamespaces
 
   if (!namespaces || namespaces.length === 0) {
     return (
@@ -170,9 +207,9 @@ function NamespaceRow({ ns }: { ns: NamespaceWithStats }) {
         </div>
       </div>
       <div className="flex items-center gap-6 text-xs text-gray-500">
-        <span title="Terminologies">{ns.terminologies} terms</span>
-        <span title="Templates">{ns.templates} tpl</span>
-        <span title="Documents">{ns.documents} docs</span>
+        <Link to={`/terminologies?ns=${ns.prefix}`} className="hover:text-blue-600 transition-colors">{ns.terminologies} terms</Link>
+        <Link to={`/templates?ns=${ns.prefix}`} className="hover:text-blue-600 transition-colors">{ns.templates} tpl</Link>
+        <Link to={`/documents?ns=${ns.prefix}`} className="hover:text-blue-600 transition-colors">{ns.documents} docs</Link>
       </div>
     </div>
   )

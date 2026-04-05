@@ -20,7 +20,6 @@ export function useNamespaceStats() {
 
       const results = await Promise.allSettled(
         namespaces
-          .filter(ns => ns.prefix !== 'ptest')
           .map(async (ns) => {
             try {
               const stats = await client.registry.getNamespaceStats(ns.prefix)
