@@ -19,7 +19,6 @@ import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import { cn } from '@/lib/cn'
-import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 
 // ---------------------------------------------------------------------------
 // Namespace Stats Hook (per-namespace detail)
@@ -123,7 +122,6 @@ function NamespaceRow({
   onToggle: () => void
 }) {
   const client = useWipClient()
-  const { setNamespace } = useNamespaceFilter()
   const { data: stats } = useNamespaceDetail(isExpanded ? ns.prefix : null)
 
   const [editing, setEditing] = useState(false)
@@ -218,8 +216,7 @@ function NamespaceRow({
           {stats && (
             <div className="grid grid-cols-3 gap-3">
               <Link
-                to="/terminologies"
-                onClick={() => setNamespace(ns.prefix)}
+                to={`/terminologies?ns=${ns.prefix}`}
                 className="bg-gray-50 rounded-lg px-3 py-2 hover:bg-gray-100 transition-colors"
               >
                 <div className="flex items-center gap-1.5 text-xs text-gray-500">
@@ -231,8 +228,7 @@ function NamespaceRow({
                 </div>
               </Link>
               <Link
-                to="/templates"
-                onClick={() => setNamespace(ns.prefix)}
+                to={`/templates?ns=${ns.prefix}`}
                 className="bg-gray-50 rounded-lg px-3 py-2 hover:bg-gray-100 transition-colors"
               >
                 <div className="flex items-center gap-1.5 text-xs text-gray-500">
@@ -244,8 +240,7 @@ function NamespaceRow({
                 </div>
               </Link>
               <Link
-                to="/documents"
-                onClick={() => setNamespace(ns.prefix)}
+                to={`/documents?ns=${ns.prefix}`}
                 className="bg-gray-50 rounded-lg px-3 py-2 hover:bg-gray-100 transition-colors"
               >
                 <div className="flex items-center gap-1.5 text-xs text-gray-500">

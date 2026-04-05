@@ -10,7 +10,7 @@ import {
   Calendar,
 } from 'lucide-react'
 import { useTemplates, useDocuments } from '@wip/react'
-import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
+import { useNamespaceFilter, useSyncNamespaceFromUrl } from '@/hooks/use-namespace-filter'
 import SearchInput from '@/components/common/SearchInput'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
@@ -155,6 +155,7 @@ function DocumentTable({
 // ---------------------------------------------------------------------------
 
 export default function DocumentListPage() {
+  useSyncNamespaceFromUrl()
   const [searchParams] = useSearchParams()
   const templateParam = searchParams.get('template') || ''
 

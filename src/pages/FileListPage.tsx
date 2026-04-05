@@ -5,9 +5,10 @@ import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
-import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
+import { useNamespaceFilter, useSyncNamespaceFromUrl } from '@/hooks/use-namespace-filter'
 
 export default function FileListPage() {
+  useSyncNamespaceFromUrl()
   const { namespace } = useNamespaceFilter()
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState<'active' | 'inactive' | ''>('active')
