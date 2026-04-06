@@ -24,21 +24,6 @@ import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
 import { cn } from '@/lib/cn'
 
-// Extended document fields that may exist in API response (CASE-21 tracking)
-type DocExtras = {
-  template_version?: number
-  identity_hash?: string
-  updated_by?: string | null
-  is_latest_version?: boolean
-  latest_version?: number
-  term_references?: Array<{ field_path?: string; original_value?: string; term_id?: string; matched_via?: string }>
-  references?: Array<{ field_path?: string; reference_type?: string; lookup_value?: string; resolved_id?: string }>
-  file_references?: Array<Record<string, unknown>>
-  metadata?: { source_system?: string; warnings?: string[]; custom?: Record<string, unknown> }
-}
-function docExtras(d: unknown): DocExtras {
-  return (d ?? {}) as DocExtras
-}
 
 // ---------------------------------------------------------------------------
 // Copy button (inline, small)
@@ -287,15 +272,15 @@ export default function DocumentDetailPage() {
 
       {/* Metadata row */}
       <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400">
-        {docExtras(doc).template_version != null && (
+        {doc.template_version != null && (
           <span className="flex items-center gap-1">
-            <FileCode2 size={10} /> Template v{docExtras(doc).template_version}
+            <FileCode2 size={10} /> Template v{doc.template_version}
           </span>
         )}
-        {docExtras(doc).identity_hash && (
+        {doc.identity_hash && (
           <span className="flex items-center gap-1 font-mono">
-            <Hash size={10} /> {docExtras(doc).identity_hash!.slice(0, 12)}...
-            <CopyButton value={docExtras(doc).identity_hash!} />
+            <Hash size={10} /> {doc.identity_hash!.slice(0, 12)}...
+            <CopyButton value={doc.identity_hash!} />
           </span>
         )}
         {doc.created_at && (
@@ -313,19 +298,19 @@ export default function DocumentDetailPage() {
             <Clock size={10} /> Updated: {new Date(doc.updated_at).toLocaleString()}
           </span>
         )}
-        {docExtras(doc).updated_by && (
+        {doc.updated_by && (
           <span className="flex items-center gap-1">
-            <User size={10} /> updated by {docExtras(doc).updated_by}
+            <User size={10} /> updated by {doc.updated_by}
           </span>
         )}
-        {docExtras(doc).is_latest_version === false && docExtras(doc).latest_version != null && (
-          <span className="text-amber-500">Not latest (v{docExtras(doc).latest_version} available)</span>
+        {doc.is_latest_version === false && doc.latest_version != null && (
+          <span className="text-amber-500">Not latest (v{doc.latest_version} available)</span>
         )}
       </div>
 
       {/* Document metadata (source_system, warnings) */}
       {(() => {
-        const meta = docExtras(doc).metadata
+        const meta = doc.metadata
         if (!meta) return null
         if (!meta.source_system && !meta.warnings?.length && !meta.custom) return null
         return (
@@ -362,7 +347,7 @@ export default function DocumentDetailPage() {
 
       {/* Term References */}
       {(() => {
-        const refs = docExtras(doc).term_references
+        const refs = doc.term_references
         if (!refs?.length) return null
         return (
           <CollapsibleSection title={`Term References (${refs.length})`} defaultOpen={false}>
@@ -371,7 +356,7 @@ export default function DocumentDetailPage() {
                 <div key={i} className="flex items-center gap-3 px-4 py-2">
                   <Tag size={12} className="text-orange-400 shrink-0" />
                   <span className="text-xs text-gray-500 min-w-[100px]">{ref.field_path}</span>
-                  <span className="text-xs font-mono text-gray-700">{ref.original_value}</span>
+                  {ref.terminology_ref && <span className="text-xs font-mono text-orange-500">{ref.terminology_ref}</span>}
                   {ref.term_id && <span className="text-[10px] font-mono text-gray-400">{ref.term_id}</span>}
                   {ref.matched_via && <span className="text-[10px] text-gray-400">via {ref.matched_via}</span>}
                 </div>
@@ -383,7 +368,7 @@ export default function DocumentDetailPage() {
 
       {/* References */}
       {(() => {
-        const refs = docExtras(doc).references
+        const refs = doc.references
         if (!refs?.length) return null
         return (
           <CollapsibleSection title={`References (${refs.length})`} defaultOpen={false}>
@@ -394,8 +379,8 @@ export default function DocumentDetailPage() {
                   <span className="text-xs text-gray-500 min-w-[100px]">{ref.field_path}</span>
                   {ref.reference_type && <span className="text-[10px] bg-gray-100 text-gray-600 px-1 rounded">{ref.reference_type}</span>}
                   <span className="text-xs font-mono text-gray-700">{ref.lookup_value}</span>
-                  {ref.resolved_id && (
-                    <span className="text-[10px] font-mono text-gray-400">{ref.resolved_id}</span>
+                  {ref.resolved?.document_id && (
+                    <Link to={`/documents/_/${ref.resolved.document_id}`} className="text-[10px] font-mono text-blue-400 hover:text-blue-600">{ref.resolved.document_id}</Link>
                   )}
                 </div>
               ))}
@@ -406,7 +391,7 @@ export default function DocumentDetailPage() {
 
       {/* File References */}
       {(() => {
-        const refs = docExtras(doc).file_references
+        const refs = doc.file_references
         if (!refs?.length) return null
         return (
           <CollapsibleSection title={`File References (${refs.length})`} defaultOpen={false}>

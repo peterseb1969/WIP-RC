@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   BookOpen,
@@ -13,6 +13,10 @@ import {
   Trash2,
   AlertTriangle,
   Code,
+  Download,
+  Upload,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react'
 import {
   useTerminology,
@@ -23,20 +27,10 @@ import {
   useUpdateTerm,
   useDeleteTerm,
   useDeprecateTerm,
+  useWipClient,
 } from '@wip/react'
 import type { Term } from '@wip/client'
 
-// Fields that exist in the API but aren't yet in @wip/client types (tracked in CASE-21)
-type TerminologyExtras = {
-  allow_multiple?: boolean
-  metadata?: { source?: string; source_url?: string; version?: string; language?: string; custom?: Record<string, unknown> }
-  created_by?: string | null
-  updated_at?: string | null
-  updated_by?: string | null
-}
-function extras(t: unknown): TerminologyExtras {
-  return (t ?? {}) as TerminologyExtras
-}
 import SearchInput from '@/components/common/SearchInput'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
@@ -378,13 +372,13 @@ function TermRow({
           )}
           {term.status === 'deprecated' && (
             <div className="flex items-center gap-2 mt-0.5 text-xs text-amber-500">
-              {(term as unknown as { deprecated_reason?: string }).deprecated_reason && (
-                <span>Reason: {(term as unknown as { deprecated_reason?: string }).deprecated_reason}</span>
+              {term.deprecated_reason && (
+                <span>Reason: {term.deprecated_reason}</span>
               )}
-              {(term as unknown as { replaced_by_term_id?: string }).replaced_by_term_id && (() => {
-                const replacement = allTerms.find(t => t.term_id === (term as unknown as { replaced_by_term_id?: string }).replaced_by_term_id)
+              {term.replaced_by_term_id && (() => {
+                const replacement = allTerms.find(t => t.term_id === term.replaced_by_term_id)
                 return (
-                  <span>Replaced by: {replacement ? (replacement.label || replacement.value) : (term as unknown as { replaced_by_term_id?: string }).replaced_by_term_id}</span>
+                  <span>Replaced by: {replacement ? (replacement.label || replacement.value) : term.replaced_by_term_id}</span>
                 )
               })()}
             </div>
@@ -483,6 +477,210 @@ function TermRow({
 }
 
 // ---------------------------------------------------------------------------
+// Validate Panel
+// ---------------------------------------------------------------------------
+
+function ValidatePanel({ terminologyId, terminologyValue }: { terminologyId: string; terminologyValue: string }) {
+  const client = useWipClient()
+  const [input, setInput] = useState('')
+  const [results, setResults] = useState<Array<{ value: string; valid: boolean; matched_term_id?: string; matched_value?: string }>>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleValidate = async () => {
+    const values = input.split('\n').map(v => v.trim()).filter(Boolean)
+    if (values.length === 0) return
+    setLoading(true)
+    setError(null)
+    try {
+      if (values.length === 1) {
+        const val = values[0]!
+        const res = await client.defStore.validateValue({
+          terminology_id: terminologyId,
+          value: val,
+        })
+        setResults([{ value: val, valid: res.valid, matched_term_id: res.matched_term?.term_id, matched_value: res.matched_term?.value }])
+      } else {
+        const res = await client.defStore.bulkValidate({
+          items: values.map(v => ({ terminology_id: terminologyId, value: v })),
+        })
+        setResults(res.results.map((r, i) => ({
+          value: values[i]!,
+          valid: r.valid,
+          matched_term_id: r.matched_term?.term_id,
+          matched_value: r.matched_term?.value,
+        })))
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Validation failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+      <h3 className="text-sm font-medium text-gray-700">Validate Term Values against {terminologyValue}</h3>
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Values (one per line)</label>
+        <textarea
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          placeholder={"value1\nvalue2\nvalue3"}
+          rows={4}
+          className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm font-mono focus:outline-none focus:border-blue-400"
+          autoFocus
+        />
+      </div>
+      {error && <p className="text-xs text-red-500">{error}</p>}
+      <button
+        onClick={handleValidate}
+        disabled={loading || !input.trim()}
+        className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+      >
+        {loading ? 'Validating...' : 'Validate'}
+      </button>
+      {results.length > 0 && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg divide-y divide-gray-100">
+          {results.map((r, i) => (
+            <div key={i} className="flex items-center gap-3 px-4 py-2">
+              {r.valid
+                ? <CheckCircle size={14} className="text-green-500 shrink-0" />
+                : <XCircle size={14} className="text-red-500 shrink-0" />
+              }
+              <span className="text-sm font-mono text-gray-700">{r.value}</span>
+              {r.valid && r.matched_value && r.matched_value !== r.value && (
+                <span className="text-xs text-gray-400">matched: {r.matched_value}</span>
+              )}
+            </div>
+          ))}
+          <div className="px-4 py-2 text-xs text-gray-500">
+            {results.filter(r => r.valid).length} valid, {results.filter(r => !r.valid).length} invalid
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Import Panel
+// ---------------------------------------------------------------------------
+
+function ImportPanel({ terminologyId, namespace, onClose }: { terminologyId: string; namespace: string; onClose: () => void }) {
+  const client = useWipClient()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [result, setResult] = useState<{ terms: number; errors: number; relationships: number } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleImport = async () => {
+    if (!selectedFile) return
+    setImporting(true)
+    setError(null)
+    try {
+      const text = await selectedFile.text()
+      const data = JSON.parse(text)
+
+      // Support two formats: full ImportTerminologyRequest (with terminology+terms) or just an array of terms
+      if (Array.isArray(data)) {
+        // Array of terms — create them via createTerms
+        let created = 0
+        let errors = 0
+        for (const term of data) {
+          try {
+            await client.defStore.createTerm(terminologyId, {
+              value: term.value,
+              label: term.label,
+              description: term.description,
+              aliases: term.aliases,
+              sort_order: term.sort_order,
+              parent_term_id: term.parent_term_id,
+              translations: term.translations,
+              metadata: term.metadata,
+              created_by: 'rc-console',
+            }, { namespace })
+            created++
+          } catch {
+            errors++
+          }
+        }
+        setResult({ terms: created, errors, relationships: 0 })
+      } else if (data.terminology && data.terms) {
+        // Full import format
+        const res = await client.defStore.importTerminology({
+          terminology: { ...data.terminology, namespace },
+          terms: data.terms,
+          relationships: data.relationships,
+        })
+        const termsOk = (res.terms_result?.results ?? []).filter(r => r.status === 'ok' || r.status === 'created').length
+        const termsErr = (res.terms_result?.results ?? []).filter(r => r.status !== 'ok' && r.status !== 'created').length
+        setResult({
+          terms: termsOk,
+          errors: termsErr,
+          relationships: res.relationships_result?.created ?? 0,
+        })
+      } else {
+        setError('Unrecognized format. Expected either a JSON array of terms or an object with {terminology, terms}.')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Import failed')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+      <h3 className="text-sm font-medium text-gray-700">Import Terms (JSON)</h3>
+      <p className="text-xs text-gray-400">
+        Upload a JSON file: either an array of term objects [{`{value, label, ...}`}] or a full export [{`{terminology, terms, relationships}`}].
+      </p>
+      <div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          className="hidden"
+          onChange={e => { setSelectedFile(e.target.files?.[0] ?? null); setError(null); setResult(null) }}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full border-2 border-dashed border-gray-200 rounded-lg py-4 text-sm text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors flex flex-col items-center gap-1"
+        >
+          <Upload size={18} />
+          {selectedFile ? selectedFile.name : 'Click to select a JSON file'}
+        </button>
+      </div>
+      {error && <p className="text-xs text-red-500">{error}</p>}
+      {result && (
+        <div className="text-sm text-gray-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2">
+          Imported {result.terms} term{result.terms !== 1 ? 's' : ''}
+          {result.relationships > 0 && `, ${result.relationships} relationship${result.relationships !== 1 ? 's' : ''}`}
+          {result.errors > 0 && <span className="text-red-600"> ({result.errors} error{result.errors !== 1 ? 's' : ''})</span>}
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleImport}
+          disabled={importing || !selectedFile}
+          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+        >
+          {importing ? 'Importing...' : 'Import'}
+        </button>
+        <button
+          onClick={onClose}
+          className="px-3 py-1.5 border border-gray-200 text-sm rounded-md text-gray-500 hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Terminology Detail Page
 // ---------------------------------------------------------------------------
 
@@ -495,6 +693,9 @@ export default function TerminologyDetailPage() {
   const [showCreateTerm, setShowCreateTerm] = useState(false)
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [showValidate, setShowValidate] = useState(false)
+  const [showImport, setShowImport] = useState(false)
+  const [exportLoading, setExportLoading] = useState(false)
 
   // Edit form state
   const [editLabel, setEditLabel] = useState('')
@@ -509,6 +710,7 @@ export default function TerminologyDetailPage() {
   const [editMetaVersion, setEditMetaVersion] = useState('')
   const [editMetaLanguage, setEditMetaLanguage] = useState('')
 
+  const client = useWipClient()
   const { data: terminology, isLoading: termLoading, error: termError } = useTerminology(id ?? '')
   const { data: termsData, isLoading: termsLoading, error: termsError, refetch } = useTerms(id ?? '', {
     search: search || undefined,
@@ -529,10 +731,10 @@ export default function TerminologyDetailPage() {
     setEditLabel(terminology.label)
     setEditDesc(terminology.description ?? '')
     setEditCaseSensitive(terminology.case_sensitive)
-    setEditAllowMultiple(extras(terminology).allow_multiple ?? false)
+    setEditAllowMultiple(terminology.allow_multiple ?? false)
     setEditExtensible(terminology.extensible)
     setEditMutable(terminology.mutable)
-    const meta = extras(terminology).metadata
+    const meta = terminology.metadata
     setEditMetaSource(meta?.source ?? '')
     setEditMetaSourceUrl(meta?.source_url ?? '')
     setEditMetaVersion(meta?.version ?? '')
@@ -599,9 +801,50 @@ export default function TerminologyDetailPage() {
               />
             </div>
           </div>
-          {/* Edit/Delete buttons */}
+          {/* Action buttons */}
           {!editing && !confirmDelete && (
             <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={async () => {
+                  setExportLoading(true)
+                  try {
+                    const result = await client.defStore.exportTerminology(terminology!.terminology_id, {
+                      format: 'json',
+                      includeInactive: true,
+                      includeRelationships: true,
+                      includeMetadata: true,
+                    })
+                    const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `${terminology!.value}.json`
+                    a.click()
+                    URL.revokeObjectURL(url)
+                  } finally {
+                    setExportLoading(false)
+                  }
+                }}
+                disabled={exportLoading}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                <Download size={12} />
+                {exportLoading ? '...' : 'Export'}
+              </button>
+              <button
+                onClick={() => { setShowImport(s => !s); setShowValidate(false) }}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+              >
+                <Upload size={12} />
+                Import
+              </button>
+              <button
+                onClick={() => { setShowValidate(s => !s); setShowImport(false) }}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+              >
+                <CheckCircle size={12} />
+                Validate
+              </button>
               <button
                 onClick={startEdit}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-50"
@@ -790,6 +1033,16 @@ export default function TerminologyDetailPage() {
         </div>
       )}
 
+      {/* Validate panel */}
+      {showValidate && (
+        <ValidatePanel terminologyId={terminology.terminology_id} terminologyValue={terminology.value} />
+      )}
+
+      {/* Import panel */}
+      {showImport && (
+        <ImportPanel terminologyId={terminology.terminology_id} namespace={terminology.namespace} onClose={() => setShowImport(false)} />
+      )}
+
       {/* Metadata */}
       <div className="flex items-center flex-wrap gap-x-6 gap-y-1 text-xs text-gray-400">
         <span className="flex items-center gap-1">
@@ -800,22 +1053,22 @@ export default function TerminologyDetailPage() {
           <span>{terminology.term_count} terms</span>
         )}
         <span>{terminology.case_sensitive ? 'Case sensitive' : 'Case insensitive'}</span>
-        <span>{extras(terminology).allow_multiple ? 'Allow multiple' : 'Single value'}</span>
+        <span>{terminology.allow_multiple ? 'Allow multiple' : 'Single value'}</span>
         <span>{terminology.extensible ? 'Extensible' : 'Fixed'}</span>
         <span>{terminology.mutable ? 'Mutable' : 'Immutable'}</span>
         {terminology.created_at && (
           <span>Created: {new Date(terminology.created_at).toLocaleDateString()}</span>
         )}
-        {extras(terminology).created_by && (
-          <span>By: {extras(terminology).created_by}</span>
+        {terminology.created_by && (
+          <span>By: {terminology.created_by}</span>
         )}
-        {extras(terminology).updated_at && (
-          <span>Updated: {new Date(extras(terminology).updated_at!).toLocaleDateString()}</span>
+        {terminology.updated_at && (
+          <span>Updated: {new Date(terminology.updated_at!).toLocaleDateString()}</span>
         )}
       </div>
       {/* Terminology metadata (source, language, etc.) */}
       {(() => {
-        const meta = extras(terminology).metadata
+        const meta = terminology.metadata
         if (!meta) return null
         if (!meta.source && !meta.source_url && !meta.version && !meta.language) return null
         return (

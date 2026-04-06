@@ -14,6 +14,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useNamespaces, useWipClient, useCreateNamespace, useUpdateNamespace, useDeleteNamespace } from '@wip/react'
+import type { Namespace } from '@wip/client'
 import { useQuery } from '@tanstack/react-query'
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
@@ -148,7 +149,7 @@ function NamespaceRow({
   isExpanded,
   onToggle,
 }: {
-  ns: { prefix: string; description?: string; status?: string; isolation_mode?: string; deletion_mode?: string; created_at?: string; created_by?: string | null; updated_at?: string | null; updated_by?: string | null }
+  ns: Namespace
   isExpanded: boolean
   onToggle: () => void
 }) {
@@ -310,7 +311,7 @@ function NamespaceRow({
 
           {/* ID Config */}
           {(() => {
-            const idConfig = (ns as Record<string, unknown>).id_config as Record<string, unknown> | undefined
+            const idConfig = ns.id_config
             if (!idConfig || Object.keys(idConfig).length === 0) return null
             return (
               <details className="group">
@@ -331,7 +332,7 @@ function NamespaceRow({
 
           {/* Allowed External Refs */}
           {(() => {
-            const refs = (ns as Record<string, unknown>).allowed_external_refs as string[] | undefined
+            const refs = ns.allowed_external_refs
             if (!refs?.length) return null
             return (
               <div className="flex items-center gap-2 text-xs text-gray-400">
@@ -370,7 +371,7 @@ function NamespaceRow({
                   <label className="block text-xs text-gray-500 mb-1">Isolation Mode</label>
                   <select
                     value={editIsolation}
-                    onChange={e => setEditIsolation(e.target.value)}
+                    onChange={e => setEditIsolation(e.target.value as 'open' | 'strict')}
                     className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
                   >
                     <option value="open">open</option>
@@ -381,7 +382,7 @@ function NamespaceRow({
                   <label className="block text-xs text-gray-500 mb-1">Deletion Mode</label>
                   <select
                     value={editDeletionMode}
-                    onChange={e => setEditDeletionMode(e.target.value)}
+                    onChange={e => setEditDeletionMode(e.target.value as 'retain' | 'full')}
                     className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
                   >
                     <option value="retain">retain</option>

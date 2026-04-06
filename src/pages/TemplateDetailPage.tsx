@@ -22,41 +22,6 @@ import StatusBadge from '@/components/common/StatusBadge'
 import JsonViewer from '@/components/common/JsonViewer'
 import { cn } from '@/lib/cn'
 
-// Extended template fields that may exist in the API response (CASE-21 tracking)
-type TemplateExtras = {
-  extends?: string | null
-  extends_version?: number | null
-  rules?: Array<{ name?: string; expression?: string; message?: string; severity?: string }>
-  metadata?: { domain?: string; category?: string; tags?: string[]; custom?: Record<string, unknown> }
-  reporting?: { sync_enabled?: boolean; sync_strategy?: string; table_name?: string; include_metadata?: boolean; flatten_arrays?: boolean; max_array_elements?: number }
-  created_by?: string | null
-  updated_at?: string | null
-  updated_by?: string | null
-}
-function tplExtras(t: unknown): TemplateExtras {
-  return (t ?? {}) as TemplateExtras
-}
-
-// Extended field definition properties
-type FieldExtras = {
-  default_value?: unknown
-  reference_type?: string
-  target_templates?: string[]
-  target_terminologies?: string[]
-  version_strategy?: string
-  file_config?: { allowed_types?: string[]; max_size_mb?: number; multiple?: boolean; max_files?: number }
-  array_item_type?: string
-  array_terminology_ref?: string
-  array_template_ref?: string
-  validation?: { pattern?: string; min_length?: number; max_length?: number; minimum?: number; maximum?: number; enum?: string[] }
-  semantic_type?: string
-  include_subtypes?: boolean
-  inherited?: boolean
-  inherited_from?: string
-}
-function fieldExtras(f: unknown): FieldExtras {
-  return (f ?? {}) as FieldExtras
-}
 
 // ---------------------------------------------------------------------------
 // Field Type Badge
@@ -104,20 +69,18 @@ function FieldRow({ field, isIdentity, terminologyMap, templateMap }: {
   const terminologyRef = field.terminology_ref
   const referenceRef = field.template_ref
 
-  const fx = fieldExtras(field)
-
   // Collect detail chips for sub-properties
   const details: string[] = []
-  if (fx.default_value !== undefined) details.push(`default: ${JSON.stringify(fx.default_value)}`)
-  if (fx.semantic_type) details.push(`semantic: ${fx.semantic_type}`)
-  if (fx.reference_type) details.push(`ref: ${fx.reference_type}`)
-  if (fx.version_strategy) details.push(`ver: ${fx.version_strategy}`)
-  if (fx.include_subtypes) details.push('incl. subtypes')
-  if (fx.inherited) details.push(`inherited from ${fx.inherited_from ?? '?'}`)
-  if (fx.array_item_type) details.push(`array<${fx.array_item_type}>`)
+  if (field.default_value !== undefined) details.push(`default: ${JSON.stringify(field.default_value)}`)
+  if (field.semantic_type) details.push(`semantic: ${field.semantic_type}`)
+  if (field.reference_type) details.push(`ref: ${field.reference_type}`)
+  if (field.version_strategy) details.push(`ver: ${field.version_strategy}`)
+  if (field.include_subtypes) details.push('incl. subtypes')
+  if (field.inherited) details.push(`inherited from ${field.inherited_from ?? '?'}`)
+  if (field.array_item_type) details.push(`array<${field.array_item_type}>`)
 
   // Validation summary
-  const val = fx.validation
+  const val = field.validation
   const valParts: string[] = []
   if (val?.pattern) valParts.push(`pattern: ${val.pattern}`)
   if (val?.min_length != null) valParts.push(`min: ${val.min_length}`)
@@ -127,7 +90,7 @@ function FieldRow({ field, isIdentity, terminologyMap, templateMap }: {
   if (val?.enum?.length) valParts.push(`enum: [${val.enum.join(', ')}]`)
 
   // File config summary
-  const fc = fx.file_config
+  const fc = field.file_config
   const fcParts: string[] = []
   if (fc?.allowed_types?.length) fcParts.push(fc.allowed_types.join(', '))
   if (fc?.max_size_mb) fcParts.push(`${fc.max_size_mb} MB max`)
@@ -182,13 +145,13 @@ function FieldRow({ field, isIdentity, terminologyMap, templateMap }: {
         </div>
       </div>
       {/* Sub-properties row */}
-      {(details.length > 0 || valParts.length > 0 || fcParts.length > 0 || fx.target_templates?.length || fx.target_terminologies?.length) && (
+      {(details.length > 0 || valParts.length > 0 || fcParts.length > 0 || field.target_templates?.length || field.target_terminologies?.length) && (
         <div className="flex items-center flex-wrap gap-x-3 gap-y-0.5 mt-1 ml-0 text-[10px] text-gray-400">
           {details.map((d, i) => <span key={i}>{d}</span>)}
           {valParts.length > 0 && <span className="text-purple-400">validation: {valParts.join(', ')}</span>}
           {fcParts.length > 0 && <span className="text-gray-400">file: {fcParts.join(', ')}</span>}
-          {fx.target_templates?.length ? <span>targets: {fx.target_templates.join(', ')}</span> : null}
-          {fx.target_terminologies?.length ? <span>terminologies: {fx.target_terminologies.join(', ')}</span> : null}
+          {field.target_templates?.length ? <span>targets: {field.target_templates.join(', ')}</span> : null}
+          {field.target_terminologies?.length ? <span>terminologies: {field.target_terminologies.join(', ')}</span> : null}
         </div>
       )}
     </div>
@@ -265,11 +228,11 @@ export default function TemplateDetailPage() {
             Identity: {Array.from(identityFields).join(', ')}
           </span>
         )}
-        {tplExtras(template).extends && (
+        {template.extends && (
           <span className="flex items-center gap-1">
             <GitBranch size={10} />
             Extends: {(() => {
-              const parentId = tplExtras(template).extends!
+              const parentId = template.extends!
               const entry = templateMap.get(parentId)
               return entry ? (
                 <Link to={`/templates/${entry.id}`} className="text-indigo-500 hover:text-indigo-700">
@@ -277,7 +240,7 @@ export default function TemplateDetailPage() {
                 </Link>
               ) : parentId
             })()}
-            {tplExtras(template).extends_version != null && ` (v${tplExtras(template).extends_version})`}
+            {template.extends_version != null && ` (v${template.extends_version})`}
           </span>
         )}
         {template.created_at && (
@@ -286,23 +249,23 @@ export default function TemplateDetailPage() {
             Created: {new Date(template.created_at).toLocaleDateString()}
           </span>
         )}
-        {tplExtras(template).created_by && (
+        {template.created_by && (
           <span className="flex items-center gap-1">
             <User size={10} />
-            {tplExtras(template).created_by}
+            {template.created_by}
           </span>
         )}
-        {tplExtras(template).updated_at && (
-          <span>Updated: {new Date(tplExtras(template).updated_at!).toLocaleDateString()}</span>
+        {template.updated_at && (
+          <span>Updated: {new Date(template.updated_at!).toLocaleDateString()}</span>
         )}
-        {tplExtras(template).updated_by && (
-          <span>by {tplExtras(template).updated_by}</span>
+        {template.updated_by && (
+          <span>by {template.updated_by}</span>
         )}
       </div>
 
       {/* Template metadata (domain, category, tags) */}
       {(() => {
-        const meta = tplExtras(template).metadata
+        const meta = template.metadata
         if (!meta) return null
         if (!meta.domain && !meta.category && !meta.tags?.length) return null
         return (
@@ -327,7 +290,7 @@ export default function TemplateDetailPage() {
 
       {/* Reporting config */}
       {(() => {
-        const rpt = tplExtras(template).reporting
+        const rpt = template.reporting
         if (!rpt || !rpt.sync_enabled) return null
         return (
           <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
@@ -364,7 +327,7 @@ export default function TemplateDetailPage() {
 
       {/* Validation Rules */}
       {(() => {
-        const rules = tplExtras(template).rules
+        const rules = template.rules
         if (!rules?.length) return null
         return (
           <div>
@@ -375,19 +338,18 @@ export default function TemplateDetailPage() {
               {rules.map((rule, i) => (
                 <div key={i} className="px-4 py-2.5">
                   <div className="flex items-center gap-2">
-                    {rule.name && <span className="text-sm font-medium text-gray-700">{rule.name}</span>}
-                    {rule.severity && (
-                      <span className={cn(
-                        'text-[10px] px-1.5 py-0.5 rounded',
-                        rule.severity === 'error' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
-                      )}>{rule.severity}</span>
-                    )}
+                    <span className={cn(
+                      'text-[10px] px-1.5 py-0.5 rounded',
+                      'bg-gray-100 text-gray-600'
+                    )}>{rule.type}</span>
+                    {rule.target_field && <span className="text-sm font-mono text-gray-700">{rule.target_field}</span>}
+                    {rule.target_fields?.length ? <span className="text-xs font-mono text-gray-500">{rule.target_fields.join(', ')}</span> : null}
                   </div>
-                  {rule.expression && (
-                    <p className="text-xs font-mono text-gray-400 mt-0.5">{rule.expression}</p>
+                  {rule.description && (
+                    <p className="text-xs text-gray-500 mt-0.5">{rule.description}</p>
                   )}
-                  {rule.message && (
-                    <p className="text-xs text-gray-500 mt-0.5">{rule.message}</p>
+                  {rule.error_message && (
+                    <p className="text-xs text-gray-400 mt-0.5">{rule.error_message}</p>
                   )}
                 </div>
               ))}

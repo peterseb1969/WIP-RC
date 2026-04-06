@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   FileIcon,
   ArrowLeft,
@@ -14,8 +14,10 @@ import {
   Tag,
   AlertTriangle,
   LinkIcon,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
-import { useFile, useDownloadUrl, useWipClient } from '@wip/react'
+import { useFile, useDownloadUrl, useWipClient, useUpdateFileMetadata, useDeleteFile } from '@wip/react'
 import { useQuery } from '@tanstack/react-query'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
@@ -191,8 +193,23 @@ function ReferencingDocuments({ fileId }: { fileId: string }) {
 
 export default function FileDetailPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { data: file, isLoading, error } = useFile(id ?? '')
   const { data: downloadInfo } = useDownloadUrl(id ?? '')
+
+  // Edit metadata state
+  const [editing, setEditing] = useState(false)
+  const [editDesc, setEditDesc] = useState('')
+  const [editTags, setEditTags] = useState('')
+  const [editCategory, setEditCategory] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  const updateMetadata = useUpdateFileMetadata({
+    onSuccess: () => setEditing(false),
+  })
+  const deleteFile = useDeleteFile({
+    onSuccess: () => navigate('/files'),
+  })
 
   if (isLoading) return <LoadingState label="Loading file..." />
   if (error) return <ErrorState message={error.message} />
@@ -200,6 +217,25 @@ export default function FileDetailPage() {
 
   const isOrphan = file.status === 'orphan' || file.reference_count === 0
   const fileStatus = file.status === 'active' ? 'active' : file.status === 'orphan' ? 'warning' : 'inactive'
+
+  const startEdit = () => {
+    setEditDesc(file.metadata?.description ?? '')
+    setEditTags(file.metadata?.tags?.join(', ') ?? '')
+    setEditCategory(file.metadata?.category ?? '')
+    setEditing(true)
+    setConfirmDelete(false)
+  }
+
+  const handleSave = () => {
+    updateMetadata.mutate({
+      fileId: file.file_id,
+      data: {
+        description: editDesc.trim() || undefined,
+        tags: editTags.trim() ? editTags.split(',').map(t => t.trim()).filter(Boolean) : [],
+        category: editCategory.trim() || undefined,
+      },
+    })
+  }
 
   return (
     <div className="space-y-4 max-w-5xl">
@@ -241,18 +277,124 @@ export default function FileDetailPage() {
               )}
             </div>
           </div>
-          {downloadInfo?.download_url && (
-            <a
-              href={downloadInfo.download_url}
-              download={file.filename}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors shrink-0"
-            >
-              <Download size={14} />
-              Download
-            </a>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {downloadInfo?.download_url && (
+              <a
+                href={downloadInfo.download_url}
+                download={file.filename}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+              >
+                <Download size={14} />
+                Download
+              </a>
+            )}
+            {!editing && !confirmDelete && (
+              <>
+                <button
+                  onClick={startEdit}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                >
+                  <Pencil size={12} />
+                  Edit
+                </button>
+                <button
+                  onClick={() => { setConfirmDelete(true); setEditing(false) }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-red-400 hover:text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 size={12} />
+                  Delete
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Edit metadata form */}
+      {editing && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
+          <h3 className="text-sm font-medium text-gray-700">Edit Metadata</h3>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Description</label>
+            <input
+              type="text"
+              value={editDesc}
+              onChange={e => setEditDesc(e.target.value)}
+              placeholder="File description"
+              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              autoFocus
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Category</label>
+              <input
+                type="text"
+                value={editCategory}
+                onChange={e => setEditCategory(e.target.value)}
+                placeholder="e.g. receipt, report"
+                className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Tags (comma-separated)</label>
+              <input
+                type="text"
+                value={editTags}
+                onChange={e => setEditTags(e.target.value)}
+                placeholder="tag1, tag2"
+                className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              />
+            </div>
+          </div>
+          {updateMetadata.error && <p className="text-xs text-red-500">{updateMetadata.error.message}</p>}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSave}
+              disabled={updateMetadata.isPending}
+              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+            >
+              {updateMetadata.isPending ? 'Saving...' : 'Save'}
+            </button>
+            <button
+              onClick={() => setEditing(false)}
+              className="px-3 py-1.5 border border-gray-200 text-sm rounded-md text-gray-500 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      {confirmDelete && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-2">
+          <p className="text-sm text-red-700">
+            Delete file <strong>{file.filename}</strong>?
+            {file.reference_count > 0 && (
+              <span className="block mt-1">
+                This file is referenced by <strong>{file.reference_count}</strong> document{file.reference_count !== 1 ? 's' : ''}. Deleting will break those references.
+              </span>
+            )}
+          </p>
+          {deleteFile.error && <p className="text-xs text-red-500">{deleteFile.error.message}</p>}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => deleteFile.mutate(file.file_id)}
+              disabled={deleteFile.isPending}
+              className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 disabled:opacity-50"
+            >
+              {deleteFile.isPending ? 'Deleting...' : 'Yes, delete'}
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="px-3 py-1.5 border border-gray-200 text-sm rounded-md text-gray-500 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* File properties */}
       <div>
@@ -295,19 +437,19 @@ export default function FileDetailPage() {
           {file.updated_at && file.updated_at !== file.uploaded_at && (
             <MetadataRow label="Updated">{new Date(file.updated_at).toLocaleString()}</MetadataRow>
           )}
-          {(file as unknown as { updated_by?: string }).updated_by && (
+          {file.updated_by && (
             <MetadataRow label="Updated By">
               <span className="flex items-center gap-1">
                 <User size={12} className="text-gray-400" />
-                {(file as unknown as { updated_by?: string }).updated_by}
+                {file.updated_by}
               </span>
             </MetadataRow>
           )}
-          {(file as unknown as { storage_key?: string }).storage_key && (
+          {file.storage_key && (
             <MetadataRow label="Storage Key">
               <span className="font-mono text-xs text-gray-500 flex items-center gap-1">
-                {(file as unknown as { storage_key?: string }).storage_key}
-                <CopyButton value={(file as unknown as { storage_key?: string }).storage_key!} />
+                {file.storage_key}
+                <CopyButton value={file.storage_key} />
               </span>
             </MetadataRow>
           )}
@@ -315,7 +457,7 @@ export default function FileDetailPage() {
       </div>
 
       {/* File metadata (description, tags, category) */}
-      {file.metadata && (file.metadata.description || file.metadata.tags?.length > 0 || file.metadata.category || !!(file.metadata as unknown as Record<string, unknown>).custom) && (
+      {file.metadata && (file.metadata.description || file.metadata.tags?.length > 0 || file.metadata.category || !!file.metadata.custom) && (
         <div>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Metadata</h2>
           <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
@@ -340,7 +482,7 @@ export default function FileDetailPage() {
               </MetadataRow>
             )}
             {(() => {
-              const custom = (file.metadata as unknown as Record<string, unknown>).custom as Record<string, unknown> | undefined
+              const custom = file.metadata.custom
               if (!custom || Object.keys(custom).length === 0) return null
               return (
                 <MetadataRow label="Custom">

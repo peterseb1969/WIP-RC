@@ -13,9 +13,13 @@ import {
   ExternalLink,
   Calendar,
   LinkIcon,
+  Plus,
+  Trash2,
+  GitMerge,
+  XCircle,
 } from 'lucide-react'
-import { useRegistrySearch, useWipClient, useNamespaces } from '@wip/react'
-import { useQuery } from '@tanstack/react-query'
+import { useRegistrySearch, useWipClient, useNamespaces, useAddSynonym, useRemoveSynonym, useMergeEntries, useDeactivateEntry } from '@wip/react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { RegistrySearchResult } from '@wip/client'
 import JsonViewer from '@/components/common/JsonViewer'
 import LoadingState from '@/components/common/LoadingState'
@@ -221,11 +225,49 @@ function ResultRow({
 
 function EntryDetail({ entryId }: { entryId: string }) {
   const client = useWipClient()
+  const queryClient = useQueryClient()
   const { data: entry, isLoading, error } = useQuery({
     queryKey: ['rc-console', 'registry-entry', entryId],
     queryFn: () => client.registry.getEntry(entryId),
     enabled: !!entryId,
     staleTime: 30_000,
+  })
+
+  // CRUD state
+  const [showAddSynonym, setShowAddSynonym] = useState(false)
+  const [synNs, setSynNs] = useState('')
+  const [synType, setSynType] = useState('')
+  const [synKey, setSynKey] = useState('')
+  const [showMerge, setShowMerge] = useState(false)
+  const [mergeTargetId, setMergeTargetId] = useState('')
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  const { data: namespaces } = useNamespaces()
+
+  const invalidateEntry = () => {
+    queryClient.invalidateQueries({ queryKey: ['rc-console', 'registry-entry', entryId] })
+    queryClient.invalidateQueries({ queryKey: ['rc-console', 'registry'] })
+  }
+
+  const addSynonym = useAddSynonym({
+    onSuccess: () => { setShowAddSynonym(false); setSynKey(''); invalidateEntry() },
+    onError: (err: Error) => setActionError(err.message),
+  })
+
+  const removeSynonym = useRemoveSynonym({
+    onSuccess: () => invalidateEntry(),
+    onError: (err: Error) => setActionError(err.message),
+  })
+
+  const merge = useMergeEntries({
+    onSuccess: () => { setShowMerge(false); setMergeTargetId(''); invalidateEntry() },
+    onError: (err: Error) => setActionError(err.message),
+  })
+
+  const deactivate = useDeactivateEntry({
+    onSuccess: () => { setConfirmDeactivate(false); invalidateEntry() },
+    onError: (err: Error) => setActionError(err.message),
   })
 
   if (isLoading) return <LoadingState label="Loading entry..." />
@@ -239,16 +281,149 @@ function EntryDetail({ entryId }: { entryId: string }) {
       {/* Header with link */}
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Entry Detail</h2>
-        {link && (
-          <Link
-            to={link}
-            className="inline-flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 font-medium"
+        <div className="flex items-center gap-2">
+          {link && (
+            <Link
+              to={link}
+              className="inline-flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 font-medium"
+            >
+              <ExternalLink size={10} />
+              View
+            </Link>
+          )}
+          <button
+            onClick={() => { setShowAddSynonym(s => !s); setShowMerge(false); setConfirmDeactivate(false); setActionError(null) }}
+            className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 px-2 py-1 border border-gray-200 rounded"
           >
-            <ExternalLink size={10} />
-            View in Console
-          </Link>
-        )}
+            <Plus size={10} />
+            Synonym
+          </button>
+          <button
+            onClick={() => { setShowMerge(s => !s); setShowAddSynonym(false); setConfirmDeactivate(false); setActionError(null) }}
+            className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 px-2 py-1 border border-gray-200 rounded"
+          >
+            <GitMerge size={10} />
+            Merge
+          </button>
+          {entry.status === 'active' && (
+            <button
+              onClick={() => { setConfirmDeactivate(s => !s); setShowAddSynonym(false); setShowMerge(false); setActionError(null) }}
+              className="inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-600 px-2 py-1 border border-gray-200 rounded"
+            >
+              <XCircle size={10} />
+              Deactivate
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Action panels */}
+      {actionError && <p className="text-xs text-red-500">{actionError}</p>}
+
+      {showAddSynonym && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
+          <h4 className="text-xs font-medium text-gray-600">Add Synonym</h4>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="block text-[10px] text-gray-500 mb-0.5">Namespace</label>
+              <select
+                value={synNs}
+                onChange={e => setSynNs(e.target.value)}
+                className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-400"
+              >
+                <option value="">Select...</option>
+                {(namespaces ?? []).map(n => <option key={n.prefix} value={n.prefix}>{n.prefix}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] text-gray-500 mb-0.5">Entity Type</label>
+              <select
+                value={synType}
+                onChange={e => setSynType(e.target.value)}
+                className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-400"
+              >
+                <option value="">Select...</option>
+                {ENTITY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] text-gray-500 mb-0.5">Composite Key (JSON)</label>
+              <input
+                type="text"
+                value={synKey}
+                onChange={e => setSynKey(e.target.value)}
+                placeholder='{"value":"..."}'
+                className="w-full border border-gray-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-blue-400"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                try {
+                  const key = JSON.parse(synKey)
+                  addSynonym.mutate({
+                    target_id: entryId,
+                    synonym_namespace: synNs,
+                    synonym_entity_type: synType,
+                    synonym_composite_key: key,
+                  })
+                } catch {
+                  setActionError('Invalid JSON in composite key')
+                }
+              }}
+              disabled={addSynonym.isPending || !synNs || !synType || !synKey}
+              className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+            >
+              {addSynonym.isPending ? '...' : 'Add'}
+            </button>
+            <button onClick={() => setShowAddSynonym(false)} className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {showMerge && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+          <h4 className="text-xs font-medium text-amber-700">Merge Into This Entry</h4>
+          <p className="text-[10px] text-amber-600">The other entry will be deactivated and its synonyms transferred here.</p>
+          <div>
+            <label className="block text-[10px] text-gray-500 mb-0.5">Entry ID to merge (will be deprecated)</label>
+            <input
+              type="text"
+              value={mergeTargetId}
+              onChange={e => setMergeTargetId(e.target.value)}
+              placeholder="Entry ID to deprecate..."
+              className="w-full border border-gray-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-blue-400"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => merge.mutate({ preferred_id: entryId, deprecated_id: mergeTargetId.trim(), updated_by: 'rc-console' })}
+              disabled={merge.isPending || !mergeTargetId.trim()}
+              className="px-2 py-1 bg-amber-600 text-white text-xs rounded hover:bg-amber-700 disabled:opacity-50"
+            >
+              {merge.isPending ? '...' : 'Merge'}
+            </button>
+            <button onClick={() => setShowMerge(false)} className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {confirmDeactivate && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
+          <p className="text-xs text-red-700">Deactivate this entry? It will no longer resolve in lookups.</p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => deactivate.mutate({ entryId, updatedBy: 'rc-console' })}
+              disabled={deactivate.isPending}
+              className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:opacity-50"
+            >
+              {deactivate.isPending ? '...' : 'Yes, deactivate'}
+            </button>
+            <button onClick={() => setConfirmDeactivate(false)} className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+          </div>
+        </div>
+      )}
 
       {/* Structured view */}
       <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
@@ -335,6 +510,19 @@ function EntryDetail({ entryId }: { entryId: string }) {
                     {syn.created_at && <span>{new Date(syn.created_at).toLocaleDateString()}</span>}
                   </div>
                 </div>
+                <button
+                  onClick={() => removeSynonym.mutate({
+                    target_id: entryId,
+                    synonym_namespace: syn.namespace,
+                    synonym_entity_type: syn.entity_type,
+                    synonym_composite_key: syn.composite_key,
+                  })}
+                  disabled={removeSynonym.isPending}
+                  className="p-1 text-gray-300 hover:text-red-500 transition-colors shrink-0"
+                  title="Remove synonym"
+                >
+                  <Trash2 size={12} />
+                </button>
               </div>
             ))}
           </div>
