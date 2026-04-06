@@ -80,14 +80,14 @@ export default function VersionWarnings({
     },
   })
 
-  // Run dry-run activation when we have an existing template
+  // Run dry-run activation only for draft templates (active templates reject activate calls)
   useEffect(() => {
-    if (original?.template_id && namespace && !dryRun.isPending) {
+    if (original?.template_id && namespace && original.status === 'draft' && !dryRun.isPending) {
       dryRun.mutate({ id: original.template_id, namespace, dry_run: true })
     }
-    // Only re-run when the template ID or namespace changes
+    // Only re-run when the template ID, status, or namespace changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [original?.template_id, namespace])
+  }, [original?.template_id, original?.status, namespace])
 
   const docCount = docsData?.total ?? 0
 
