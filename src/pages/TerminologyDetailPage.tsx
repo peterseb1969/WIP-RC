@@ -12,6 +12,7 @@ import {
   Pencil,
   Trash2,
   AlertTriangle,
+  Code,
 } from 'lucide-react'
 import {
   useTerminology,
@@ -29,6 +30,7 @@ import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
+import JsonViewer from '@/components/common/JsonViewer'
 
 // ---------------------------------------------------------------------------
 // Create Term Form (inline)
@@ -36,9 +38,11 @@ import StatusBadge from '@/components/common/StatusBadge'
 
 function CreateTermForm({
   terminologyId,
+  namespace,
   onClose,
 }: {
   terminologyId: string
+  namespace: string
   onClose: () => void
 }) {
   const [value, setValue] = useState('')
@@ -47,7 +51,7 @@ function CreateTermForm({
   const [aliases, setAliases] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  const create = useCreateTerm(terminologyId, {
+  const create = useCreateTerm(terminologyId, namespace, {
     onSuccess: () => onClose(),
     onError: (err: Error) => setError(err.message),
   })
@@ -152,6 +156,7 @@ function TermRow({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [showDeprecate, setShowDeprecate] = useState(false)
   const [deprecateReason, setDeprecateReason] = useState('')
+  const [showJson, setShowJson] = useState(false)
 
   const update = useUpdateTerm({
     onSuccess: () => setEditing(false),
@@ -256,96 +261,106 @@ function TermRow({
   }
 
   return (
-    <div className="group flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
-      <Tag size={14} className="text-gray-300 shrink-0" />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-800">{term.label ?? term.value}</span>
-          <button
-            onClick={handleCopy}
-            className="text-gray-300 hover:text-gray-500"
-            title="Copy value"
-          >
-            {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
-          </button>
-        </div>
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-xs font-mono text-gray-400">{term.value}</span>
-          {term.aliases && term.aliases.length > 0 && (
-            <span className="text-xs text-gray-300">
-              aliases: {term.aliases.join(', ')}
-            </span>
-          )}
-        </div>
-        {term.description && (
-          <p className="text-xs text-gray-400 mt-0.5 truncate">{term.description}</p>
-        )}
-        {/* Inline deprecate form */}
-        {showDeprecate && (
-          <div className="mt-2 flex items-center gap-2">
-            <input
-              type="text"
-              value={deprecateReason}
-              onChange={e => setDeprecateReason(e.target.value)}
-              placeholder="Deprecation reason"
-              className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-blue-400 flex-1 max-w-xs"
-              autoFocus
-            />
+    <div className="group">
+      <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
+        <Tag size={14} className="text-gray-300 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-800">{term.label ?? term.value}</span>
             <button
-              onClick={() => deprecate.mutate({ termId: term.term_id, data: { reason: deprecateReason.trim() || 'Deprecated' } })}
-              disabled={deprecate.isPending}
-              className="px-2 py-1 bg-amber-500 text-white text-xs rounded-md hover:bg-amber-600 disabled:opacity-50"
+              onClick={handleCopy}
+              className="text-gray-300 hover:text-gray-500"
+              title="Copy value"
             >
-              {deprecate.isPending ? '...' : 'Deprecate'}
-            </button>
-            <button
-              onClick={() => setShowDeprecate(false)}
-              className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600"
-            >
-              Cancel
+              {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
             </button>
           </div>
-        )}
-        {/* Inline delete confirmation */}
-        {confirmDelete && (
-          <div className="mt-2 flex items-center gap-2">
-            <span className="text-xs text-red-600">Delete this term?</span>
-            <button
-              onClick={() => remove.mutate(term.term_id)}
-              disabled={remove.isPending}
-              className="px-2 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 disabled:opacity-50"
-            >
-              {remove.isPending ? '...' : 'Yes, delete'}
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-xs font-mono text-gray-400">{term.value}</span>
+            {term.aliases && term.aliases.length > 0 && (
+              <span className="text-xs text-gray-300">
+                aliases: {term.aliases.join(', ')}
+              </span>
+            )}
+          </div>
+          {term.description && (
+            <p className="text-xs text-gray-400 mt-0.5 truncate">{term.description}</p>
+          )}
+          {/* Inline deprecate form */}
+          {showDeprecate && (
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="text"
+                value={deprecateReason}
+                onChange={e => setDeprecateReason(e.target.value)}
+                placeholder="Deprecation reason"
+                className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-blue-400 flex-1 max-w-xs"
+                autoFocus
+              />
+              <button
+                onClick={() => deprecate.mutate({ termId: term.term_id, data: { reason: deprecateReason.trim() || 'Deprecated' } })}
+                disabled={deprecate.isPending}
+                className="px-2 py-1 bg-amber-500 text-white text-xs rounded-md hover:bg-amber-600 disabled:opacity-50"
+              >
+                {deprecate.isPending ? '...' : 'Deprecate'}
+              </button>
+              <button
+                onClick={() => setShowDeprecate(false)}
+                className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          {/* Inline delete confirmation */}
+          {confirmDelete && (
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs text-red-600">Delete this term?</span>
+              <button
+                onClick={() => remove.mutate(term.term_id)}
+                disabled={remove.isPending}
+                className="px-2 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 disabled:opacity-50"
+              >
+                {remove.isPending ? '...' : 'Yes, delete'}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <StatusBadge
+            status={term.status === 'active' ? 'active' : term.status === 'deprecated' ? 'warning' : 'inactive'}
+            label={term.status}
+          />
+          {/* Action buttons — visible on hover */}
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={() => setShowJson(s => !s)} className={`p-1 ${showJson ? 'text-blue-500' : 'text-gray-300 hover:text-blue-500'}`} title="Raw JSON">
+              <Code size={12} />
             </button>
-            <button
-              onClick={() => setConfirmDelete(false)}
-              className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600"
-            >
-              Cancel
+            <button onClick={startEdit} className="p-1 text-gray-300 hover:text-blue-500" title="Edit">
+              <Pencil size={12} />
+            </button>
+            {term.status === 'active' && (
+              <button onClick={() => { setShowDeprecate(true); setConfirmDelete(false) }} className="p-1 text-gray-300 hover:text-amber-500" title="Deprecate">
+                <AlertTriangle size={12} />
+              </button>
+            )}
+            <button onClick={() => { setConfirmDelete(true); setShowDeprecate(false) }} className="p-1 text-gray-300 hover:text-red-500" title="Delete">
+              <Trash2 size={12} />
             </button>
           </div>
-        )}
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <StatusBadge
-          status={term.status === 'active' ? 'active' : term.status === 'deprecated' ? 'warning' : 'inactive'}
-          label={term.status}
-        />
-        {/* Action buttons — visible on hover */}
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button onClick={startEdit} className="p-1 text-gray-300 hover:text-blue-500" title="Edit">
-            <Pencil size={12} />
-          </button>
-          {term.status === 'active' && (
-            <button onClick={() => { setShowDeprecate(true); setConfirmDelete(false) }} className="p-1 text-gray-300 hover:text-amber-500" title="Deprecate">
-              <AlertTriangle size={12} />
-            </button>
-          )}
-          <button onClick={() => { setConfirmDelete(true); setShowDeprecate(false) }} className="p-1 text-gray-300 hover:text-red-500" title="Delete">
-            <Trash2 size={12} />
-          </button>
         </div>
       </div>
+      {showJson && (
+        <div className="px-4 pb-3 pl-10">
+          <JsonViewer data={term} maxHeight="200px" collapsed />
+        </div>
+      )}
     </div>
   )
 }
@@ -604,6 +619,7 @@ export default function TerminologyDetailPage() {
         {showCreateTerm && (
           <CreateTermForm
             terminologyId={terminology.terminology_id}
+            namespace={terminology.namespace}
             onClose={() => setShowCreateTerm(false)}
           />
         )}
@@ -661,6 +677,16 @@ export default function TerminologyDetailPage() {
           </>
         )}
       </div>
+
+      {/* Raw JSON */}
+      <details className="group">
+        <summary className="text-sm font-semibold text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700">
+          Raw JSON
+        </summary>
+        <div className="mt-2">
+          <JsonViewer data={terminology} maxHeight="400px" collapsed />
+        </div>
+      </details>
     </div>
   )
 }

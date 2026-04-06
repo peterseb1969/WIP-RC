@@ -20,6 +20,7 @@ import { useQuery } from '@tanstack/react-query'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
+import JsonViewer from '@/components/common/JsonViewer'
 
 // ---------------------------------------------------------------------------
 // Content-type-aware icon
@@ -355,6 +356,16 @@ export default function FileDetailPage() {
         </h2>
         <ReferencingDocuments fileId={file.file_id} />
       </div>
+
+      {/* Raw JSON */}
+      <details className="group">
+        <summary className="text-sm font-semibold text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700">
+          Raw JSON
+        </summary>
+        <div className="mt-2">
+          <JsonViewer data={file} maxHeight="400px" collapsed />
+        </div>
+      </details>
     </div>
   )
 }

@@ -9,11 +9,12 @@ import {
   FileText,
   Link2,
 } from 'lucide-react'
-import { useTemplate } from '@wip/react'
+import { useTemplate, useTerminologies, useTemplates } from '@wip/react'
 import type { FieldDefinition } from '@wip/client'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
+import JsonViewer from '@/components/common/JsonViewer'
 import { cn } from '@/lib/cn'
 
 // ---------------------------------------------------------------------------
@@ -49,7 +50,12 @@ function TypeBadge({ type }: { type: string }) {
 // Field Row
 // ---------------------------------------------------------------------------
 
-function FieldRow({ field, isIdentity }: { field: FieldDefinition; isIdentity: boolean }) {
+function FieldRow({ field, isIdentity, terminologyMap, templateMap }: {
+  field: FieldDefinition
+  isIdentity: boolean
+  terminologyMap: Map<string, { label: string; id: string }>
+  templateMap: Map<string, { label: string; id: string }>
+}) {
   const name = field.name
   const type = field.type ?? 'unknown'
   const label = field.label || null
@@ -74,18 +80,34 @@ function FieldRow({ field, isIdentity }: { field: FieldDefinition; isIdentity: b
       </div>
       <div className="flex items-center gap-2 shrink-0">
         <TypeBadge type={type} />
-        {terminologyRef && (
-          <span className="flex items-center gap-1 text-xs text-orange-500">
-            <Tag size={10} />
-            {terminologyRef}
-          </span>
-        )}
-        {referenceRef && (
-          <span className="flex items-center gap-1 text-xs text-pink-500">
-            <Link2 size={10} />
-            {referenceRef}
-          </span>
-        )}
+        {terminologyRef && (() => {
+          const entry = terminologyMap.get(terminologyRef)
+          return entry ? (
+            <Link to={`/terminologies/${entry.id}`} className="flex items-center gap-1 text-xs text-orange-500 hover:text-orange-700">
+              <Tag size={10} />
+              {entry.label}
+            </Link>
+          ) : (
+            <span className="flex items-center gap-1 text-xs text-orange-500 font-mono">
+              <Tag size={10} />
+              {terminologyRef}
+            </span>
+          )
+        })()}
+        {referenceRef && (() => {
+          const entry = templateMap.get(referenceRef)
+          return entry ? (
+            <Link to={`/templates/${entry.id}`} className="flex items-center gap-1 text-xs text-pink-500 hover:text-pink-700">
+              <Link2 size={10} />
+              {entry.label}
+            </Link>
+          ) : (
+            <span className="flex items-center gap-1 text-xs text-pink-500 font-mono">
+              <Link2 size={10} />
+              {referenceRef}
+            </span>
+          )
+        })()}
       </div>
     </div>
   )
@@ -99,6 +121,10 @@ export default function TemplateDetailPage() {
   const { id } = useParams()
   const { data: template, isLoading, error } = useTemplate(id ?? '')
 
+  // Build ID→{name,id} lookup maps for terminology and template refs (must be before early returns)
+  const { data: terminologiesData } = useTerminologies({ status: 'active', page_size: 100 })
+  const { data: templatesData } = useTemplates({ status: 'active', latest_only: true, page_size: 100 })
+
   if (isLoading) return <LoadingState label="Loading template..." />
   if (error) return <ErrorState message={error.message} />
   if (!template) return <ErrorState message="Template not found" />
@@ -106,6 +132,14 @@ export default function TemplateDetailPage() {
   const fields = template.fields ?? []
   const identityFields = new Set(
     Array.isArray(template.identity_fields) ? template.identity_fields.map(String) : []
+  )
+
+  // Maps: ID → { label, id } so we can resolve terminology_ref/template_ref (which are IDs) to display names and links
+  const terminologyMap = new Map<string, { label: string; id: string }>(
+    (terminologiesData?.items ?? []).map(t => [t.terminology_id, { label: t.label || t.value, id: t.terminology_id }])
+  )
+  const templateMap = new Map<string, { label: string; id: string }>(
+    (templatesData?.items ?? []).map(t => [t.template_id, { label: t.label || t.value, id: t.template_id }])
   )
 
   return (
@@ -164,6 +198,8 @@ export default function TemplateDetailPage() {
                 key={String(field.name)}
                 field={field}
                 isIdentity={identityFields.has(String(field.name))}
+                terminologyMap={terminologyMap}
+                templateMap={templateMap}
               />
             ))
           )}
@@ -178,6 +214,16 @@ export default function TemplateDetailPage() {
         <FileText size={14} />
         View documents using this template
       </Link>
+
+      {/* Raw JSON */}
+      <details className="group">
+        <summary className="text-sm font-semibold text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700">
+          Raw JSON
+        </summary>
+        <div className="mt-2">
+          <JsonViewer data={template} maxHeight="400px" collapsed />
+        </div>
+      </details>
     </div>
   )
 }

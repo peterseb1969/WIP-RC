@@ -18,6 +18,7 @@ import { useQuery } from '@tanstack/react-query'
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
+import JsonViewer from '@/components/common/JsonViewer'
 
 // ---------------------------------------------------------------------------
 // Namespace Stats Hook (per-namespace detail)
@@ -267,6 +268,16 @@ function NamespaceRow({
             )}
           </div>
 
+          {/* Raw JSON */}
+          <details className="group">
+            <summary className="text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-600">
+              Raw JSON
+            </summary>
+            <div className="mt-2">
+              <JsonViewer data={{ ...ns, stats }} maxHeight="300px" collapsed />
+            </div>
+          </details>
+
           {/* Edit form */}
           {editing ? (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-3">
@@ -435,9 +446,7 @@ export default function NamespacesPage() {
           {namespaces.length === 0 ? (
             <p className="text-sm text-gray-400 p-6 text-center">No namespaces found.</p>
           ) : (
-            namespaces
-              .filter(ns => ns.prefix !== 'ptest')
-              .map(ns => (
+            namespaces.map(ns => (
                 <NamespaceRow
                   key={ns.prefix}
                   ns={ns}
@@ -451,7 +460,7 @@ export default function NamespacesPage() {
 
       {namespaces && (
         <p className="text-xs text-gray-400">
-          {namespaces.filter(ns => ns.prefix !== 'ptest').length} namespace{namespaces.filter(ns => ns.prefix !== 'ptest').length !== 1 ? 's' : ''}
+          {namespaces.length} namespace{namespaces.length !== 1 ? 's' : ''}
         </p>
       )}
     </div>
