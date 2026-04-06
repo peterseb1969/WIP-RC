@@ -45,6 +45,8 @@ function useNamespaceDetail(prefix: string | null) {
 function CreateNamespaceForm({ onClose }: { onClose: () => void }) {
   const [prefix, setPrefix] = useState('')
   const [description, setDescription] = useState('')
+  const [isolationMode, setIsolationMode] = useState<'open' | 'strict'>('open')
+  const [deletionMode, setDeletionMode] = useState<'retain' | 'full'>('retain')
   const [error, setError] = useState<string | null>(null)
 
   const create = useCreateNamespace({
@@ -59,7 +61,12 @@ function CreateNamespaceForm({ onClose }: { onClose: () => void }) {
       setError('Prefix must start with a letter and contain only lowercase letters, numbers, and hyphens')
       return
     }
-    create.mutate({ prefix: trimmedPrefix, description: description.trim() || undefined })
+    create.mutate({
+      prefix: trimmedPrefix,
+      description: description.trim() || undefined,
+      isolation_mode: isolationMode,
+      deletion_mode: deletionMode,
+    })
   }
 
   return (
@@ -86,6 +93,30 @@ function CreateNamespaceForm({ onClose }: { onClose: () => void }) {
             placeholder="Optional description"
             className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
           />
+        </div>
+        <div className="flex items-center gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Isolation Mode</label>
+            <select
+              value={isolationMode}
+              onChange={e => setIsolationMode(e.target.value as 'open' | 'strict')}
+              className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+            >
+              <option value="open">open</option>
+              <option value="strict">strict</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Deletion Mode</label>
+            <select
+              value={deletionMode}
+              onChange={e => setDeletionMode(e.target.value as 'retain' | 'full')}
+              className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+            >
+              <option value="retain">retain</option>
+              <option value="full">full</option>
+            </select>
+          </div>
         </div>
         {error && <p className="text-xs text-red-500">{error}</p>}
         <div className="flex items-center gap-2">
@@ -117,7 +148,7 @@ function NamespaceRow({
   isExpanded,
   onToggle,
 }: {
-  ns: { prefix: string; description?: string; status?: string; isolation_mode?: string; deletion_mode?: string; created_at?: string }
+  ns: { prefix: string; description?: string; status?: string; isolation_mode?: string; deletion_mode?: string; created_at?: string; created_by?: string | null; updated_at?: string | null; updated_by?: string | null }
   isExpanded: boolean
   onToggle: () => void
 }) {
@@ -255,7 +286,7 @@ function NamespaceRow({
           )}
 
           {/* Metadata */}
-          <div className="flex items-center gap-4 text-xs text-gray-400">
+          <div className="flex items-center flex-wrap gap-4 text-xs text-gray-400">
             {ns.isolation_mode && (
               <span className="flex items-center gap-1">
                 <Settings2 size={10} />
@@ -265,6 +296,15 @@ function NamespaceRow({
             <span>Deletion: {ns.deletion_mode ?? 'retain'}</span>
             {ns.created_at && (
               <span>Created: {new Date(ns.created_at).toLocaleDateString()}</span>
+            )}
+            {ns.created_by && (
+              <span>By: {ns.created_by}</span>
+            )}
+            {ns.updated_at && (
+              <span>Updated: {new Date(ns.updated_at).toLocaleDateString()}</span>
+            )}
+            {ns.updated_by && (
+              <span>By: {ns.updated_by}</span>
             )}
           </div>
 

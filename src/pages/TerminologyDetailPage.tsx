@@ -25,6 +25,18 @@ import {
   useDeprecateTerm,
 } from '@wip/react'
 import type { Term } from '@wip/client'
+
+// Fields that exist in the API but aren't yet in @wip/client types (tracked in CASE-21)
+type TerminologyExtras = {
+  allow_multiple?: boolean
+  metadata?: { source?: string; source_url?: string; version?: string; language?: string; custom?: Record<string, unknown> }
+  created_by?: string | null
+  updated_at?: string | null
+  updated_by?: string | null
+}
+function extras(t: unknown): TerminologyExtras {
+  return (t ?? {}) as TerminologyExtras
+}
 import SearchInput from '@/components/common/SearchInput'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
@@ -39,16 +51,20 @@ import JsonViewer from '@/components/common/JsonViewer'
 function CreateTermForm({
   terminologyId,
   namespace,
+  existingTerms,
   onClose,
 }: {
   terminologyId: string
   namespace: string
+  existingTerms: Term[]
   onClose: () => void
 }) {
   const [value, setValue] = useState('')
   const [label, setLabel] = useState('')
   const [description, setDescription] = useState('')
   const [aliases, setAliases] = useState('')
+  const [sortOrder, setSortOrder] = useState('')
+  const [parentTermId, setParentTermId] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const create = useCreateTerm(terminologyId, namespace, {
@@ -64,9 +80,13 @@ function CreateTermForm({
       label: label.trim() || undefined,
       description: description.trim() || undefined,
       aliases: aliases.trim() ? aliases.split(',').map(a => a.trim()).filter(Boolean) : undefined,
+      sort_order: sortOrder.trim() ? parseInt(sortOrder, 10) : undefined,
+      parent_term_id: parentTermId || undefined,
       created_by: 'rc-console',
     })
   }
+
+  const activeTerms = existingTerms.filter(t => t.status === 'active')
 
   return (
     <div className="bg-white border border-blue-200 rounded-lg p-4 mb-3">
@@ -115,6 +135,31 @@ function CreateTermForm({
             className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
           />
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Sort Order</label>
+            <input
+              type="number"
+              value={sortOrder}
+              onChange={e => setSortOrder(e.target.value)}
+              placeholder="0"
+              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Parent Term</label>
+            <select
+              value={parentTermId}
+              onChange={e => setParentTermId(e.target.value)}
+              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+            >
+              <option value="">None</option>
+              {activeTerms.map(t => (
+                <option key={t.term_id} value={t.term_id}>{t.label || t.value}</option>
+              ))}
+            </select>
+          </div>
+        </div>
         {error && <p className="text-xs text-red-500">{error}</p>}
         <div className="flex items-center gap-2">
           <button
@@ -143,9 +188,11 @@ function CreateTermForm({
 function TermRow({
   term,
   terminologyId,
+  allTerms,
 }: {
   term: Term
   terminologyId: string
+  allTerms: Term[]
 }) {
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -153,9 +200,12 @@ function TermRow({
   const [editLabel, setEditLabel] = useState(term.label ?? '')
   const [editDesc, setEditDesc] = useState(term.description ?? '')
   const [editAliases, setEditAliases] = useState(term.aliases?.join(', ') ?? '')
+  const [editSortOrder, setEditSortOrder] = useState(String(term.sort_order ?? ''))
+  const [editParentTermId, setEditParentTermId] = useState(term.parent_term_id ?? '')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [showDeprecate, setShowDeprecate] = useState(false)
   const [deprecateReason, setDeprecateReason] = useState('')
+  const [deprecateReplacedBy, setDeprecateReplacedBy] = useState('')
   const [showJson, setShowJson] = useState(false)
 
   const update = useUpdateTerm({
@@ -180,6 +230,8 @@ function TermRow({
     setEditLabel(term.label ?? '')
     setEditDesc(term.description ?? '')
     setEditAliases(term.aliases?.join(', ') ?? '')
+    setEditSortOrder(String(term.sort_order ?? ''))
+    setEditParentTermId(term.parent_term_id ?? '')
     setEditing(true)
     setConfirmDelete(false)
     setShowDeprecate(false)
@@ -193,6 +245,8 @@ function TermRow({
         label: editLabel.trim() || undefined,
         description: editDesc.trim() || undefined,
         aliases: editAliases.trim() ? editAliases.split(',').map(a => a.trim()).filter(Boolean) : [],
+        sort_order: editSortOrder.trim() ? parseInt(editSortOrder, 10) : undefined,
+        parent_term_id: editParentTermId || undefined,
         updated_by: 'rc-console',
       },
     })
@@ -240,6 +294,31 @@ function TermRow({
             className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-blue-400"
           />
         </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs text-gray-500 mb-0.5">Sort Order</label>
+            <input
+              type="number"
+              value={editSortOrder}
+              onChange={e => setEditSortOrder(e.target.value)}
+              placeholder="0"
+              className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-blue-400"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-0.5">Parent Term</label>
+            <select
+              value={editParentTermId}
+              onChange={e => setEditParentTermId(e.target.value)}
+              className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-blue-400"
+            >
+              <option value="">None</option>
+              {allTerms.filter(t => t.term_id !== term.term_id && t.status === 'active').map(t => (
+                <option key={t.term_id} value={t.term_id}>{t.label || t.value}</option>
+              ))}
+            </select>
+          </div>
+        </div>
         {update.error && <p className="text-xs text-red-500">{update.error.message}</p>}
         <div className="flex items-center gap-2">
           <button
@@ -275,41 +354,79 @@ function TermRow({
               {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
             </button>
           </div>
-          <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
             <span className="text-xs font-mono text-gray-400">{term.value}</span>
             {term.aliases && term.aliases.length > 0 && (
               <span className="text-xs text-gray-300">
                 aliases: {term.aliases.join(', ')}
               </span>
             )}
+            {term.sort_order != null && term.sort_order !== 0 && (
+              <span className="text-xs text-gray-300">order: {term.sort_order}</span>
+            )}
+            {term.parent_term_id && (() => {
+              const parent = allTerms.find(t => t.term_id === term.parent_term_id)
+              return (
+                <span className="text-xs text-gray-300">
+                  parent: {parent ? (parent.label || parent.value) : term.parent_term_id}
+                </span>
+              )
+            })()}
           </div>
           {term.description && (
             <p className="text-xs text-gray-400 mt-0.5 truncate">{term.description}</p>
           )}
+          {term.status === 'deprecated' && (
+            <div className="flex items-center gap-2 mt-0.5 text-xs text-amber-500">
+              {(term as unknown as { deprecated_reason?: string }).deprecated_reason && (
+                <span>Reason: {(term as unknown as { deprecated_reason?: string }).deprecated_reason}</span>
+              )}
+              {(term as unknown as { replaced_by_term_id?: string }).replaced_by_term_id && (() => {
+                const replacement = allTerms.find(t => t.term_id === (term as unknown as { replaced_by_term_id?: string }).replaced_by_term_id)
+                return (
+                  <span>Replaced by: {replacement ? (replacement.label || replacement.value) : (term as unknown as { replaced_by_term_id?: string }).replaced_by_term_id}</span>
+                )
+              })()}
+            </div>
+          )}
           {/* Inline deprecate form */}
           {showDeprecate && (
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                type="text"
-                value={deprecateReason}
-                onChange={e => setDeprecateReason(e.target.value)}
-                placeholder="Deprecation reason"
-                className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-blue-400 flex-1 max-w-xs"
-                autoFocus
-              />
-              <button
-                onClick={() => deprecate.mutate({ termId: term.term_id, data: { reason: deprecateReason.trim() || 'Deprecated' } })}
-                disabled={deprecate.isPending}
-                className="px-2 py-1 bg-amber-500 text-white text-xs rounded-md hover:bg-amber-600 disabled:opacity-50"
-              >
-                {deprecate.isPending ? '...' : 'Deprecate'}
-              </button>
-              <button
-                onClick={() => setShowDeprecate(false)}
-                className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600"
-              >
-                Cancel
-              </button>
+            <div className="mt-2 space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={deprecateReason}
+                  onChange={e => setDeprecateReason(e.target.value)}
+                  placeholder="Deprecation reason"
+                  className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-blue-400 flex-1 max-w-xs"
+                  autoFocus
+                />
+                <select
+                  value={deprecateReplacedBy}
+                  onChange={e => setDeprecateReplacedBy(e.target.value)}
+                  className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-blue-400 max-w-xs"
+                >
+                  <option value="">Replaced by... (optional)</option>
+                  {allTerms.filter(t => t.term_id !== term.term_id && t.status === 'active').map(t => (
+                    <option key={t.term_id} value={t.term_id}>{t.label || t.value}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => deprecate.mutate({ termId: term.term_id, data: { reason: deprecateReason.trim() || 'Deprecated', replaced_by_term_id: deprecateReplacedBy || undefined } })}
+                  disabled={deprecate.isPending}
+                  className="px-2 py-1 bg-amber-500 text-white text-xs rounded-md hover:bg-amber-600 disabled:opacity-50"
+                >
+                  {deprecate.isPending ? '...' : 'Deprecate'}
+                </button>
+                <button
+                  onClick={() => setShowDeprecate(false)}
+                  className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           )}
           {/* Inline delete confirmation */}
@@ -383,7 +500,14 @@ export default function TerminologyDetailPage() {
   const [editLabel, setEditLabel] = useState('')
   const [editDesc, setEditDesc] = useState('')
   const [editCaseSensitive, setEditCaseSensitive] = useState(false)
+  const [editAllowMultiple, setEditAllowMultiple] = useState(false)
   const [editExtensible, setEditExtensible] = useState(true)
+  const [editMutable, setEditMutable] = useState(true)
+  const [editShowMeta, setEditShowMeta] = useState(false)
+  const [editMetaSource, setEditMetaSource] = useState('')
+  const [editMetaSourceUrl, setEditMetaSourceUrl] = useState('')
+  const [editMetaVersion, setEditMetaVersion] = useState('')
+  const [editMetaLanguage, setEditMetaLanguage] = useState('')
 
   const { data: terminology, isLoading: termLoading, error: termError } = useTerminology(id ?? '')
   const { data: termsData, isLoading: termsLoading, error: termsError, refetch } = useTerms(id ?? '', {
@@ -405,20 +529,37 @@ export default function TerminologyDetailPage() {
     setEditLabel(terminology.label)
     setEditDesc(terminology.description ?? '')
     setEditCaseSensitive(terminology.case_sensitive)
+    setEditAllowMultiple(extras(terminology).allow_multiple ?? false)
     setEditExtensible(terminology.extensible)
+    setEditMutable(terminology.mutable)
+    const meta = extras(terminology).metadata
+    setEditMetaSource(meta?.source ?? '')
+    setEditMetaSourceUrl(meta?.source_url ?? '')
+    setEditMetaVersion(meta?.version ?? '')
+    setEditMetaLanguage(meta?.language ?? '')
+    setEditShowMeta(!!(meta?.source || meta?.source_url || meta?.version || meta?.language))
     setEditing(true)
     setConfirmDelete(false)
   }
 
   const handleSave = () => {
     if (!terminology) return
+    const metadata: Record<string, unknown> = {}
+    if (editMetaSource.trim()) metadata.source = editMetaSource.trim()
+    if (editMetaSourceUrl.trim()) metadata.source_url = editMetaSourceUrl.trim()
+    if (editMetaVersion.trim()) metadata.version = editMetaVersion.trim()
+    if (editMetaLanguage.trim()) metadata.language = editMetaLanguage.trim()
+
     updateTerminology.mutate({
       id: terminology.terminology_id,
       data: {
         label: editLabel.trim() || undefined,
         description: editDesc.trim() || undefined,
         case_sensitive: editCaseSensitive,
+        allow_multiple: editAllowMultiple,
         extensible: editExtensible,
+        mutable: editMutable,
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
         updated_by: 'rc-console',
       },
     })
@@ -498,7 +639,7 @@ export default function TerminologyDetailPage() {
                 autoFocus
               />
             </div>
-            <div className="flex items-center gap-4 pt-5">
+            <div className="flex items-center flex-wrap gap-4 pt-5">
               <label className="flex items-center gap-1.5 text-sm text-gray-600">
                 <input
                   type="checkbox"
@@ -511,11 +652,29 @@ export default function TerminologyDetailPage() {
               <label className="flex items-center gap-1.5 text-sm text-gray-600">
                 <input
                   type="checkbox"
+                  checked={editAllowMultiple}
+                  onChange={e => setEditAllowMultiple(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                Allow multiple
+              </label>
+              <label className="flex items-center gap-1.5 text-sm text-gray-600">
+                <input
+                  type="checkbox"
                   checked={editExtensible}
                   onChange={e => setEditExtensible(e.target.checked)}
                   className="rounded border-gray-300"
                 />
                 Extensible
+              </label>
+              <label className="flex items-center gap-1.5 text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={editMutable}
+                  onChange={e => setEditMutable(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                Mutable
               </label>
             </div>
           </div>
@@ -527,6 +686,60 @@ export default function TerminologyDetailPage() {
               onChange={e => setEditDesc(e.target.value)}
               className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
             />
+          </div>
+          {/* Metadata (collapsible) */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setEditShowMeta(s => !s)}
+              className="text-xs text-gray-500 hover:text-gray-700 underline"
+            >
+              {editShowMeta ? 'Hide metadata' : 'Show metadata fields'}
+            </button>
+            {editShowMeta && (
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Source</label>
+                  <input
+                    type="text"
+                    value={editMetaSource}
+                    onChange={e => setEditMetaSource(e.target.value)}
+                    placeholder="e.g. ICD-10, SNOMED CT"
+                    className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Source URL</label>
+                  <input
+                    type="text"
+                    value={editMetaSourceUrl}
+                    onChange={e => setEditMetaSourceUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Version</label>
+                  <input
+                    type="text"
+                    value={editMetaVersion}
+                    onChange={e => setEditMetaVersion(e.target.value)}
+                    placeholder="e.g. 2024.1"
+                    className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Language</label>
+                  <input
+                    type="text"
+                    value={editMetaLanguage}
+                    onChange={e => setEditMetaLanguage(e.target.value)}
+                    placeholder="e.g. en, de"
+                    className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                  />
+                </div>
+              </div>
+            )}
           </div>
           {updateTerminology.error && <p className="text-xs text-red-500">{updateTerminology.error.message}</p>}
           <div className="flex items-center gap-2">
@@ -578,7 +791,7 @@ export default function TerminologyDetailPage() {
       )}
 
       {/* Metadata */}
-      <div className="flex items-center gap-6 text-xs text-gray-400">
+      <div className="flex items-center flex-wrap gap-x-6 gap-y-1 text-xs text-gray-400">
         <span className="flex items-center gap-1">
           <Hash size={10} />
           ID: {terminology.terminology_id}
@@ -587,12 +800,37 @@ export default function TerminologyDetailPage() {
           <span>{terminology.term_count} terms</span>
         )}
         <span>{terminology.case_sensitive ? 'Case sensitive' : 'Case insensitive'}</span>
+        <span>{extras(terminology).allow_multiple ? 'Allow multiple' : 'Single value'}</span>
         <span>{terminology.extensible ? 'Extensible' : 'Fixed'}</span>
         <span>{terminology.mutable ? 'Mutable' : 'Immutable'}</span>
         {terminology.created_at && (
           <span>Created: {new Date(terminology.created_at).toLocaleDateString()}</span>
         )}
+        {extras(terminology).created_by && (
+          <span>By: {extras(terminology).created_by}</span>
+        )}
+        {extras(terminology).updated_at && (
+          <span>Updated: {new Date(extras(terminology).updated_at!).toLocaleDateString()}</span>
+        )}
       </div>
+      {/* Terminology metadata (source, language, etc.) */}
+      {(() => {
+        const meta = extras(terminology).metadata
+        if (!meta) return null
+        if (!meta.source && !meta.source_url && !meta.version && !meta.language) return null
+        return (
+          <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+            {meta.source && <span>Source: {meta.source}</span>}
+            {meta.source_url && (
+              <a href={meta.source_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-600 underline">
+                {meta.source_url}
+              </a>
+            )}
+            {meta.version && <span>Version: {meta.version}</span>}
+            {meta.language && <span>Language: {meta.language}</span>}
+          </div>
+        )
+      })()}
 
       {/* Terms Section */}
       <div className="space-y-3">
@@ -620,6 +858,7 @@ export default function TerminologyDetailPage() {
           <CreateTermForm
             terminologyId={terminology.terminology_id}
             namespace={terminology.namespace}
+            existingTerms={termsData?.items ?? []}
             onClose={() => setShowCreateTerm(false)}
           />
         )}
@@ -659,6 +898,7 @@ export default function TerminologyDetailPage() {
                     key={term.term_id}
                     term={term}
                     terminologyId={terminology.terminology_id}
+                    allTerms={termsData.items ?? []}
                   />
                 ))
               )}

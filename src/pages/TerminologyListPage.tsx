@@ -19,6 +19,14 @@ function CreateTerminologyForm({ defaultNamespace, onClose }: { defaultNamespace
   const [description, setDescription] = useState('')
   const [nsOverride, setNsOverride] = useState(defaultNamespace)
   const [caseSensitive, setCaseSensitive] = useState(false)
+  const [allowMultiple, setAllowMultiple] = useState(false)
+  const [extensible, setExtensible] = useState(true)
+  const [mutable, setMutable] = useState(true)
+  const [showMetadata, setShowMetadata] = useState(false)
+  const [metaSource, setMetaSource] = useState('')
+  const [metaSourceUrl, setMetaSourceUrl] = useState('')
+  const [metaVersion, setMetaVersion] = useState('')
+  const [metaLanguage, setMetaLanguage] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const { data: namespaces } = useNamespaces()
@@ -35,12 +43,22 @@ function CreateTerminologyForm({ defaultNamespace, onClose }: { defaultNamespace
       setError('Value must be UPPER_SNAKE_CASE (e.g. DOCUMENT_STATUS)')
       return
     }
+    const metadata: Record<string, unknown> = {}
+    if (metaSource.trim()) metadata.source = metaSource.trim()
+    if (metaSourceUrl.trim()) metadata.source_url = metaSourceUrl.trim()
+    if (metaVersion.trim()) metadata.version = metaVersion.trim()
+    if (metaLanguage.trim()) metadata.language = metaLanguage.trim()
+
     create.mutate({
       value: v,
       label: label.trim() || v,
       description: description.trim() || undefined,
       namespace: nsOverride,
       case_sensitive: caseSensitive,
+      allow_multiple: allowMultiple,
+      extensible,
+      mutable,
+      metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
       created_by: 'rc-console',
     })
   }
@@ -91,12 +109,14 @@ function CreateTerminologyForm({ defaultNamespace, onClose }: { defaultNamespace
               className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
             >
               <option value="">Select...</option>
-              {namespaces?.filter(n => n.prefix !== 'ptest').map(n => (
+              {namespaces?.map(n => (
                 <option key={n.prefix} value={n.prefix}>{n.prefix}</option>
               ))}
             </select>
           </div>
-          <label className="flex items-center gap-1.5 text-sm text-gray-600 mt-4">
+        </div>
+        <div className="flex items-center flex-wrap gap-4">
+          <label className="flex items-center gap-1.5 text-sm text-gray-600">
             <input
               type="checkbox"
               checked={caseSensitive}
@@ -105,6 +125,87 @@ function CreateTerminologyForm({ defaultNamespace, onClose }: { defaultNamespace
             />
             Case sensitive
           </label>
+          <label className="flex items-center gap-1.5 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={allowMultiple}
+              onChange={e => setAllowMultiple(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            Allow multiple
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={extensible}
+              onChange={e => setExtensible(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            Extensible
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={mutable}
+              onChange={e => setMutable(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            Mutable
+          </label>
+        </div>
+        {/* Metadata (collapsible) */}
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowMetadata(s => !s)}
+            className="text-xs text-gray-500 hover:text-gray-700 underline"
+          >
+            {showMetadata ? 'Hide metadata' : 'Show metadata fields'}
+          </button>
+          {showMetadata && (
+            <div className="grid grid-cols-2 gap-3 mt-2">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Source</label>
+                <input
+                  type="text"
+                  value={metaSource}
+                  onChange={e => setMetaSource(e.target.value)}
+                  placeholder="e.g. ICD-10, SNOMED CT"
+                  className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Source URL</label>
+                <input
+                  type="text"
+                  value={metaSourceUrl}
+                  onChange={e => setMetaSourceUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Version</label>
+                <input
+                  type="text"
+                  value={metaVersion}
+                  onChange={e => setMetaVersion(e.target.value)}
+                  placeholder="e.g. 2024.1"
+                  className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Language</label>
+                <input
+                  type="text"
+                  value={metaLanguage}
+                  onChange={e => setMetaLanguage(e.target.value)}
+                  placeholder="e.g. en, de"
+                  className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                />
+              </div>
+            </div>
+          )}
         </div>
         {error && <p className="text-xs text-red-500">{error}</p>}
         <div className="flex items-center gap-2">
