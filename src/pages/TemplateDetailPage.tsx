@@ -13,6 +13,7 @@ import {
   Database,
   Calendar,
   User,
+  Pencil,
 } from 'lucide-react'
 import { useTemplate, useTerminologies, useTemplates } from '@wip/react'
 import type { FieldDefinition } from '@wip/client'
@@ -197,7 +198,7 @@ export default function TemplateDetailPage() {
         </Link>
         <div className="flex items-center gap-3">
           <FileCode2 size={24} className="text-indigo-500" />
-          <div>
+          <div className="flex-1">
             <h1 className="text-2xl font-semibold text-gray-800">{template.label || template.value}</h1>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-sm font-mono text-gray-400">{template.value}</span>
@@ -212,6 +213,13 @@ export default function TemplateDetailPage() {
               <StatusBadge status={template.status === 'active' ? 'active' : 'inactive'} label={template.status} />
             </div>
           </div>
+          <Link
+            to={`/templates/${template.template_id}/edit`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm rounded-md text-gray-600 hover:bg-gray-50 hover:text-blue-600 shrink-0"
+          >
+            <Pencil size={12} />
+            Edit
+          </Link>
         </div>
         {template.description && (
           <p className="text-sm text-gray-500 mt-2">{template.description}</p>

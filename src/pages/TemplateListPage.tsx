@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FileCode2, ChevronRight, Hash, Layers, RefreshCw } from 'lucide-react'
+import { FileCode2, ChevronRight, Hash, Layers, RefreshCw, Plus } from 'lucide-react'
 import { useTemplates } from '@wip/react'
 import SearchInput from '@/components/common/SearchInput'
 import Pagination from '@/components/common/Pagination'
@@ -40,9 +40,18 @@ export default function TemplateListPage() {
           <h1 className="text-2xl font-semibold text-gray-800">Templates</h1>
           <p className="text-sm text-gray-400 mt-1">Browse and manage document schemas</p>
         </div>
-        <button onClick={() => refetch()} className="p-2 border border-gray-200 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-50" title="Refresh">
-          <RefreshCw size={14} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => refetch()} className="p-2 border border-gray-200 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-50" title="Refresh">
+            <RefreshCw size={14} />
+          </button>
+          <Link
+            to="/templates/new"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+          >
+            <Plus size={14} />
+            Create
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}

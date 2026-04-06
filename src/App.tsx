@@ -10,6 +10,7 @@ import TerminologyListPage from '@/pages/TerminologyListPage'
 import TerminologyDetailPage from '@/pages/TerminologyDetailPage'
 import TemplateListPage from '@/pages/TemplateListPage'
 import TemplateDetailPage from '@/pages/TemplateDetailPage'
+import TemplateBuilderPage from '@/pages/TemplateBuilderPage'
 import DocumentListPage from '@/pages/DocumentListPage'
 import DocumentDetailPage from '@/pages/DocumentDetailPage'
 import FileListPage from '@/pages/FileListPage'
@@ -44,7 +45,9 @@ export default function App() {
               <Route path="terminologies" element={<TerminologyListPage />} />
               <Route path="terminologies/:id" element={<TerminologyDetailPage />} />
               <Route path="templates" element={<TemplateListPage />} />
+              <Route path="templates/new" element={<TemplateBuilderPage />} />
               <Route path="templates/:id" element={<TemplateDetailPage />} />
+              <Route path="templates/:id/edit" element={<TemplateBuilderPage />} />
               <Route path="documents" element={<DocumentListPage />} />
               <Route path="documents/:templateValue/:id" element={<DocumentDetailPage />} />
               <Route path="files" element={<FileListPage />} />
