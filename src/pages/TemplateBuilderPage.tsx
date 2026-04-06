@@ -115,6 +115,9 @@ export default function TemplateBuilderPage() {
   const [syncEnabled, setSyncEnabled] = useState(false)
   const [syncStrategy, setSyncStrategy] = useState('')
   const [tableName, setTableName] = useState('')
+  const [includeMetadata, setIncludeMetadata] = useState(false)
+  const [flattenArrays, setFlattenArrays] = useState(false)
+  const [maxArrayElements, setMaxArrayElements] = useState<number | undefined>(undefined)
 
   // UI state
   const [selectedFieldIndex, setSelectedFieldIndex] = useState<number | null>(null)
@@ -139,6 +142,9 @@ export default function TemplateBuilderPage() {
     setSyncEnabled(existing.reporting?.sync_enabled ?? false)
     setSyncStrategy(existing.reporting?.sync_strategy ?? '')
     setTableName(existing.reporting?.table_name ?? '')
+    setIncludeMetadata(existing.reporting?.include_metadata ?? false)
+    setFlattenArrays(existing.reporting?.flatten_arrays ?? false)
+    setMaxArrayElements(existing.reporting?.max_array_elements ?? undefined)
     setInitialized(true)
   }
   // For create mode, mark initialized immediately
@@ -248,6 +254,9 @@ export default function TemplateBuilderPage() {
       reporting.sync_enabled = true
       if (syncStrategy.trim()) reporting.sync_strategy = syncStrategy.trim()
       if (tableName.trim()) reporting.table_name = tableName.trim()
+      if (includeMetadata) reporting.include_metadata = true
+      if (flattenArrays) reporting.flatten_arrays = true
+      if (maxArrayElements != null) reporting.max_array_elements = maxArrayElements
     }
 
     if (isEdit && id) {
@@ -439,30 +448,68 @@ export default function TemplateBuilderPage() {
             <span className="text-sm text-gray-700">Enable reporting sync</span>
           </label>
           {syncEnabled && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Sync strategy</label>
-                <select
-                  value={syncStrategy}
-                  onChange={(e) => setSyncStrategy(e.target.value)}
-                  className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-                >
-                  <option value="">default</option>
-                  <option value="full">full</option>
-                  <option value="incremental">incremental</option>
-                </select>
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Sync strategy</label>
+                  <select
+                    value={syncStrategy}
+                    onChange={(e) => setSyncStrategy(e.target.value)}
+                    className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  >
+                    <option value="">default</option>
+                    <option value="full">full</option>
+                    <option value="incremental">incremental</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Table name</label>
+                  <input
+                    type="text"
+                    value={tableName}
+                    onChange={(e) => setTableName(e.target.value)}
+                    placeholder="auto-generated if empty"
+                    className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Table name</label>
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input
-                  type="text"
-                  value={tableName}
-                  onChange={(e) => setTableName(e.target.value)}
-                  placeholder="auto-generated if empty"
-                  className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  type="checkbox"
+                  checked={includeMetadata}
+                  onChange={(e) => setIncludeMetadata(e.target.checked)}
+                  className="rounded border-gray-300 text-blue-500 focus:ring-blue-400"
                 />
+                <span className="text-sm text-gray-700">Include document metadata in reporting table</span>
+              </label>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={flattenArrays}
+                    onChange={(e) => setFlattenArrays(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-500 focus:ring-blue-400"
+                  />
+                  <span className="text-sm text-gray-700">Flatten arrays (multi-row representation)</span>
+                </label>
+                <p className="text-xs text-gray-400 ml-6">
+                  When enabled, array fields produce one row per element. When disabled, arrays are stored as JSON columns.
+                </p>
+                {flattenArrays && (
+                  <div className="ml-6">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Max array elements</label>
+                    <input
+                      type="number"
+                      value={maxArrayElements ?? ''}
+                      onChange={(e) => setMaxArrayElements(e.target.value === '' ? undefined : Number(e.target.value))}
+                      placeholder="unlimited"
+                      min={1}
+                      className="w-32 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    />
+                  </div>
+                )}
               </div>
-            </div>
+            </>
           )}
         </Section>
 
