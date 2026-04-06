@@ -22,6 +22,7 @@ import NatsPage from '@/pages/NatsPage'
 import IntegrityPage from '@/pages/IntegrityPage'
 import ActivityPage from '@/pages/ActivityPage'
 import NLQueryPage from '@/pages/NLQueryPage'
+import APIKeysPage from '@/pages/APIKeysPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -59,6 +60,7 @@ export default function App() {
               <Route path="integrity" element={<IntegrityPage />} />
               <Route path="activity" element={<ActivityPage />} />
               <Route path="query" element={<NLQueryPage />} />
+              <Route path="api-keys" element={<APIKeysPage />} />
             </Route>
           </Routes>
         </BrowserRouter>

@@ -7,6 +7,7 @@ import {
   FileText,
   Files,
   BookMarked,
+  Key,
   Database,
   HardDrive,
   Radio,
@@ -49,6 +50,12 @@ const navSections = [
     items: [
       { to: '/integrity', icon: ShieldCheck, label: 'Integrity' },
       { to: '/activity', icon: Activity, label: 'Activity' },
+    ],
+  },
+  {
+    label: 'Admin',
+    items: [
+      { to: '/api-keys', icon: Key, label: 'API Keys' },
     ],
   },
   {
