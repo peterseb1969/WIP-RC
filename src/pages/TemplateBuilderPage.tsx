@@ -201,6 +201,24 @@ export default function TemplateBuilderPage() {
     }
   }, [fields, selectedFieldIndex])
 
+  const handleReorderField = useCallback((fromIndex: number, toIndex: number) => {
+    setFields(prev => {
+      const next = [...prev]
+      const moved = next.splice(fromIndex, 1)[0]!
+      next.splice(toIndex, 0, moved)
+      return next
+    })
+    // Update selected index to follow the moved field
+    if (selectedFieldIndex === fromIndex) {
+      setSelectedFieldIndex(toIndex)
+    } else if (selectedFieldIndex !== null) {
+      let newSelected = selectedFieldIndex
+      if (fromIndex < selectedFieldIndex && toIndex >= selectedFieldIndex) newSelected--
+      else if (fromIndex > selectedFieldIndex && toIndex <= selectedFieldIndex) newSelected++
+      setSelectedFieldIndex(newSelected)
+    }
+  }, [selectedFieldIndex])
+
   const handleFieldChange = useCallback((updated: FieldDefinition) => {
     if (selectedFieldIndex === null) return
     setFields(prev => prev.map((f, i) => i === selectedFieldIndex ? updated : f))
@@ -496,6 +514,7 @@ export default function TemplateBuilderPage() {
             selectedIndex={selectedFieldIndex}
             onSelectField={setSelectedFieldIndex}
             onRemoveField={handleRemoveField}
+            onReorder={handleReorderField}
           />
           <FieldQuickAdd
             onAdd={handleAddField}

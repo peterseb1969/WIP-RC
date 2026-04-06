@@ -1,3 +1,4 @@
+import { useState, useCallback } from 'react'
 import { Key, GripVertical, Pencil, Trash2 } from 'lucide-react'
 import type { FieldDefinition } from '@wip/client'
 import { cn } from '@/lib/cn'
@@ -41,16 +42,26 @@ function FieldRow({
   isIdentity,
   isSelected,
   isInherited,
+  isDragOver,
   onSelect,
   onRemove,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onDrop,
 }: {
   field: FieldDefinition
   index: number
   isIdentity: boolean
   isSelected: boolean
   isInherited: boolean
+  isDragOver: boolean
   onSelect: (index: number) => void
   onRemove: (index: number) => void
+  onDragStart: (index: number) => void
+  onDragOver: (e: React.DragEvent, index: number) => void
+  onDragEnd: () => void
+  onDrop: (e: React.DragEvent, index: number) => void
 }) {
   return (
     <div
@@ -60,13 +71,26 @@ function FieldRow({
         !isSelected && 'hover:bg-gray-50 border-l-2 border-l-transparent',
         isIdentity && !isSelected && 'bg-amber-50/50',
         isInherited && 'opacity-60',
+        isDragOver && 'border-t-2 border-t-blue-400',
       )}
       onClick={() => onSelect(index)}
+      draggable={!isInherited}
+      onDragStart={(e) => {
+        if (isInherited) { e.preventDefault(); return }
+        e.dataTransfer.effectAllowed = 'move'
+        onDragStart(index)
+      }}
+      onDragOver={(e) => onDragOver(e, index)}
+      onDragEnd={onDragEnd}
+      onDrop={(e) => onDrop(e, index)}
     >
-      {/* Drag handle placeholder — will be functional in step 8 */}
+      {/* Drag handle */}
       <GripVertical
         size={14}
-        className="text-gray-300 shrink-0 cursor-grab"
+        className={cn(
+          'shrink-0',
+          isInherited ? 'text-gray-200' : 'text-gray-300 cursor-grab active:cursor-grabbing',
+        )}
       />
 
       {/* Field info */}
@@ -127,6 +151,7 @@ export interface FieldListProps {
   selectedIndex: number | null
   onSelectField: (index: number) => void
   onRemoveField: (index: number) => void
+  onReorder?: (fromIndex: number, toIndex: number) => void
 }
 
 export default function FieldList({
@@ -135,11 +160,41 @@ export default function FieldList({
   selectedIndex,
   onSelectField,
   onRemoveField,
+  onReorder,
 }: FieldListProps) {
   const identitySet = new Set(identityFields)
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+
+  const handleDragStart = useCallback((index: number) => {
+    setDragIndex(index)
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverIndex(index)
+  }, [])
+
+  const handleDragEnd = useCallback(() => {
+    setDragIndex(null)
+    setDragOverIndex(null)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent, toIndex: number) => {
+    e.preventDefault()
+    if (dragIndex !== null && dragIndex !== toIndex && onReorder) {
+      onReorder(dragIndex, toIndex)
+    }
+    setDragIndex(null)
+    setDragOverIndex(null)
+  }, [dragIndex, onReorder])
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
+    <div
+      className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100"
+      onDragOver={(e) => e.preventDefault()}
+    >
       {fields.length === 0 ? (
         <p className="text-sm text-gray-400 p-6 text-center">
           No fields yet. Use quick-add below or click "Add Field" to get started.
@@ -153,8 +208,13 @@ export default function FieldList({
             isIdentity={identitySet.has(field.name)}
             isSelected={selectedIndex === i}
             isInherited={!!field.inherited}
+            isDragOver={dragOverIndex === i && dragIndex !== i}
             onSelect={onSelectField}
             onRemove={onRemoveField}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+            onDrop={handleDrop}
           />
         ))
       )}
