@@ -8,6 +8,11 @@ import {
   Tag,
   FileText,
   Link2,
+  GitBranch,
+  Shield,
+  Database,
+  Calendar,
+  User,
 } from 'lucide-react'
 import { useTemplate, useTerminologies, useTemplates } from '@wip/react'
 import type { FieldDefinition } from '@wip/client'
@@ -16,6 +21,42 @@ import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
 import JsonViewer from '@/components/common/JsonViewer'
 import { cn } from '@/lib/cn'
+
+// Extended template fields that may exist in the API response (CASE-21 tracking)
+type TemplateExtras = {
+  extends?: string | null
+  extends_version?: number | null
+  rules?: Array<{ name?: string; expression?: string; message?: string; severity?: string }>
+  metadata?: { domain?: string; category?: string; tags?: string[]; custom?: Record<string, unknown> }
+  reporting?: { sync_enabled?: boolean; sync_strategy?: string; table_name?: string; include_metadata?: boolean; flatten_arrays?: boolean; max_array_elements?: number }
+  created_by?: string | null
+  updated_at?: string | null
+  updated_by?: string | null
+}
+function tplExtras(t: unknown): TemplateExtras {
+  return (t ?? {}) as TemplateExtras
+}
+
+// Extended field definition properties
+type FieldExtras = {
+  default_value?: unknown
+  reference_type?: string
+  target_templates?: string[]
+  target_terminologies?: string[]
+  version_strategy?: string
+  file_config?: { allowed_types?: string[]; max_size_mb?: number; multiple?: boolean; max_files?: number }
+  array_item_type?: string
+  array_terminology_ref?: string
+  array_template_ref?: string
+  validation?: { pattern?: string; min_length?: number; max_length?: number; minimum?: number; maximum?: number; enum?: string[] }
+  semantic_type?: string
+  include_subtypes?: boolean
+  inherited?: boolean
+  inherited_from?: string
+}
+function fieldExtras(f: unknown): FieldExtras {
+  return (f ?? {}) as FieldExtras
+}
 
 // ---------------------------------------------------------------------------
 // Field Type Badge
@@ -63,52 +104,93 @@ function FieldRow({ field, isIdentity, terminologyMap, templateMap }: {
   const terminologyRef = field.terminology_ref
   const referenceRef = field.template_ref
 
+  const fx = fieldExtras(field)
+
+  // Collect detail chips for sub-properties
+  const details: string[] = []
+  if (fx.default_value !== undefined) details.push(`default: ${JSON.stringify(fx.default_value)}`)
+  if (fx.semantic_type) details.push(`semantic: ${fx.semantic_type}`)
+  if (fx.reference_type) details.push(`ref: ${fx.reference_type}`)
+  if (fx.version_strategy) details.push(`ver: ${fx.version_strategy}`)
+  if (fx.include_subtypes) details.push('incl. subtypes')
+  if (fx.inherited) details.push(`inherited from ${fx.inherited_from ?? '?'}`)
+  if (fx.array_item_type) details.push(`array<${fx.array_item_type}>`)
+
+  // Validation summary
+  const val = fx.validation
+  const valParts: string[] = []
+  if (val?.pattern) valParts.push(`pattern: ${val.pattern}`)
+  if (val?.min_length != null) valParts.push(`min: ${val.min_length}`)
+  if (val?.max_length != null) valParts.push(`max: ${val.max_length}`)
+  if (val?.minimum != null) valParts.push(`>= ${val.minimum}`)
+  if (val?.maximum != null) valParts.push(`<= ${val.maximum}`)
+  if (val?.enum?.length) valParts.push(`enum: [${val.enum.join(', ')}]`)
+
+  // File config summary
+  const fc = fx.file_config
+  const fcParts: string[] = []
+  if (fc?.allowed_types?.length) fcParts.push(fc.allowed_types.join(', '))
+  if (fc?.max_size_mb) fcParts.push(`${fc.max_size_mb} MB max`)
+  if (fc?.multiple) fcParts.push(`multi (${fc.max_files ?? '∞'})`)
+
   return (
     <div className={cn(
-      'flex items-center gap-3 px-4 py-2.5',
+      'px-4 py-2.5',
       isIdentity && 'bg-amber-50/50'
     )}>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-mono text-gray-800">{name}</span>
-          {isIdentity && <Key size={12} className="text-amber-500" aria-label="Identity field" />}
-          {mandatory && <span className="text-red-400 text-xs">*</span>}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-mono text-gray-800">{name}</span>
+            {isIdentity && <Key size={12} className="text-amber-500" aria-label="Identity field" />}
+            {mandatory && <span className="text-red-400 text-xs">*</span>}
+          </div>
+          {label && label !== name && (
+            <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+          )}
         </div>
-        {label && label !== name && (
-          <p className="text-xs text-gray-400 mt-0.5">{label}</p>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          <TypeBadge type={type} />
+          {terminologyRef && (() => {
+            const entry = terminologyMap.get(terminologyRef)
+            return entry ? (
+              <Link to={`/terminologies/${entry.id}`} className="flex items-center gap-1 text-xs text-orange-500 hover:text-orange-700">
+                <Tag size={10} />
+                {entry.label}
+              </Link>
+            ) : (
+              <span className="flex items-center gap-1 text-xs text-orange-500 font-mono">
+                <Tag size={10} />
+                {terminologyRef}
+              </span>
+            )
+          })()}
+          {referenceRef && (() => {
+            const entry = templateMap.get(referenceRef)
+            return entry ? (
+              <Link to={`/templates/${entry.id}`} className="flex items-center gap-1 text-xs text-pink-500 hover:text-pink-700">
+                <Link2 size={10} />
+                {entry.label}
+              </Link>
+            ) : (
+              <span className="flex items-center gap-1 text-xs text-pink-500 font-mono">
+                <Link2 size={10} />
+                {referenceRef}
+              </span>
+            )
+          })()}
+        </div>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <TypeBadge type={type} />
-        {terminologyRef && (() => {
-          const entry = terminologyMap.get(terminologyRef)
-          return entry ? (
-            <Link to={`/terminologies/${entry.id}`} className="flex items-center gap-1 text-xs text-orange-500 hover:text-orange-700">
-              <Tag size={10} />
-              {entry.label}
-            </Link>
-          ) : (
-            <span className="flex items-center gap-1 text-xs text-orange-500 font-mono">
-              <Tag size={10} />
-              {terminologyRef}
-            </span>
-          )
-        })()}
-        {referenceRef && (() => {
-          const entry = templateMap.get(referenceRef)
-          return entry ? (
-            <Link to={`/templates/${entry.id}`} className="flex items-center gap-1 text-xs text-pink-500 hover:text-pink-700">
-              <Link2 size={10} />
-              {entry.label}
-            </Link>
-          ) : (
-            <span className="flex items-center gap-1 text-xs text-pink-500 font-mono">
-              <Link2 size={10} />
-              {referenceRef}
-            </span>
-          )
-        })()}
-      </div>
+      {/* Sub-properties row */}
+      {(details.length > 0 || valParts.length > 0 || fcParts.length > 0 || fx.target_templates?.length || fx.target_terminologies?.length) && (
+        <div className="flex items-center flex-wrap gap-x-3 gap-y-0.5 mt-1 ml-0 text-[10px] text-gray-400">
+          {details.map((d, i) => <span key={i}>{d}</span>)}
+          {valParts.length > 0 && <span className="text-purple-400">validation: {valParts.join(', ')}</span>}
+          {fcParts.length > 0 && <span className="text-gray-400">file: {fcParts.join(', ')}</span>}
+          {fx.target_templates?.length ? <span>targets: {fx.target_templates.join(', ')}</span> : null}
+          {fx.target_terminologies?.length ? <span>terminologies: {fx.target_terminologies.join(', ')}</span> : null}
+        </div>
+      )}
     </div>
   )
 }
@@ -174,7 +256,7 @@ export default function TemplateDetailPage() {
       </div>
 
       {/* Metadata */}
-      <div className="flex items-center gap-6 text-xs text-gray-400">
+      <div className="flex items-center flex-wrap gap-x-6 gap-y-1 text-xs text-gray-400">
         <span className="flex items-center gap-1"><Hash size={10} /> ID: {template.template_id}</span>
         <span>{fields.length} fields</span>
         {identityFields.size > 0 && (
@@ -183,8 +265,82 @@ export default function TemplateDetailPage() {
             Identity: {Array.from(identityFields).join(', ')}
           </span>
         )}
-        {template.created_at && <span>Created: {new Date(template.created_at).toLocaleDateString()}</span>}
+        {tplExtras(template).extends && (
+          <span className="flex items-center gap-1">
+            <GitBranch size={10} />
+            Extends: {(() => {
+              const parentId = tplExtras(template).extends!
+              const entry = templateMap.get(parentId)
+              return entry ? (
+                <Link to={`/templates/${entry.id}`} className="text-indigo-500 hover:text-indigo-700">
+                  {entry.label}
+                </Link>
+              ) : parentId
+            })()}
+            {tplExtras(template).extends_version != null && ` (v${tplExtras(template).extends_version})`}
+          </span>
+        )}
+        {template.created_at && (
+          <span className="flex items-center gap-1">
+            <Calendar size={10} />
+            Created: {new Date(template.created_at).toLocaleDateString()}
+          </span>
+        )}
+        {tplExtras(template).created_by && (
+          <span className="flex items-center gap-1">
+            <User size={10} />
+            {tplExtras(template).created_by}
+          </span>
+        )}
+        {tplExtras(template).updated_at && (
+          <span>Updated: {new Date(tplExtras(template).updated_at!).toLocaleDateString()}</span>
+        )}
+        {tplExtras(template).updated_by && (
+          <span>by {tplExtras(template).updated_by}</span>
+        )}
       </div>
+
+      {/* Template metadata (domain, category, tags) */}
+      {(() => {
+        const meta = tplExtras(template).metadata
+        if (!meta) return null
+        if (!meta.domain && !meta.category && !meta.tags?.length) return null
+        return (
+          <div className="flex items-center flex-wrap gap-3 text-xs">
+            {meta.domain && (
+              <span className="text-gray-500">Domain: <span className="text-gray-700">{meta.domain}</span></span>
+            )}
+            {meta.category && (
+              <span className="text-gray-500">Category: <span className="text-gray-700">{meta.category}</span></span>
+            )}
+            {meta.tags && meta.tags.length > 0 && (
+              <div className="flex items-center gap-1">
+                <span className="text-gray-500">Tags:</span>
+                {meta.tags.map(tag => (
+                  <span key={tag} className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-[10px]">{tag}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* Reporting config */}
+      {(() => {
+        const rpt = tplExtras(template).reporting
+        if (!rpt || !rpt.sync_enabled) return null
+        return (
+          <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+            <span className="flex items-center gap-1">
+              <Database size={10} />
+              Reporting: {rpt.sync_strategy ?? 'default'}
+            </span>
+            {rpt.table_name && <span>Table: <span className="font-mono">{rpt.table_name}</span></span>}
+            {rpt.include_metadata && <span>+metadata</span>}
+            {rpt.flatten_arrays && <span>flatten arrays{rpt.max_array_elements ? ` (max ${rpt.max_array_elements})` : ''}</span>}
+          </div>
+        )
+      })()}
 
       {/* Fields */}
       <div>
@@ -205,6 +361,40 @@ export default function TemplateDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Validation Rules */}
+      {(() => {
+        const rules = tplExtras(template).rules
+        if (!rules?.length) return null
+        return (
+          <div>
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              <span className="flex items-center gap-1"><Shield size={12} /> Validation Rules ({rules.length})</span>
+            </h2>
+            <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
+              {rules.map((rule, i) => (
+                <div key={i} className="px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    {rule.name && <span className="text-sm font-medium text-gray-700">{rule.name}</span>}
+                    {rule.severity && (
+                      <span className={cn(
+                        'text-[10px] px-1.5 py-0.5 rounded',
+                        rule.severity === 'error' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                      )}>{rule.severity}</span>
+                    )}
+                  </div>
+                  {rule.expression && (
+                    <p className="text-xs font-mono text-gray-400 mt-0.5">{rule.expression}</p>
+                  )}
+                  {rule.message && (
+                    <p className="text-xs text-gray-500 mt-0.5">{rule.message}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Quick link to documents */}
       <Link

@@ -295,11 +295,27 @@ export default function FileDetailPage() {
           {file.updated_at && file.updated_at !== file.uploaded_at && (
             <MetadataRow label="Updated">{new Date(file.updated_at).toLocaleString()}</MetadataRow>
           )}
+          {(file as unknown as { updated_by?: string }).updated_by && (
+            <MetadataRow label="Updated By">
+              <span className="flex items-center gap-1">
+                <User size={12} className="text-gray-400" />
+                {(file as unknown as { updated_by?: string }).updated_by}
+              </span>
+            </MetadataRow>
+          )}
+          {(file as unknown as { storage_key?: string }).storage_key && (
+            <MetadataRow label="Storage Key">
+              <span className="font-mono text-xs text-gray-500 flex items-center gap-1">
+                {(file as unknown as { storage_key?: string }).storage_key}
+                <CopyButton value={(file as unknown as { storage_key?: string }).storage_key!} />
+              </span>
+            </MetadataRow>
+          )}
         </div>
       </div>
 
       {/* File metadata (description, tags, category) */}
-      {file.metadata && (file.metadata.description || file.metadata.tags?.length > 0 || file.metadata.category) && (
+      {file.metadata && (file.metadata.description || file.metadata.tags?.length > 0 || file.metadata.category || !!(file.metadata as unknown as Record<string, unknown>).custom) && (
         <div>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Metadata</h2>
           <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
@@ -323,6 +339,15 @@ export default function FileDetailPage() {
                 </div>
               </MetadataRow>
             )}
+            {(() => {
+              const custom = (file.metadata as unknown as Record<string, unknown>).custom as Record<string, unknown> | undefined
+              if (!custom || Object.keys(custom).length === 0) return null
+              return (
+                <MetadataRow label="Custom">
+                  <JsonViewer data={custom} maxHeight="150px" collapsed />
+                </MetadataRow>
+              )
+            })()}
           </div>
         </div>
       )}

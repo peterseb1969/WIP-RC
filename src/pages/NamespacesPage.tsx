@@ -308,6 +308,41 @@ function NamespaceRow({
             )}
           </div>
 
+          {/* ID Config */}
+          {(() => {
+            const idConfig = (ns as Record<string, unknown>).id_config as Record<string, unknown> | undefined
+            if (!idConfig || Object.keys(idConfig).length === 0) return null
+            return (
+              <details className="group">
+                <summary className="text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-600">
+                  ID Config ({Object.keys(idConfig).length} entity types)
+                </summary>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {Object.entries(idConfig).map(([entity, config]) => (
+                    <div key={entity} className="bg-gray-50 rounded px-2 py-1 text-xs">
+                      <span className="font-medium text-gray-600">{entity}:</span>{' '}
+                      <span className="text-gray-400 font-mono">{JSON.stringify(config)}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )
+          })()}
+
+          {/* Allowed External Refs */}
+          {(() => {
+            const refs = (ns as Record<string, unknown>).allowed_external_refs as string[] | undefined
+            if (!refs?.length) return null
+            return (
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <span>External refs:</span>
+                {refs.map(r => (
+                  <span key={r} className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-mono">{r}</span>
+                ))}
+              </div>
+            )
+          })()}
+
           {/* Raw JSON */}
           <details className="group">
             <summary className="text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-600">
