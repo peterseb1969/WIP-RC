@@ -582,6 +582,186 @@ These map to WIP REST API calls made by the Express backend:
 - `get_document(id)` → `GET /api/document-store/documents/:id`
 - `list_terms(terminology_id)` → `GET /api/def-store/terminologies/:id/terms`
 
+## Template Builder — Design Spec
+
+*Agreed with Peter 2026-04-06. This covers the create/edit UI for templates — the most complex CRUD in the console.*
+
+### Design Principles
+
+1. **No wizard.** Admins dislike forced workflows. Single page with collapsible sections. User fills in what they want, in any order.
+2. **Slide-out field editor.** Right panel (60% width) for editing a single field's full configuration. Left side shows the condensed field list so the user retains context while editing.
+3. **Quick-add for rapid field creation.** Inline row at the bottom of the field table: type name, pick type, toggle mandatory, hit Enter. Covers the 80% case (simple string/number fields). Open slide-out only for fields needing terminology refs, validation, file config, etc.
+4. **Advanced toggles.** Hide power-user properties behind expandable sections to keep the common case clean.
+5. **Always warn about versioning.** Pre-save validation with contextual warnings based on namespace config and document usage.
+6. **Template cloning.** Clone button on detail page pre-fills the create form. Preserves `extends` relationship by default, with option to flatten (resolve inheritance into concrete fields).
+
+### Page Structure
+
+The template builder is a single page at `/templates/new` (create) or integrated into `/templates/:id` (edit). Sections:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Template Metadata                                           │
+│ ┌─────────┐ ┌─────────┐ ┌──────────┐ ┌──────────────────┐ │
+│ │ value * │ │ label * │ │namespace*│ │ extends (parent) │ │
+│ └─────────┘ └─────────┘ └──────────┘ └──────────────────┘ │
+│ ┌──────────────────────────────────────────────────────────┐│
+│ │ description                                              ││
+│ └──────────────────────────────────────────────────────────┘│
+│                                                             │
+│ ▸ Advanced: metadata (domain, category, tags), reporting    │
+│   config (sync_enabled, strategy, table_name, flatten)      │
+├─────────────────────────────────────────────────────────────┤
+│ Fields                                        [+ Quick Add] │
+│ ┌───────────────────────────────────┬───────────────────────┤
+│ │ Field List (drag-reorderable)     │ Field Slide-Out (60%) │
+│ │                                   │                       │
+│ │ ☰ name     [string]  ● mandatory │ Name: [         ]     │
+│ │ ☰ amount   [number]  ● mandatory │ Label: [        ]     │
+│ │ ☰ category [term]    ○ optional  │ Type: [dropdown ]     │
+│ │ ☰ receipt  [file]    ○ optional  │ Mandatory: [toggle]   │
+│ │                                   │ Default: [       ]    │
+│ │ ┌─────────────────────────────┐  │                       │
+│ │ │ name [type ▾] [●] Enter    │  │ ▸ Advanced            │
+│ │ └─────────────────────────────┘  │   Semantic type       │
+│ │  (quick add row)                 │   Validation (pattern,│
+│ │                                   │     min/max)          │
+│ │                                   │   File config         │
+│ │                                   │   Array config        │
+│ │                                   │                       │
+│ │                                   │ ▸ References          │
+│ │                                   │   Terminology ref     │
+│ │                                   │   Template ref        │
+│ │                                   │   Target templates    │
+│ │                                   │   Version strategy    │
+│ │                                   │                       │
+│ │                                   │ [Delete Field]        │
+│ └───────────────────────────────────┴───────────────────────┤
+│ Identity Fields                                             │
+│ ☑ name  ☐ amount  ☑ category  ☐ receipt                    │
+│ (checkboxes from field list — order matters for hash)       │
+├─────────────────────────────────────────────────────────────┤
+│ Validation Rules                               [+ Add Rule] │
+│ ┌──────────────────────────────────────────────────────────┐│
+│ │ Rule editor (per rule):                                  ││
+│ │ Type: [conditional_required ▾]                           ││
+│ │ Conditions: [field] [operator ▾] [value]  [+ condition]  ││
+│ │ Target field(s): [multi-select from field list]          ││
+│ │ Constraints: required/allowed_values/pattern/min/max     ││
+│ │ Error message: [                                     ]   ││
+│ └──────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│ [Validate] [Save as Draft] [Save & Activate]     [Cancel]  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Field Slide-Out Detail
+
+The slide-out panel adapts based on field type:
+
+| Field Type | Additional Config Shown |
+|---|---|
+| `string` | validation (pattern, min/max length), semantic_type, enum |
+| `number` / `integer` | validation (min/max value), semantic_type |
+| `boolean` | default_value toggle |
+| `date` / `datetime` | default_value, validation (min/max) |
+| `term` | terminology_ref picker (searchable dropdown of terminologies), include_subtypes toggle |
+| `reference` | reference_type, template_ref / target_templates picker, version_strategy |
+| `file` | file_config panel: allowed_types (chips), max_size_mb, multiple toggle, max_files |
+| `array` | array_item_type picker, then recursive config matching the item type |
+| `object` | (nested fields — deferred, show raw JSON editor for v1) |
+
+**Default visible** (all types): name, label, type, mandatory, default_value
+
+**Advanced section** (collapsed by default): semantic_type, validation, metadata
+
+**References section** (shown only for term/reference types): terminology_ref, template_ref, target_templates, version_strategy
+
+### Versioning Warnings (Pre-Save)
+
+Before committing an update to an active template, the builder runs `validateTemplate()` and `activateTemplate(id, { dry_run: true })` and shows contextual warnings:
+
+| Situation | Warning Level | Message |
+|---|---|---|
+| Template is draft | None | Just save |
+| Active, no documents | Info | "This will create version N+1. No documents are affected." |
+| Active, documents use pinned versions | Info | "X documents use pinned versions (unaffected). New documents will use v(N+1)." |
+| Active, documents use `latest` | Warning | "X documents reference this template as 'latest'. They will resolve to v(N+1) after cache refresh (~5s)." |
+| Identity fields changed, docs use `latest` | **Blocking** | "Changing identity fields while X documents use 'latest' will cause inconsistent identity hashing. Either: (a) pin existing documents to the current version first, or (b) create a new template." |
+| Identity fields changed, docs use pinned versions | Info | "Identity fields changed. X existing documents use pinned v(N) (unaffected). New documents on v(N+1) will use the new identity scheme." |
+| Namespace `isolation_mode: strict` | Error (if violated) | "This namespace is strict-isolated. References to [template/terminology] in namespace [X] are not allowed." |
+| `will_also_activate` non-empty | Info | "Activating this template will also activate: [list]. These are dependencies." |
+
+### Template Diff View
+
+When editing an active template, a "Review Changes" step before save shows:
+
+- **Added fields:** highlighted green
+- **Removed fields:** highlighted red (with warning if any documents populate these fields)
+- **Changed fields:** show old → new for each modified property
+- **Identity field changes:** prominently highlighted with the versioning warning above
+- **Rule changes:** added/removed/modified rules
+
+This uses a client-side diff between the current template (from `useTemplate()`) and the form state. No backend endpoint needed.
+
+### Inheritance
+
+When a template `extends` a parent:
+
+- Inherited fields shown in the field list with a subtle badge ("inherited from PARENT_VALUE") and dimmed styling
+- Inherited fields are **read-only** in the field list — click opens the parent template detail instead
+- User can add new fields (appended after inherited fields) or override inherited fields (creates a local copy)
+- Parent version can be pinned (`extends_version`) or track latest
+- "Flatten" option on clone: resolves all inherited fields into concrete fields, removes the `extends` relationship
+
+### Field Reordering
+
+Drag-and-drop on the field list (grip handle on the left of each row). Updates the `fields` array order. Nice-to-have for admin convenience — field order affects form generation and table display order.
+
+### Components to Build
+
+```
+src/components/templates/
+├── TemplateBuilder.tsx         # Main builder page (create/edit)
+├── FieldList.tsx               # Drag-reorderable field list with quick-add
+├── FieldSlideOut.tsx           # Right panel for single field editing
+├── FieldQuickAdd.tsx           # Inline row for rapid field creation
+├── IdentityFieldPicker.tsx     # Checkbox grid for identity fields
+├── RuleEditor.tsx              # Single validation rule form
+├── RuleList.tsx                # List of rules with add/remove
+├── TemplateDiffView.tsx        # Side-by-side diff before save
+├── VersionWarnings.tsx         # Pre-save validation warning panel
+├── ReportingConfigPanel.tsx    # Reporting config (advanced section)
+└── MetadataPanel.tsx           # Template metadata (advanced section)
+```
+
+### API Calls Used
+
+| Action | Method |
+|---|---|
+| Create template | `client.templateStore.createTemplate(data)` |
+| Update template | `client.templateStore.updateTemplate(id, data)` |
+| Validate before activate | `client.templateStore.validateTemplate(id, { check_terminologies: true, check_templates: true })` |
+| Dry-run activation | `client.templateStore.activateTemplate(id, { namespace, dry_run: true })` |
+| Activate | `client.templateStore.activateTemplate(id, { namespace })` |
+| Check children (cascade) | `client.templateStore.getChildren(id)` |
+| Clone source | `client.templateStore.getTemplate(id)` or `getTemplateRaw(id)` (raw = without inheritance resolution, for preserving extends) |
+| Version history | `client.templateStore.getTemplateVersions(value)` |
+| Document count (for warnings) | `client.documentStore.listDocuments({ template_value, page_size: 1 })` → use `total` |
+
+### Implementation Order
+
+1. **FieldList + FieldSlideOut** — the core interaction. Get this right first.
+2. **TemplateBuilder** — metadata form + field list + save flow.
+3. **Quick-add row** — speed enhancement for field creation.
+4. **VersionWarnings** — pre-save validation with contextual warnings.
+5. **RuleEditor/RuleList** — validation rule builder.
+6. **TemplateDiffView** — review changes before save.
+7. **IdentityFieldPicker** — checkbox selection from field list.
+8. **Drag-and-drop reordering** — nice-to-have, add last.
+
 ## Open Questions for Peter
 
 1. **NL Query LLM**: Plan assumes Claude API via `@anthropic-ai/sdk`. Is that right, or do you want local LLM support too?
