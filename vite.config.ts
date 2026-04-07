@@ -10,7 +10,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: 5174,
     proxy: {
       '/wip': 'http://localhost:3010',
       '/api': 'http://localhost:3010',

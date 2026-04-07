@@ -762,6 +762,230 @@ src/components/templates/
 7. **IdentityFieldPicker** — checkbox selection from field list.
 8. **Drag-and-drop reordering** — nice-to-have, add last.
 
+## Term Detail Page & Ontology UI — Design Spec
+
+**Status:** Planned (2026-04-07). Approved by Peter. Not yet implemented.
+
+### Goal
+
+Add a dedicated Term Detail page that exposes WIP's full ontology layer: relationships (typed, directed, cross-terminology), hierarchy traversal (ancestors/descendants via `is_a` or any other type), and CRUD on relationships. This is the missing piece of the schema-layer CRUD roadmap.
+
+### Decisions agreed with Peter
+
+| # | Question | Decision |
+|---|---|---|
+| 1 | Inline expansion vs dedicated page | **Dedicated `TermDetailPage`** at `/terminologies/:tid/terms/:termId`. Terms get their own URL like every other entity. |
+| 2 | Hierarchy visualization style | **Expandable nested rows.** Indented text rows with chevrons; click to lazy-load children/parents one level at a time. No graph viz. |
+| 3 | Cross-terminology target picker | **Invest in a search-across-all-terminologies picker.** Simpler "pick terminology, then term" was rejected — Peter wants the ergonomics. |
+| 4 | Relationship type source | **Runtime** — fetch from `_ONTOLOGY_RELATIONSHIP_TYPES` system terminology. Fall back to a hardcoded list if the call fails. |
+| 5 | Scope of first build | All of Phase 1 below (Overview + Relationships + Hierarchy in one go). |
+
+### Routes
+
+```
+/terminologies/:tid                                    # Existing — terminology detail
+/terminologies/:tid/terms/:termId                      # NEW — term detail (defaults to Overview tab)
+/terminologies/:tid/terms/:termId?tab=relationships    # NEW — relationships tab
+/terminologies/:tid/terms/:termId?tab=hierarchy        # NEW — hierarchy tab
+/terminologies/:tid/terms/:termId?tab=raw              # NEW — raw JSON
+```
+
+The current `TerminologyDetailPage` term name (an inline row, not a link) gets converted to a `<Link>` to the new route. The "edit term" inline behaviour stays put — clicking the name opens the detail page; clicking the pencil opens the existing inline edit form.
+
+### Data model recap
+
+WIP entities involved:
+
+- **Term** — `term.term_id`, `term.value`, `term.label`, `term.parent_term_id` (legacy single-parent), aliases, translations, metadata, status, `replaced_by_term_id`
+- **Relationship** (`@wip/client`'s `Relationship` type from `types/ontology.ts`) — fields: `namespace`, `source_term_id`, `target_term_id`, `relationship_type`, `relationship_value`, denormalized `source/target_term_value`, `source/target_term_label`, `source/target_terminology_id`, `metadata`, `status`, `created_at`, `created_by`
+- **`_ONTOLOGY_RELATIONSHIP_TYPES`** system terminology — drives the type dropdown. Built-in types: `is_a`/`has_subtype`, `part_of`/`has_part`, `maps_to`/`mapped_from`, `related_to`, `finding_site`, `causative_agent`. OBO imports add more (`regulates`, `capable_of`, etc.)
+
+### Available client methods (already in `@wip/client` 0.9.0)
+
+- `defStore.listRelationships({ term_id, direction: 'outgoing' | 'incoming' | 'both', relationship_type?, limit?, offset? })`
+- `defStore.listAllRelationships({ namespace, relationship_type?, limit?, offset? })`
+- `defStore.createRelationships(items: CreateRelationshipRequest[], namespace)` — bulk
+- `defStore.deleteRelationships(items: DeleteRelationshipRequest[], namespace)` — bulk
+- `defStore.getAncestors(termId, { relationship_type?, max_depth? })` — BFS, max_depth defaults 10
+- `defStore.getDescendants(termId, { relationship_type?, max_depth? })`
+- `defStore.getParents(termId, namespace)` — direct only
+- `defStore.getChildren(termId, namespace)` — direct only
+
+`@wip/react` only ships `useCreateRelationships` and `useDeleteRelationships` as hooks. Everything else uses `useQuery` + `useWipClient()` directly (same pattern as `APIKeysPage.tsx`).
+
+### Page layout
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│ ← Back to <terminology label>                                       │
+│                                                                     │
+│ <Term icon> term.label  [code: term.value]   [status badge]         │
+│ <description text muted>                                            │
+│                                                                     │
+│ ┌─────────────────────────────────────────────────────────────────┐ │
+│ │ [Overview] [Relationships (12)] [Hierarchy] [Raw JSON]          │ │
+│ └─────────────────────────────────────────────────────────────────┘ │
+│                                                                     │
+│ <tab content>                                                       │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+The relationship count badge on the tab uses `listRelationships({ term_id, direction: 'both', limit: 1 })` for the count only.
+
+### Tab 1: Overview
+
+Pure read/edit of the existing Term fields. Reuse the form helpers from `TerminologyDetailPage`'s inline edit form. Sections:
+
+- **Identity** — value (read-only after create), label, description
+- **Aliases** — chip list, add/remove
+- **Translations** — language → label table
+- **Hierarchy (legacy)** — `parent_term_id` (deprecate-friendly: show as a link to the parent term, with a note "Use Relationships tab for multi-parent / typed parents")
+- **Status** — active / deprecated / replaced-by picker
+- **Metadata** — JSON editor (collapsed by default)
+- **Audit** — created_at, created_by, updated_at, updated_by
+
+Buttons: Edit, Save, Cancel, Deprecate, Delete (matching the inline TermRow patterns).
+
+### Tab 2: Relationships
+
+Two collapsible sections, both default-expanded:
+
+```
+┌─ Outgoing ──────────────────────────────────────────────[+ Add]──┐
+│  is_a (3)                                                         │
+│   • <target.label> [target.value]  →  <target_terminology>   [×]  │
+│   • <target.label> [target.value]  →  <target_terminology>   [×]  │
+│   • <target.label> [target.value]                            [×]  │
+│  part_of (1)                                                      │
+│   • <target.label> [target.value]                            [×]  │
+│  ...                                                              │
+└───────────────────────────────────────────────────────────────────┘
+
+┌─ Incoming ──────────────────────────────────────────────────────┐
+│  has_subtype (5)                                                 │
+│   • <source.label> [source.value]                                │
+│   • ...                                                          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+- Group rows by `relationship_type` with type label as a sub-header
+- Each row: target term (link to its detail page if same namespace), terminology badge if different from current term's terminology, delete button
+- Cross-terminology rows get a small distinguishing icon/label
+- Pagination: 50 per type initially, "Load more" button per group (use offset)
+- Incoming section is read-only — incoming relationships are added by editing the *source* term
+
+**Add Relationship form** (slide-out panel from the right, 40% width — pattern from FieldSlideOut):
+
+```
+Add Relationship
+
+Direction: ( ) Outgoing  ( ) Incoming  [defaults to Outgoing]
+
+Relationship type: [is_a ▼]   ← from _ONTOLOGY_RELATIONSHIP_TYPES,
+                                   shows label not value, fallback list
+                                   if fetch fails
+
+Target term: [search... ]    ← cross-terminology picker (see below)
+
+[ Add ] [ Cancel ]
+```
+
+Implementation:
+- Direction toggle: outgoing creates `{source: this, target: picked}`, incoming creates `{source: picked, target: this}`
+- Type dropdown options derived from `useTerms({ terminology_id: '_ONTOLOGY_RELATIONSHIP_TYPES' })` with hardcoded fallback
+- After successful add, invalidate the relationship query and close the panel
+
+### Tab 3: Hierarchy
+
+Two stacked panels, both lazy-loading via the `parents`/`children` (or `ancestors`/`descendants`) endpoints.
+
+```
+Type: [is_a ▼]                ← any relationship type from runtime list
+
+▼ Ancestors
+   ▼ Pneumonia
+      ▼ Lung Disease
+         • Disease
+   ▼ Viral respiratory infection
+      • Viral disease
+
+▼ This term: Viral pneumonia
+
+▼ Descendants
+   ▼ COVID-19 pneumonia
+      • Severe COVID-19 pneumonia
+   • SARS pneumonia
+```
+
+- Each row: chevron to expand/collapse, term label, term value
+- Click the term itself navigates to that term's detail page
+- Initial render fetches direct parents (`getParents`) and direct children (`getChildren`)
+- Expanding a row fetches *its* parents/children (one query per expansion)
+- This avoids the BFS endpoints' large payloads — we lazy-load instead
+- Polyhierarchy support: a term can appear under multiple parents — that's fine, just render it multiple times
+- Cycle protection: track expanded ancestors in a `Set` to prevent infinite loops on cyclic ontologies (rare but real)
+- Empty states: "No parents (root term)" / "No children (leaf term)"
+
+**Type selector:** lets the user switch between `is_a`, `part_of`, etc. Each switch resets the trees.
+
+### Cross-terminology term search picker (the investment)
+
+This is a reusable component, not just for this page. It will likely be reused for document creation later.
+
+```
+Component: <TermSearchPicker
+  onSelect={(term) => ...}
+  excludeTermId={currentTermId}      // don't allow self-relationships
+  excludeNamespace?: string
+  placeholder?: string
+/>
+```
+
+**Behaviour:**
+- Debounced text input (300ms)
+- Searches against the WIP **search** endpoint (`client.search({ q, types: ['term'] })`) — global, cross-terminology, cross-namespace
+- Results dropdown shows:
+  - Term label + value (monospace)
+  - Terminology label + value (small, muted)
+  - Namespace badge if different from current
+- Keyboard nav: ↑/↓ to highlight, Enter to select, Esc to close
+- Empty query: show "Type to search across all terminologies"
+- No results: "No matching terms"
+- Loading: subtle spinner
+
+**Why this needs a real investment:** A "pick terminology then term" cascading dropdown is much simpler but forces users to know which terminology a concept lives in. Real ontology work crosses vocabularies constantly. A search-first picker also doubles as the foundation for document field auto-complete later.
+
+**Verify before building:** confirm that `client.search()` exists and returns terms with terminology context. If not, fall back to `listTerms({ search })` per terminology — but check the search endpoint first.
+
+### Implementation order
+
+1. **`TermSearchPicker` component** (`src/components/ontology/TermSearchPicker.tsx`) — reusable, no dependencies on other new code. Test by mounting in a temporary route.
+2. **`TermDetailPage` skeleton** with route, header, tab nav, Overview tab read-only.
+3. **Overview tab edit mode** — port the existing inline TermRow edit logic.
+4. **Relationships tab** — list outgoing/incoming, group by type, paginated. Fetch via direct `client.defStore.listRelationships`.
+5. **Add Relationship slide-out panel** — uses `TermSearchPicker` and the runtime type dropdown.
+6. **Delete Relationship** — bulk-delete with confirmation.
+7. **Hierarchy tab** — direct parents/children first, then lazy expansion, with type selector.
+8. **Linkify TerminologyDetailPage** — make term names link to the new detail page.
+9. **Sidebar / breadcrumbs polish.**
+
+Each step is its own commit. Steps 1-5 are the MVP — the page is useful at that point. Steps 6-9 are completion.
+
+### Open considerations
+
+- **`@wip/react` hooks for ontology queries:** None exist (only the two mutations). We use `useQuery` + `client.defStore.*` directly. If we end up writing more than ~5 queries, consider filing a CASE asking BE-YAC for `useRelationships`, `useChildren`, `useParents` hooks.
+- **Reporting sync events:** Relationship CRUD fires `RELATIONSHIP_CREATED`/`RELATIONSHIP_DELETED` events. The Postgres `term_relationships` table is kept in sync. Useful if we ever want a "graph stats" widget.
+- **Performance:** The largest verified ontology (GO) has 75k relationships. The lazy-expansion design avoids ever fetching all of them. Outgoing per-term lists are typically small (single-digit to low hundreds).
+- **Search endpoint check:** before implementing the picker, verify `client.search` is namespace-aware and returns terminology context. If not, build a wrapper that joins `listTerms` results with their terminology metadata.
+- **Inline expansion preview on `TerminologyDetailPage`:** deferred. The new detail page is enough for v1. Could be added later as a tiny relationship-count badge on each term row.
+
+### Out of scope (deferred)
+
+- **Standalone Ontology Browser page** (Option C from the design discussion). Could be added later as a paginated relationship table per namespace, but no force-directed graph viz. Skip until there's a clear analyst use case.
+- **OBO import UI.** The OBO import is already supported via API and CLI. A console upload UI could be added but is not part of this work.
+- **OWL/SKOS import.** Out of scope per the platform docs.
+- **Bulk relationship CRUD UI.** Single-relationship CRUD is enough for v1 — bulk is for OBO imports.
+
 ## Open Questions for Peter
 
 1. **NL Query LLM**: Plan assumes Claude API via `@anthropic-ai/sdk`. Is that right, or do you want local LLM support too?
