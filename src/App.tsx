@@ -23,6 +23,7 @@ import IntegrityPage from '@/pages/IntegrityPage'
 import ActivityPage from '@/pages/ActivityPage'
 import NLQueryPage from '@/pages/NLQueryPage'
 import APIKeysPage from '@/pages/APIKeysPage'
+import TermDetailPage from '@/pages/TermDetailPage'
 import DevTermPickerPage from '@/pages/_DevTermPickerPage'
 
 const queryClient = new QueryClient({
@@ -46,6 +47,7 @@ export default function App() {
               <Route path="namespaces" element={<NamespacesPage />} />
               <Route path="terminologies" element={<TerminologyListPage />} />
               <Route path="terminologies/:id" element={<TerminologyDetailPage />} />
+              <Route path="terminologies/:tid/terms/:termId" element={<TermDetailPage />} />
               <Route path="templates" element={<TemplateListPage />} />
               <Route path="templates/new" element={<TemplateBuilderPage />} />
               <Route path="templates/:id" element={<TemplateDetailPage />} />

@@ -339,7 +339,12 @@ function TermRow({
         <Tag size={14} className="text-gray-300 shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-800">{term.label ?? term.value}</span>
+            <Link
+              to={`/terminologies/${terminologyId}/terms/${term.term_id}`}
+              className="text-sm font-medium text-gray-800 hover:text-blue-600 hover:underline"
+            >
+              {term.label ?? term.value}
+            </Link>
             <button
               onClick={handleCopy}
               className="text-gray-300 hover:text-gray-500"
