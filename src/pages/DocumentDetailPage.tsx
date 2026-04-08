@@ -15,6 +15,7 @@ import {
   Hash,
   Link2,
   Tag,
+  Pencil,
 } from 'lucide-react'
 import { useDocument, useDocumentVersions, useTemplateByValue, useWipClient } from '@wip/react'
 import { useQueries } from '@tanstack/react-query'
@@ -415,7 +416,8 @@ export default function DocumentDetailPage() {
           <ArrowLeft size={12} />
           Back to Documents
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
           <FileText size={24} className="text-gray-400" />
           <div>
             <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
@@ -447,6 +449,19 @@ export default function DocumentDetailPage() {
               </span>
               <StatusBadge status={doc.status === 'active' ? 'active' : 'inactive'} label={doc.status} />
             </div>
+          </div>
+          </div>
+          {/* Action cluster */}
+          <div className="flex items-center gap-2 shrink-0 pt-1">
+            {doc.status === 'active' && templateValue && (
+              <Link
+                to={`/documents/${templateValue}/${doc.document_id}/edit`}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50"
+              >
+                <Pencil size={12} />
+                Edit
+              </Link>
+            )}
           </div>
         </div>
       </div>
