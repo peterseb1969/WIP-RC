@@ -16,8 +16,9 @@ import {
   Link2,
   Tag,
 } from 'lucide-react'
-import { useDocument, useDocumentVersions, useTemplateByValue } from '@wip/react'
-import type { FieldDefinition } from '@wip/client'
+import { useDocument, useDocumentVersions, useTemplateByValue, useWipClient } from '@wip/react'
+import { useQueries } from '@tanstack/react-query'
+import type { FieldDefinition, TermReference, Reference, Term } from '@wip/client'
 import JsonViewer from '@/components/common/JsonViewer'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
@@ -206,6 +207,183 @@ function CollapsibleSection({
 }
 
 // ---------------------------------------------------------------------------
+// Term references — hydrates each term_id via getTerm to show real labels
+// and link to TermDetailPage.
+// ---------------------------------------------------------------------------
+
+function TermReferencesList({ refs }: { refs: TermReference[] }) {
+  const client = useWipClient()
+  const queries = useQueries({
+    queries: refs.map(ref => ({
+      queryKey: ['rc-console', 'doc-term-ref', ref.term_id],
+      queryFn: () => client.defStore.getTerm(ref.term_id),
+      enabled: !!ref.term_id,
+      staleTime: 60_000,
+    })),
+  })
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
+      {refs.map((ref, i) => {
+        const q = queries[i]
+        const term = q?.data as Term | undefined
+        return (
+          <div key={`${ref.field_path}-${ref.term_id}-${i}`} className="flex items-center gap-3 px-4 py-2">
+            <Tag size={12} className="text-orange-400 shrink-0" />
+            <span className="text-xs text-gray-500 min-w-[120px] font-mono">{ref.field_path}</span>
+            {term ? (
+              <Link
+                to={`/terminologies/${term.terminology_id}/terms/${term.term_id}`}
+                className="inline-flex items-center gap-1.5 text-sm text-gray-800 hover:text-blue-600 hover:underline"
+              >
+                <span>{term.label || term.value}</span>
+                <span className="text-xs font-mono text-gray-400">{term.value}</span>
+              </Link>
+            ) : q?.isLoading ? (
+              <span className="text-xs text-gray-400">loading...</span>
+            ) : (
+              <span className="text-xs font-mono text-gray-400">{ref.term_id}</span>
+            )}
+            {term?.terminology_value && (
+              <span className="text-[10px] font-mono text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded">
+                {term.terminology_value}
+              </span>
+            )}
+            {ref.matched_via && (
+              <span className="text-[10px] text-gray-400">via {ref.matched_via}</span>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Generic references — document/term/terminology/template — show resolved
+// labels and link to the right detail page where possible.
+// ---------------------------------------------------------------------------
+
+function ReferencesList({ refs }: { refs: Reference[] }) {
+  const client = useWipClient()
+  // Hydrate each document reference to extract a human-readable label.
+  const docQueries = useQueries({
+    queries: refs.map(ref => ({
+      queryKey: ['rc-console', 'doc-ref', ref.resolved?.document_id ?? ''],
+      queryFn: () => client.documents.getDocument(ref.resolved!.document_id!),
+      enabled: ref.reference_type === 'document' && !!ref.resolved?.document_id,
+      staleTime: 60_000,
+    })),
+  })
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
+      {refs.map((ref, i) => {
+        const docQ = docQueries[i]
+        return (
+          <ReferenceRow
+            key={`${ref.field_path}-${i}`}
+            ref_={ref}
+            hydratedDoc={docQ?.data}
+            isLoadingDoc={docQ?.isLoading ?? false}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+// Pick a human-friendly label from a hydrated document. Tries common name
+// fields in `data`, then falls back to a short identity hash.
+function pickDocLabel(doc: import('@wip/client').Document): string {
+  const data = (doc.data ?? {}) as Record<string, unknown>
+  for (const key of ['name', 'label', 'title', 'display_name', 'value']) {
+    const v = data[key]
+    if (typeof v === 'string' && v.length > 0) return v
+  }
+  if (doc.identity_hash) return doc.identity_hash.slice(0, 12)
+  return doc.document_id.slice(0, 8)
+}
+
+function ReferenceRow({
+  ref_,
+  hydratedDoc,
+  isLoadingDoc,
+}: {
+  ref_: Reference
+  hydratedDoc?: import('@wip/client').Document
+  isLoadingDoc: boolean
+}) {
+  const r = ref_.resolved ?? {}
+
+  // Build the link target + display label based on reference_type.
+  let to: string | null = null
+  let label: string = ref_.lookup_value
+  let sublabel: string | null = null
+  let mono = true
+
+  if (ref_.reference_type === 'document' && r.document_id) {
+    const tv = hydratedDoc?.template_value ?? r.template_value ?? '_'
+    to = `/documents/${tv}/${r.document_id}`
+    if (hydratedDoc) {
+      label = pickDocLabel(hydratedDoc)
+      mono = false
+      sublabel = hydratedDoc.template_value || tv
+    } else if (isLoadingDoc) {
+      label = 'loading...'
+      mono = false
+    } else {
+      label = r.document_id.slice(0, 8) + '…'
+    }
+  } else if (ref_.reference_type === 'term' && r.term_id && r.terminology_id) {
+    to = `/terminologies/${r.terminology_id}/terms/${r.term_id}`
+    label = ref_.lookup_value || r.term_id
+    mono = !ref_.lookup_value
+  } else if (ref_.reference_type === 'terminology' && r.terminology_id) {
+    to = `/terminologies/${r.terminology_id}`
+    label = r.terminology_value || ref_.lookup_value
+    mono = false
+  } else if (ref_.reference_type === 'template' && r.template_id) {
+    to = `/templates/${r.template_id}`
+    label = r.template_value || ref_.lookup_value
+    mono = false
+  }
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-2">
+      <Link2 size={12} className="text-pink-400 shrink-0" />
+      <span className="text-xs text-gray-500 min-w-[120px] font-mono">{ref_.field_path}</span>
+      <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded shrink-0">
+        {ref_.reference_type}
+      </span>
+      {to ? (
+        <Link
+          to={to}
+          className={cn(
+            'text-sm text-gray-800 hover:text-blue-600 hover:underline truncate',
+            mono && 'font-mono text-xs'
+          )}
+        >
+          {label}
+        </Link>
+      ) : (
+        <span className={cn('text-sm text-gray-700 truncate', mono && 'font-mono text-xs')}>
+          {label}
+        </span>
+      )}
+      {sublabel && (
+        <span className="text-[10px] font-mono text-pink-500 bg-pink-50 px-1.5 py-0.5 rounded">
+          {sublabel}
+        </span>
+      )}
+      {r.version != null && (
+        <span className="text-[10px] text-gray-400">v{r.version}</span>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Document Detail Page
 // ---------------------------------------------------------------------------
 
@@ -251,6 +429,9 @@ export default function DocumentDetailPage() {
               >
                 <FileCode2 size={10} />
                 {templateLabel}
+                {doc.template_version != null && (
+                  <span className="text-gray-400">v{doc.template_version}</span>
+                )}
               </Link>
               {doc.namespace && (
                 <Link
@@ -272,13 +453,8 @@ export default function DocumentDetailPage() {
 
       {/* Metadata row */}
       <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400">
-        {doc.template_version != null && (
-          <span className="flex items-center gap-1">
-            <FileCode2 size={10} /> Template v{doc.template_version}
-          </span>
-        )}
         {doc.identity_hash && (
-          <span className="flex items-center gap-1 font-mono">
+          <span className="flex items-center gap-1 font-mono" title="Identity hash">
             <Hash size={10} /> {doc.identity_hash!.slice(0, 12)}...
             <CopyButton value={doc.identity_hash!} />
           </span>
@@ -346,48 +522,18 @@ export default function DocumentDetailPage() {
       </CollapsibleSection>
 
       {/* Term References */}
-      {(() => {
-        const refs = doc.term_references
-        if (!refs?.length) return null
-        return (
-          <CollapsibleSection title={`Term References (${refs.length})`} defaultOpen={false}>
-            <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
-              {refs.map((ref, i) => (
-                <div key={i} className="flex items-center gap-3 px-4 py-2">
-                  <Tag size={12} className="text-orange-400 shrink-0" />
-                  <span className="text-xs text-gray-500 min-w-[100px]">{ref.field_path}</span>
-                  {ref.terminology_ref && <span className="text-xs font-mono text-orange-500">{ref.terminology_ref}</span>}
-                  {ref.term_id && <span className="text-[10px] font-mono text-gray-400">{ref.term_id}</span>}
-                  {ref.matched_via && <span className="text-[10px] text-gray-400">via {ref.matched_via}</span>}
-                </div>
-              ))}
-            </div>
-          </CollapsibleSection>
-        )
-      })()}
+      {doc.term_references && doc.term_references.length > 0 && (
+        <CollapsibleSection title={`Term References (${doc.term_references.length})`} defaultOpen={false}>
+          <TermReferencesList refs={doc.term_references} />
+        </CollapsibleSection>
+      )}
 
       {/* References */}
-      {(() => {
-        const refs = doc.references
-        if (!refs?.length) return null
-        return (
-          <CollapsibleSection title={`References (${refs.length})`} defaultOpen={false}>
-            <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
-              {refs.map((ref, i) => (
-                <div key={i} className="flex items-center gap-3 px-4 py-2">
-                  <Link2 size={12} className="text-pink-400 shrink-0" />
-                  <span className="text-xs text-gray-500 min-w-[100px]">{ref.field_path}</span>
-                  {ref.reference_type && <span className="text-[10px] bg-gray-100 text-gray-600 px-1 rounded">{ref.reference_type}</span>}
-                  <span className="text-xs font-mono text-gray-700">{ref.lookup_value}</span>
-                  {ref.resolved?.document_id && (
-                    <Link to={`/documents/_/${ref.resolved.document_id}`} className="text-[10px] font-mono text-blue-400 hover:text-blue-600">{ref.resolved.document_id}</Link>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CollapsibleSection>
-        )
-      })()}
+      {doc.references && doc.references.length > 0 && (
+        <CollapsibleSection title={`References (${doc.references.length})`} defaultOpen={false}>
+          <ReferencesList refs={doc.references} />
+        </CollapsibleSection>
+      )}
 
       {/* File References */}
       {(() => {
