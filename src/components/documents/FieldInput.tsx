@@ -4,6 +4,8 @@ import DateTimeInput from './DateTimeInput'
 import TermFieldInput from './TermFieldInput'
 import ReferenceFieldInput from './ReferenceFieldInput'
 import FileFieldInput from './FileFieldInput'
+import ArrayFieldInput from './ArrayFieldInput'
+import ObjectFieldInput from './ObjectFieldInput'
 
 // ---------------------------------------------------------------------------
 // FieldInput — dispatcher that renders the right widget per field.type.
@@ -109,11 +111,18 @@ function renderControl({ field, value, onChange, disabled }: FieldInputProps) {
       return (
         <FileFieldInput field={field} value={value} onChange={onChange} disabled={disabled} />
       )
+    case 'array':
+      return (
+        <ArrayFieldInput field={field} value={value} onChange={onChange} disabled={disabled} />
+      )
+    case 'object':
+      return (
+        <ObjectFieldInput value={value} onChange={onChange} disabled={disabled} />
+      )
     default:
-      // term / reference / file / array / object — placeholder until wired up
       return (
         <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5">
-          Field type <span className="font-mono">{field.type}</span> not yet editable in v1.
+          Field type <span className="font-mono">{field.type}</span> not supported.
         </div>
       )
   }
