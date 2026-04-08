@@ -3,6 +3,7 @@ import { TextInput, NumberInput, SelectInput, Toggle } from '@/components/common
 import DateTimeInput from './DateTimeInput'
 import TermFieldInput from './TermFieldInput'
 import ReferenceFieldInput from './ReferenceFieldInput'
+import FileFieldInput from './FileFieldInput'
 
 // ---------------------------------------------------------------------------
 // FieldInput — dispatcher that renders the right widget per field.type.
@@ -103,6 +104,10 @@ function renderControl({ field, value, onChange, disabled }: FieldInputProps) {
     case 'reference':
       return (
         <ReferenceFieldInput field={field} value={value} onChange={onChange} disabled={disabled} />
+      )
+    case 'file':
+      return (
+        <FileFieldInput field={field} value={value} onChange={onChange} disabled={disabled} />
       )
     default:
       // term / reference / file / array / object — placeholder until wired up
