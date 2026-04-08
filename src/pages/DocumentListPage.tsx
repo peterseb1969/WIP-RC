@@ -9,6 +9,7 @@ import {
   Calendar,
   Search,
   X,
+  Plus,
 } from 'lucide-react'
 import { useTemplates, useDocuments } from '@wip/react'
 import { useNamespaceFilter, useSyncNamespaceFromUrl } from '@/hooks/use-namespace-filter'
@@ -295,9 +296,19 @@ function DocumentTable({
         <h2 className="text-sm font-medium text-gray-700">
           {data?.total ?? 0} document{(data?.total ?? 0) !== 1 ? 's' : ''}
         </h2>
-        <button onClick={() => refetch()} className="p-1.5 text-gray-400 hover:text-gray-600" title="Refresh">
-          <RefreshCw size={14} />
-        </button>
+        <div className="flex items-center gap-1">
+          <Link
+            to={`/documents/${templateValue}/new`}
+            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-white bg-blue-500 hover:bg-blue-600 rounded-md"
+            title="Create a new document from this template"
+          >
+            <Plus size={12} />
+            New document
+          </Link>
+          <button onClick={() => refetch()} className="p-1.5 text-gray-400 hover:text-gray-600" title="Refresh">
+            <RefreshCw size={14} />
+          </button>
+        </div>
       </div>
 
       {items.length === 0 ? (

@@ -43,6 +43,8 @@ export default function Breadcrumbs() {
   const terminologyMatch = useMatch('/terminologies/:id')
   const templateEditMatch = useMatch('/templates/:id/edit')
   const templateMatch = useMatch('/templates/:id')
+  const documentNewMatch = useMatch('/documents/:templateValue/new')
+  const documentEditMatch = useMatch('/documents/:templateValue/:id/edit')
   const documentMatch = useMatch('/documents/:templateValue/:id')
   const fileMatch = useMatch('/files/:id')
 
@@ -71,6 +73,19 @@ export default function Breadcrumbs() {
     crumbs = [
       { label: 'Templates', to: '/templates' },
       { label: 'TEMPLATE', _resolve: 'template', _id: templateMatch.params.id! } as Crumb & { _resolve: string; _id: string },
+    ]
+  } else if (documentNewMatch) {
+    crumbs = [
+      { label: 'Documents', to: '/documents' },
+      { label: documentNewMatch.params.templateValue!, to: `/documents?template=${documentNewMatch.params.templateValue}` },
+      { label: 'New' },
+    ]
+  } else if (documentEditMatch) {
+    crumbs = [
+      { label: 'Documents', to: '/documents' },
+      { label: documentEditMatch.params.templateValue!, to: `/documents?template=${documentEditMatch.params.templateValue}` },
+      { label: documentEditMatch.params.id!, to: `/documents/${documentEditMatch.params.templateValue}/${documentEditMatch.params.id}` },
+      { label: 'Edit' },
     ]
   } else if (documentMatch) {
     crumbs = [
