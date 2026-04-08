@@ -1,7 +1,6 @@
-import { useState } from 'react'
-import { X, ChevronDown, ChevronRight } from 'lucide-react'
+import { X } from 'lucide-react'
 import type { FieldDefinition, FieldType, FieldValidation, FileFieldConfig, SemanticType, ReferenceType, VersionStrategy } from '@wip/client'
-import { cn } from '@/lib/cn'
+import { Label, TextInput, NumberInput, SelectInput, Toggle, Section } from '@/components/common/FormInputs'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -21,147 +20,6 @@ const SEMANTIC_TYPES: SemanticType[] = [
 const REFERENCE_TYPES: ReferenceType[] = ['document', 'term', 'terminology', 'template']
 
 const VERSION_STRATEGIES: VersionStrategy[] = ['latest', 'pinned']
-
-// ---------------------------------------------------------------------------
-// Form helpers
-// ---------------------------------------------------------------------------
-
-function Label({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) {
-  return <label htmlFor={htmlFor} className="block text-xs font-medium text-gray-600 mb-1">{children}</label>
-}
-
-function TextInput({
-  id,
-  value,
-  onChange,
-  placeholder,
-  mono,
-}: {
-  id?: string
-  value: string
-  onChange: (v: string) => void
-  placeholder?: string
-  mono?: boolean
-}) {
-  return (
-    <input
-      id={id}
-      type="text"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      className={cn(
-        'w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400',
-        mono && 'font-mono'
-      )}
-    />
-  )
-}
-
-function NumberInput({
-  id,
-  value,
-  onChange,
-  placeholder,
-}: {
-  id?: string
-  value: number | undefined
-  onChange: (v: number | undefined) => void
-  placeholder?: string
-}) {
-  return (
-    <input
-      id={id}
-      type="number"
-      value={value ?? ''}
-      onChange={(e) => onChange(e.target.value === '' ? undefined : Number(e.target.value))}
-      placeholder={placeholder}
-      className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
-    />
-  )
-}
-
-function SelectInput<T extends string>({
-  id,
-  value,
-  options,
-  onChange,
-  placeholder,
-  allowEmpty,
-}: {
-  id?: string
-  value: T | undefined
-  options: readonly T[]
-  onChange: (v: T | undefined) => void
-  placeholder?: string
-  allowEmpty?: boolean
-}) {
-  return (
-    <select
-      id={id}
-      value={value ?? ''}
-      onChange={(e) => onChange((e.target.value || undefined) as T | undefined)}
-      className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
-    >
-      {(allowEmpty !== false) && <option value="">{placeholder ?? '(none)'}</option>}
-      {options.map(o => <option key={o} value={o}>{o}</option>)}
-    </select>
-  )
-}
-
-function Toggle({
-  id,
-  checked,
-  onChange,
-  label,
-}: {
-  id?: string
-  checked: boolean
-  onChange: (v: boolean) => void
-  label: string
-}) {
-  return (
-    <label htmlFor={id} className="flex items-center gap-2 cursor-pointer">
-      <input
-        id={id}
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="rounded border-gray-300 text-blue-500 focus:ring-blue-400"
-      />
-      <span className="text-sm text-gray-700">{label}</span>
-    </label>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Collapsible section
-// ---------------------------------------------------------------------------
-
-function Section({
-  title,
-  defaultOpen,
-  children,
-}: {
-  title: string
-  defaultOpen?: boolean
-  children: React.ReactNode
-}) {
-  const [open, setOpen] = useState(defaultOpen ?? false)
-  return (
-    <div className="border-t border-gray-100 pt-3">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-700 w-full text-left mb-2"
-      >
-        {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-        {title}
-      </button>
-      {open && <div className="space-y-3">{children}</div>}
-    </div>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Reference picker (terminology or template)
@@ -457,7 +315,7 @@ export default function FieldSlideOut({
 
         {/* === References section (term / reference types only) === */}
         {showReferences && (
-          <Section title="References" defaultOpen>
+          <Section title="References" defaultOpen inline>
             {isTermType && (
               <>
                 <ReferencePicker
@@ -509,7 +367,7 @@ export default function FieldSlideOut({
 
         {/* === File config section (file type) === */}
         {showFileConfig && (
-          <Section title="File Configuration" defaultOpen>
+          <Section title="File Configuration" defaultOpen inline>
             <FileConfigSection
               config={isFileType ? field.file_config : field.array_file_config}
               onChange={(c) => update(isFileType ? { file_config: c } : { array_file_config: c })}
@@ -519,7 +377,7 @@ export default function FieldSlideOut({
 
         {/* === Array config section === */}
         {isArrayType && (
-          <Section title="Array Configuration" defaultOpen>
+          <Section title="Array Configuration" defaultOpen inline>
             <div>
               <Label htmlFor="field-arraytype">Item type</Label>
               <SelectInput
@@ -550,7 +408,7 @@ export default function FieldSlideOut({
         )}
 
         {/* === Advanced section (collapsed by default) === */}
-        <Section title="Advanced">
+        <Section title="Advanced" inline>
           {/* Semantic type */}
           <div>
             <Label htmlFor="field-semantic">Semantic type</Label>

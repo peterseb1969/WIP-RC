@@ -5,8 +5,6 @@ import {
   Save,
   CheckCircle,
   AlertTriangle,
-  ChevronDown,
-  ChevronRight,
 } from 'lucide-react'
 import {
   useTemplate,
@@ -26,37 +24,9 @@ import RuleList from '@/components/templates/RuleList'
 import TemplateDiffView from '@/components/templates/TemplateDiffView'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
+import { Section } from '@/components/common/FormInputs'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 import { cn } from '@/lib/cn'
-
-// ---------------------------------------------------------------------------
-// Collapsible section
-// ---------------------------------------------------------------------------
-
-function Section({
-  title,
-  defaultOpen,
-  children,
-}: {
-  title: string
-  defaultOpen?: boolean
-  children: React.ReactNode
-}) {
-  const [open, setOpen] = useState(defaultOpen ?? false)
-  return (
-    <div className="border border-gray-200 rounded-lg bg-white">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 w-full px-4 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-50 rounded-lg"
-      >
-        {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        {title}
-      </button>
-      {open && <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">{children}</div>}
-    </div>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // TemplateBuilderPage
