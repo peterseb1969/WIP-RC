@@ -32,6 +32,7 @@ import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import JsonViewer from '@/components/common/JsonViewer'
 import AddRelationshipSlideOut from '@/components/ontology/AddRelationshipSlideOut'
+import HierarchyTab from '@/components/ontology/HierarchyTab'
 import { cn } from '@/lib/cn'
 
 // ---------------------------------------------------------------------------
@@ -163,7 +164,7 @@ export default function TermDetailPage() {
           <OverviewTab term={term} />
         ))}
       {activeTab === 'relationships' && <RelationshipsTab term={term} />}
-      {activeTab === 'hierarchy' && <ComingSoon label="Hierarchy" />}
+      {activeTab === 'hierarchy' && <HierarchyTab term={term} />}
       {activeTab === 'raw' && (
         <div className="bg-white border border-gray-200 rounded-lg p-4">
           <JsonViewer data={term} />
@@ -917,14 +918,6 @@ function RelationshipRow({
           <Trash2 size={12} />
         </button>
       )}
-    </div>
-  )
-}
-
-function ComingSoon({ label }: { label: string }) {
-  return (
-    <div className="bg-white border border-gray-200 border-dashed rounded-lg p-8 text-center">
-      <p className="text-sm text-gray-400">{label} tab — coming in the next step.</p>
     </div>
   )
 }
