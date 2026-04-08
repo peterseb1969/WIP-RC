@@ -13,6 +13,7 @@ import TemplateDetailPage from '@/pages/TemplateDetailPage'
 import TemplateBuilderPage from '@/pages/TemplateBuilderPage'
 import DocumentListPage from '@/pages/DocumentListPage'
 import DocumentDetailPage from '@/pages/DocumentDetailPage'
+import DocumentFormPage from '@/pages/DocumentFormPage'
 import FileListPage from '@/pages/FileListPage'
 import FileDetailPage from '@/pages/FileDetailPage'
 import RegistryPage from '@/pages/RegistryPage'
@@ -53,6 +54,8 @@ export default function App() {
               <Route path="templates/:id" element={<TemplateDetailPage />} />
               <Route path="templates/:id/edit" element={<TemplateBuilderPage />} />
               <Route path="documents" element={<DocumentListPage />} />
+              <Route path="documents/:templateValue/new" element={<DocumentFormPage mode="create" />} />
+              <Route path="documents/:templateValue/:id/edit" element={<DocumentFormPage mode="edit" />} />
               <Route path="documents/:templateValue/:id" element={<DocumentDetailPage />} />
               <Route path="files" element={<FileListPage />} />
               <Route path="files/:id" element={<FileDetailPage />} />
