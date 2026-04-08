@@ -1,6 +1,7 @@
 import type { FieldDefinition } from '@wip/client'
 import { TextInput, NumberInput, SelectInput, Toggle } from '@/components/common/FormInputs'
 import DateTimeInput from './DateTimeInput'
+import TermFieldInput from './TermFieldInput'
 
 // ---------------------------------------------------------------------------
 // FieldInput — dispatcher that renders the right widget per field.type.
@@ -93,6 +94,10 @@ function renderControl({ field, value, onChange, disabled }: FieldInputProps) {
           onChange={(v) => onChange(v ?? null)}
           disabled={disabled}
         />
+      )
+    case 'term':
+      return (
+        <TermFieldInput field={field} value={value} onChange={onChange} disabled={disabled} />
       )
     default:
       // term / reference / file / array / object — placeholder until wired up
