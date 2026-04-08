@@ -21,6 +21,19 @@ export default function ArrayFieldInput({ field, value, onChange, disabled }: Ar
   const items = Array.isArray(value) ? value : []
   const itemType = field.array_item_type
 
+  // WIP allows array fields whose items are themselves nested template
+  // objects (via array_template_ref). The form editor doesn't support
+  // nested-template arrays in v1 — they'd require rendering a sub-form per
+  // item. Surface a friendly read-only notice instead of the raw config gap.
+  if (!itemType && field.array_template_ref) {
+    return (
+      <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5">
+        Nested object arrays aren&apos;t editable in the form view yet. Edit this field
+        via the API or a JSON tool. ({items.length} item{items.length === 1 ? '' : 's'})
+      </div>
+    )
+  }
+
   if (!itemType) {
     return (
       <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5">

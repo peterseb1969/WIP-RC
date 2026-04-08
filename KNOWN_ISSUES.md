@@ -8,6 +8,12 @@
 **Description:** `TermFieldInput` loads up to 100 active terms from the referenced terminology. Terminologies with more than 100 active terms will have some terms unreachable via the picker.
 **Context:** Almost all practical terminologies fit well under this cap. Beyond that we'd need a debounced scoped search (pattern exists in `TermSearchPicker`). Tracked for v2. File a CASE to BE-YAC if encountered in practice.
 
+### Document form: nested-object arrays are read-only placeholders
+**Status:** deferred
+**Severity:** low
+**Description:** Array fields whose items are nested template objects (`array_template_ref` set, `array_item_type` null or `object`) render as a gray "not editable in the form view yet" notice. The form view does not currently support per-item sub-forms. Encountered on `aa.AA_CHARACTER.relationships`.
+**Context:** Editing these fields requires a nested FieldInput-per-subfield UI that cleanly handles dirty tracking and validation per row. v2 work. Until then, nested-object arrays can be edited via the API, MCP tools, or a JSON scratchpad.
+
 ### Document form: file uploads orphan on form abandonment
 **Status:** known
 **Severity:** low

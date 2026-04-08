@@ -10,6 +10,7 @@ import {
   Search,
   X,
   Plus,
+  Archive,
 } from 'lucide-react'
 import { useTemplates, useDocuments } from '@wip/react'
 import { useNamespaceFilter, useSyncNamespaceFromUrl } from '@/hooks/use-namespace-filter'
@@ -49,13 +50,33 @@ function TemplateCards({
   templates,
   selectedId,
   onSelect,
+  allMode,
+  onSelectAll,
 }: {
   templates: Array<{ template_id: string; value: string; label?: string | null; version?: number | null; namespace?: string | null; fields?: unknown[] | null }>
   selectedId: string | null
   onSelect: (id: string, value: string) => void
+  allMode: boolean
+  onSelectAll: () => void
 }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+      <button
+        onClick={onSelectAll}
+        className={cn(
+          'text-left p-3 rounded-lg border transition-all',
+          allMode
+            ? 'border-blue-300 bg-blue-50 shadow-sm'
+            : 'border-dashed border-gray-300 bg-white hover:border-gray-400 hover:shadow-sm'
+        )}
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <Layers size={12} className="text-gray-400" />
+          <span className="text-xs font-mono text-gray-400">all</span>
+        </div>
+        <div className="text-sm font-medium text-gray-800">All templates</div>
+        <div className="text-xs text-gray-400 mt-0.5">Every document in this namespace</div>
+      </button>
       {templates.map(t => (
         <button
           key={t.template_id}
@@ -88,10 +109,14 @@ function TemplateCombobox({
   templates,
   selectedId,
   onSelect,
+  allMode,
+  onSelectAll,
 }: {
   templates: Array<{ template_id: string; value: string; label?: string | null; version?: number | null; namespace?: string | null; fields?: unknown[] | null }>
   selectedId: string | null
   onSelect: (id: string, value: string) => void
+  allMode: boolean
+  onSelectAll: () => void
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -151,7 +176,13 @@ function TemplateCombobox({
           'bg-white'
         )}
       >
-        {selected ? (
+        {allMode ? (
+          <span className="flex items-center gap-2 min-w-0">
+            <Layers size={14} className="text-gray-400 shrink-0" />
+            <span className="font-medium text-gray-800 truncate">All templates</span>
+            <span className="text-xs text-gray-400 truncate">every document in this namespace</span>
+          </span>
+        ) : selected ? (
           <span className="flex items-center gap-2 min-w-0">
             <Layers size={14} className="text-indigo-400 shrink-0" />
             <span className="font-medium text-gray-800 truncate">{selected.label || selected.value}</span>
@@ -186,6 +217,21 @@ function TemplateCombobox({
 
           {/* Template list */}
           <div className="max-h-64 overflow-y-auto">
+            {!search && (
+              <button
+                onClick={() => { onSelectAll(); setOpen(false); setSearch('') }}
+                className={cn(
+                  'w-full flex items-center gap-3 px-3 py-2 text-left text-sm transition-colors border-b border-gray-100',
+                  allMode ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50 text-gray-700'
+                )}
+              >
+                <Layers size={12} className={allMode ? 'text-blue-400' : 'text-gray-400'} />
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium truncate">All templates</span>
+                  <span className="text-xs text-gray-400 ml-2">every document in this namespace</span>
+                </div>
+              </button>
+            )}
             {filtered.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4">No templates match.</p>
             ) : (
@@ -232,10 +278,14 @@ function TemplateSelector({
   selectedId,
   onSelect,
   onTemplatesLoaded,
+  allMode,
+  onSelectAll,
 }: {
   selectedId: string | null
   onSelect: (id: string, value: string) => void
-  onTemplatesLoaded?: (templates: Array<{ template_id: string; value: string }>) => void
+  onTemplatesLoaded?: (templates: Array<{ template_id: string; value: string; label?: string | null }>) => void
+  allMode: boolean
+  onSelectAll: () => void
 }) {
   const { namespace } = useNamespaceFilter()
   const { data, isLoading } = useTemplates({ status: 'active', latest_only: true, namespace: namespace || undefined, page_size: 100 })
@@ -260,10 +310,10 @@ function TemplateSelector({
   if (templates.length === 0) return <p className="text-sm text-gray-400">No templates available.</p>
 
   if (templates.length < CARD_THRESHOLD) {
-    return <TemplateCards templates={templates} selectedId={selectedId} onSelect={onSelect} />
+    return <TemplateCards templates={templates} selectedId={selectedId} onSelect={onSelect} allMode={allMode} onSelectAll={onSelectAll} />
   }
 
-  return <TemplateCombobox templates={templates} selectedId={selectedId} onSelect={onSelect} />
+  return <TemplateCombobox templates={templates} selectedId={selectedId} onSelect={onSelect} allMode={allMode} onSelectAll={onSelectAll} />
 }
 
 // ---------------------------------------------------------------------------
@@ -273,17 +323,23 @@ function TemplateSelector({
 function DocumentTable({
   templateId,
   templateValue,
+  templateById,
 }: {
-  templateId: string
-  templateValue: string
+  templateId: string | null
+  templateValue: string | null
+  templateById: Map<string, { value: string; label?: string | null }>
 }) {
   const [page, setPage] = useState(1)
+  const [showArchived, setShowArchived] = useState(false)
+  const { namespace } = useNamespaceFilter()
   const { data, isLoading, error, refetch } = useDocuments({
-    template_id: templateId,
-    status: 'active',
+    template_id: templateId ?? undefined,
+    namespace: templateId ? undefined : (namespace || undefined),
+    status: showArchived ? undefined : 'active',
     page,
     page_size: 25,
   })
+  const isAll = !templateId
 
   if (isLoading) return <LoadingState label="Loading documents..." />
   if (error) return <ErrorState message={error.message} onRetry={() => refetch()} />
@@ -297,14 +353,30 @@ function DocumentTable({
           {data?.total ?? 0} document{(data?.total ?? 0) !== 1 ? 's' : ''}
         </h2>
         <div className="flex items-center gap-1">
-          <Link
-            to={`/documents/${templateValue}/new`}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-white bg-blue-500 hover:bg-blue-600 rounded-md"
-            title="Create a new document from this template"
+          <button
+            type="button"
+            onClick={() => { setShowArchived(v => !v); setPage(1) }}
+            className={cn(
+              'inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border transition-colors',
+              showArchived
+                ? 'border-gray-300 bg-gray-100 text-gray-700'
+                : 'border-gray-200 bg-white text-gray-400 hover:text-gray-600 hover:border-gray-300'
+            )}
+            title={showArchived ? 'Currently showing archived + active. Click to hide archived.' : 'Currently showing active only. Click to include archived.'}
           >
-            <Plus size={12} />
-            New document
-          </Link>
+            <Archive size={12} />
+            {showArchived ? 'All' : 'Active'}
+          </button>
+          {templateValue && (
+            <Link
+              to={`/documents/${templateValue}/new`}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-white bg-blue-500 hover:bg-blue-600 rounded-md"
+              title="Create a new document from this template"
+            >
+              <Plus size={12} />
+              New document
+            </Link>
+          )}
           <button onClick={() => refetch()} className="p-1.5 text-gray-400 hover:text-gray-600" title="Refresh">
             <RefreshCw size={14} />
           </button>
@@ -312,17 +384,19 @@ function DocumentTable({
       </div>
 
       {items.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-8">No documents for this template.</p>
+        <p className="text-sm text-gray-400 text-center py-8">{isAll ? 'No documents in this namespace.' : 'No documents for this template.'}</p>
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
           {items.map(doc => {
             const docData = (doc.data ?? {}) as Record<string, unknown>
             const previewFields = Object.entries(docData).slice(0, 3)
+            const tmpl = doc.template_id ? templateById.get(doc.template_id) : undefined
+            const rowTemplateValue = tmpl?.value ?? templateValue ?? ''
 
             return (
               <Link
                 key={doc.document_id}
-                to={`/documents/${templateValue}/${doc.document_id}`}
+                to={rowTemplateValue ? `/documents/${rowTemplateValue}/${doc.document_id}` : '#'}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
               >
                 <FileText size={16} className="text-gray-400 shrink-0" />
@@ -330,6 +404,11 @@ function DocumentTable({
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-mono text-gray-500">{doc.document_id}</span>
                     <span className="text-[10px] text-gray-300">v{doc.version ?? 1}</span>
+                    {isAll && tmpl && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-100">
+                        {tmpl.label || tmpl.value}
+                      </span>
+                    )}
                   </div>
                   {previewFields.length > 0 && (
                     <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
@@ -374,19 +453,29 @@ export default function DocumentListPage() {
 
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const [selectedTemplateValue, setSelectedTemplateValue] = useState<string>(templateParam)
+  const [allMode, setAllMode] = useState(false)
+  const [templateById, setTemplateById] = useState<Map<string, { value: string; label?: string | null }>>(new Map())
 
   const nsKey = namespace || '__all__'
 
   const handleSelectTemplate = (id: string, value: string) => {
     setSelectedTemplateId(id)
     setSelectedTemplateValue(value)
+    setAllMode(false)
     setLastTemplate(nsKey, id, value)
   }
 
+  const handleSelectAll = () => {
+    setSelectedTemplateId(null)
+    setSelectedTemplateValue('')
+    setAllMode(true)
+  }
+
   // auto-recall last-used template when templates finish loading
-  const handleTemplatesLoaded = useCallback((templates: Array<{ template_id: string; value: string }>) => {
-    // don't override if already selected
-    if (selectedTemplateId) return
+  const handleTemplatesLoaded = useCallback((templates: Array<{ template_id: string; value: string; label?: string | null }>) => {
+    setTemplateById(new Map(templates.map(t => [t.template_id, { value: t.value, label: t.label }])))
+    // don't override if already selected or in all mode
+    if (selectedTemplateId || allMode) return
 
     // resolve URL ?template= param to an ID
     if (templateParam) {
@@ -404,12 +493,13 @@ export default function DocumentListPage() {
       setSelectedTemplateId(last.id)
       setSelectedTemplateValue(last.value)
     }
-  }, [nsKey, selectedTemplateId, templateParam])
+  }, [nsKey, selectedTemplateId, templateParam, allMode])
 
   // reset selection when namespace changes
   useEffect(() => {
     setSelectedTemplateId(null)
     setSelectedTemplateValue('')
+    setAllMode(false)
   }, [namespace])
 
   return (
@@ -425,11 +515,17 @@ export default function DocumentListPage() {
         selectedId={selectedTemplateId}
         onSelect={handleSelectTemplate}
         onTemplatesLoaded={handleTemplatesLoaded}
+        allMode={allMode}
+        onSelectAll={handleSelectAll}
       />
 
       {/* Document list */}
-      {selectedTemplateId && selectedTemplateValue && (
-        <DocumentTable templateId={selectedTemplateId} templateValue={selectedTemplateValue} />
+      {(selectedTemplateId || allMode) && (
+        <DocumentTable
+          templateId={selectedTemplateId}
+          templateValue={selectedTemplateValue || null}
+          templateById={templateById}
+        />
       )}
     </div>
   )
