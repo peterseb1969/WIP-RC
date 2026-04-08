@@ -21,8 +21,10 @@ import {
   useUpdateTerm,
   useDeprecateTerm,
   useDeleteTerm,
+  useWipClient,
 } from '@wip/react'
-import type { Term } from '@wip/client'
+import { useQuery } from '@tanstack/react-query'
+import type { Term, Relationship } from '@wip/client'
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
@@ -65,6 +67,21 @@ export default function TermDetailPage() {
 
   const termQuery = useTerm(termId ?? '', { enabled: !!termId })
   const terminologyQuery = useTerminology(tid ?? '', { enabled: !!tid })
+  // Relationship count for the tab badge — fetched once at top level so the
+  // number is visible even when other tabs are active.
+  const client = useWipClient()
+  const relCountQuery = useQuery({
+    queryKey: ['rc-console', 'relationships-count', termId],
+    queryFn: () =>
+      client.defStore.listRelationships({
+        term_id: termId ?? '',
+        direction: 'both',
+        page_size: 1,
+      }),
+    enabled: !!termId,
+    staleTime: 30_000,
+  })
+  const relCount = relCountQuery.data?.total ?? null
 
   if (!tid || !termId) {
     return <ErrorState message="Missing terminology or term id in URL" />
@@ -120,6 +137,16 @@ export default function TermDetailPage() {
             <span className="inline-flex items-center gap-1.5">
               <Icon size={14} />
               {label}
+              {key === 'relationships' && relCount !== null && relCount > 0 && (
+                <span
+                  className={cn(
+                    'ml-0.5 px-1.5 py-0.5 rounded text-[10px]',
+                    activeTab === key ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                  )}
+                >
+                  {relCount}
+                </span>
+              )}
             </span>
           </button>
         ))}
@@ -132,7 +159,7 @@ export default function TermDetailPage() {
         ) : (
           <OverviewTab term={term} />
         ))}
-      {activeTab === 'relationships' && <ComingSoon label="Relationships" />}
+      {activeTab === 'relationships' && <RelationshipsTab term={term} />}
       {activeTab === 'hierarchy' && <ComingSoon label="Hierarchy" />}
       {activeTab === 'raw' && (
         <div className="bg-white border border-gray-200 rounded-lg p-4">
@@ -622,6 +649,176 @@ function Timestamp({ value, by }: { value: string; by?: string }) {
       {new Date(value).toLocaleString()}
       {by && <span className="text-gray-400"> by {by}</span>}
     </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Relationships tab — read-only list grouped by type, both directions.
+// Add and Delete come in steps 5 & 6.
+// ---------------------------------------------------------------------------
+
+function useRelationships(termId: string, direction: 'outgoing' | 'incoming') {
+  const client = useWipClient()
+  return useQuery({
+    queryKey: ['rc-console', 'relationships', termId, direction],
+    queryFn: () =>
+      client.defStore.listRelationships({
+        term_id: termId,
+        direction,
+        page_size: 200,
+      }),
+    enabled: !!termId,
+    staleTime: 30_000,
+  })
+}
+
+function RelationshipsTab({ term }: { term: Term }) {
+  const outgoing = useRelationships(term.term_id, 'outgoing')
+  const incoming = useRelationships(term.term_id, 'incoming')
+
+  return (
+    <div className="space-y-4">
+      <RelationshipSection
+        title="Outgoing"
+        emptyText="No outgoing relationships"
+        currentTerm={term}
+        query={outgoing}
+        side="target"
+      />
+      <RelationshipSection
+        title="Incoming"
+        emptyText="No incoming relationships"
+        currentTerm={term}
+        query={incoming}
+        side="source"
+      />
+    </div>
+  )
+}
+
+function RelationshipSection({
+  title,
+  emptyText,
+  currentTerm,
+  query,
+  side,
+}: {
+  title: string
+  emptyText: string
+  currentTerm: Term
+  query: ReturnType<typeof useRelationships>
+  side: 'source' | 'target'
+}) {
+  const items = query.data?.items ?? []
+  const total = query.data?.total ?? items.length
+
+  // Group by relationship_type
+  const groups = items.reduce<Record<string, Relationship[]>>((acc, rel) => {
+    const key = rel.relationship_type
+    if (!acc[key]) acc[key] = []
+    acc[key]!.push(rel)
+    return acc
+  }, {})
+  const groupKeys = Object.keys(groups).sort()
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
+        <h3 className="text-sm font-semibold text-gray-700">
+          {title}
+          {!query.isLoading && (
+            <span className="ml-2 text-xs text-gray-400">({total})</span>
+          )}
+        </h3>
+      </div>
+
+      {query.isLoading && (
+        <div className="px-4 py-3 text-xs text-gray-400">Loading...</div>
+      )}
+      {query.isError && (
+        <div className="px-4 py-3 text-xs text-red-600">
+          {(query.error as Error).message}
+        </div>
+      )}
+      {!query.isLoading && !query.isError && items.length === 0 && (
+        <div className="px-4 py-3 text-xs text-gray-400">{emptyText}</div>
+      )}
+
+      {groupKeys.map(type => (
+        <div key={type} className="border-t border-gray-50 first:border-t-0">
+          <div className="px-4 py-1.5 bg-gray-50 text-xs font-mono font-medium text-gray-600">
+            {type}
+            <span className="ml-2 text-gray-400">({groups[type]!.length})</span>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {groups[type]!.map((rel, i) => (
+              <RelationshipRow
+                key={`${rel.source_term_id}-${rel.target_term_id}-${type}-${i}`}
+                rel={rel}
+                currentTerm={currentTerm}
+                side={side}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function RelationshipRow({
+  rel,
+  currentTerm,
+  side,
+}: {
+  rel: Relationship
+  currentTerm: Term
+  side: 'source' | 'target'
+}) {
+  // `side` says which end of the relationship is the OTHER term — i.e., the
+  // one we want to display. For an outgoing relationship the other end is the
+  // target; for incoming it's the source.
+  const otherTermId = side === 'target' ? rel.target_term_id : rel.source_term_id
+  const otherValue = side === 'target' ? rel.target_term_value : rel.source_term_value
+  const otherLabel = side === 'target' ? rel.target_term_label : rel.source_term_label
+  const otherTerminologyId =
+    side === 'target' ? rel.target_terminology_id : rel.source_terminology_id
+
+  const crossTerminology =
+    !!otherTerminologyId && otherTerminologyId !== currentTerm.terminology_id
+
+  // We can only build a stable link to the other term if we know its
+  // terminology_id (the route is /terminologies/:tid/terms/:termId). When the
+  // server sent it denormalized, use it; otherwise fall back to the current
+  // terminology (same-terminology relationships are the common case).
+  const linkTerminologyId = otherTerminologyId ?? currentTerm.terminology_id
+
+  return (
+    <div className="px-4 py-2 flex items-center gap-2 hover:bg-gray-50">
+      <Tag size={12} className="text-gray-300 shrink-0" />
+      <Link
+        to={`/terminologies/${linkTerminologyId}/terms/${otherTermId}`}
+        className="text-sm text-gray-800 hover:text-blue-600 hover:underline truncate"
+      >
+        {otherLabel || otherValue || otherTermId}
+      </Link>
+      {otherValue && (
+        <span className="text-xs font-mono text-gray-400 truncate">{otherValue}</span>
+      )}
+      {crossTerminology && (
+        <span
+          className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-mono"
+          title={otherTerminologyId}
+        >
+          cross-terminology
+        </span>
+      )}
+      {rel.status !== 'active' && (
+        <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px]">
+          {rel.status}
+        </span>
+      )}
+    </div>
   )
 }
 
