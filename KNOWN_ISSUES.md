@@ -2,6 +2,18 @@
 
 ## Open Issues
 
+### Document form: term fields capped at 100 entries
+**Status:** deferred
+**Severity:** low
+**Description:** `TermFieldInput` loads up to 100 active terms from the referenced terminology. Terminologies with more than 100 active terms will have some terms unreachable via the picker.
+**Context:** Almost all practical terminologies fit well under this cap. Beyond that we'd need a debounced scoped search (pattern exists in `TermSearchPicker`). Tracked for v2. File a CASE to BE-YAC if encountered in practice.
+
+### Document form: file uploads orphan on form abandonment
+**Status:** known
+**Severity:** low
+**Description:** If the user uploads a file into a `file` field and then cancels or navigates away without saving, the upload remains in storage with `reference_count = 0`.
+**Context:** The Files page lists orphan candidates. A future `/improve` pass could either (a) track pending uploads in session storage and prompt on unload or (b) add a server-side TTL on unreferenced files. For v1, manual cleanup is fine.
+
 ### NL Query requires ANTHROPIC_API_KEY
 **Status:** known
 **Severity:** low

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   FileText,
   ArrowLeft,
@@ -16,8 +16,9 @@ import {
   Link2,
   Tag,
   Pencil,
+  Archive,
 } from 'lucide-react'
-import { useDocument, useDocumentVersions, useTemplateByValue, useWipClient } from '@wip/react'
+import { useDocument, useDocumentVersions, useTemplateByValue, useWipClient, useArchiveDocument } from '@wip/react'
 import { useQueries } from '@tanstack/react-query'
 import type { FieldDefinition, TermReference, Reference, Term } from '@wip/client'
 import JsonViewer from '@/components/common/JsonViewer'
@@ -390,9 +391,19 @@ function ReferenceRow({
 
 export default function DocumentDetailPage() {
   const { templateValue, id } = useParams()
+  const navigate = useNavigate()
   const { data: doc, isLoading, error } = useDocument(id ?? '')
   const { data: versions } = useDocumentVersions(id ?? '')
   const { data: template } = useTemplateByValue(templateValue ?? '')
+  const [confirmArchive, setConfirmArchive] = useState(false)
+  const [archiveError, setArchiveError] = useState<string | null>(null)
+  const archiveDoc = useArchiveDocument({
+    onSuccess: () => {
+      setConfirmArchive(false)
+      navigate(`/documents?template=${templateValue ?? ''}`)
+    },
+    onError: (err) => setArchiveError(err.message),
+  })
 
   if (isLoading) return <LoadingState label="Loading document..." />
   if (error) return <ErrorState message={error.message} />
@@ -462,8 +473,44 @@ export default function DocumentDetailPage() {
                 Edit
               </Link>
             )}
+            {doc.status === 'active' && !confirmArchive && (
+              <button
+                type="button"
+                onClick={() => { setArchiveError(null); setConfirmArchive(true) }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-amber-700 border border-amber-200 rounded-md hover:bg-amber-50"
+              >
+                <Archive size={12} />
+                Archive
+              </button>
+            )}
+            {confirmArchive && (
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-gray-500 mr-1">Archive?</span>
+                <button
+                  type="button"
+                  onClick={() => archiveDoc.mutate({ id: doc.document_id, archivedBy: 'rc-console' })}
+                  disabled={archiveDoc.isPending}
+                  className="px-2 py-1 text-xs text-white bg-amber-500 hover:bg-amber-600 rounded-md disabled:opacity-60"
+                >
+                  {archiveDoc.isPending ? 'Archiving…' : 'Confirm'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setConfirmArchive(false); setArchiveError(null) }}
+                  disabled={archiveDoc.isPending}
+                  className="px-2 py-1 text-xs text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         </div>
+        {archiveError && (
+          <div className="mt-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-2.5 py-1.5">
+            Archive failed: {archiveError}
+          </div>
+        )}
       </div>
 
       {/* Metadata row */}
