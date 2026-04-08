@@ -22,9 +22,10 @@ import {
   useUpdateTerm,
   useDeprecateTerm,
   useDeleteTerm,
+  useDeleteRelationships,
   useWipClient,
 } from '@wip/react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Term, Relationship } from '@wip/client'
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
@@ -812,8 +813,48 @@ function RelationshipRow({
   // terminology (same-terminology relationships are the common case).
   const linkTerminologyId = otherTerminologyId ?? currentTerm.terminology_id
 
+  const queryClient = useQueryClient()
+  const [confirming, setConfirming] = useState(false)
+  const remove = useDeleteRelationships({
+    onSuccess: response => {
+      if (response.failed > 0) return
+      // Invalidate both directions + counts for both terms.
+      queryClient.invalidateQueries({
+        queryKey: ['rc-console', 'relationships', currentTerm.term_id],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ['rc-console', 'relationships-count', currentTerm.term_id],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ['rc-console', 'relationships', otherTermId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ['rc-console', 'relationships-count', otherTermId],
+      })
+      setConfirming(false)
+    },
+  })
+  const bulkError = remove.data?.results.find(r => r.status !== 'success')?.error
+
+  const handleDelete = () => {
+    // For outgoing: current is source, other is target.
+    // For incoming: other is source, current is target.
+    const source_term_id = side === 'target' ? currentTerm.term_id : otherTermId
+    const target_term_id = side === 'target' ? otherTermId : currentTerm.term_id
+    remove.mutate({
+      items: [
+        {
+          source_term_id,
+          target_term_id,
+          relationship_type: rel.relationship_type,
+        },
+      ],
+      namespace: currentTerm.namespace,
+    })
+  }
+
   return (
-    <div className="px-4 py-2 flex items-center gap-2 hover:bg-gray-50">
+    <div className="px-4 py-2 flex items-center gap-2 hover:bg-gray-50 group">
       <Tag size={12} className="text-gray-300 shrink-0" />
       <Link
         to={`/terminologies/${linkTerminologyId}/terms/${otherTermId}`}
@@ -836,6 +877,45 @@ function RelationshipRow({
         <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px]">
           {rel.status}
         </span>
+      )}
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Delete — inline confirmation */}
+      {confirming ? (
+        <div className="flex items-center gap-1.5 shrink-0">
+          {(remove.error || bulkError) && (
+            <span
+              className="text-[11px] text-red-600 truncate max-w-[200px]"
+              title={remove.error?.message || bulkError}
+            >
+              {remove.error?.message || bulkError}
+            </span>
+          )}
+          <button
+            onClick={handleDelete}
+            disabled={remove.isPending}
+            className="px-2 py-0.5 bg-red-600 text-white text-[11px] rounded hover:bg-red-700 disabled:opacity-50"
+          >
+            {remove.isPending ? 'Deleting...' : 'Confirm'}
+          </button>
+          <button
+            onClick={() => setConfirming(false)}
+            disabled={remove.isPending}
+            className="px-2 py-0.5 border border-gray-200 text-[11px] rounded text-gray-600 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setConfirming(true)}
+          className="p-1 text-gray-400 hover:text-red-600 shrink-0"
+          title="Delete relationship"
+        >
+          <Trash2 size={12} />
+        </button>
       )}
     </div>
   )
