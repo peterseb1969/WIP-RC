@@ -23,6 +23,7 @@ import IntegrityPage from '@/pages/IntegrityPage'
 import ActivityPage from '@/pages/ActivityPage'
 import NLQueryPage from '@/pages/NLQueryPage'
 import APIKeysPage from '@/pages/APIKeysPage'
+import DevTermPickerPage from '@/pages/_DevTermPickerPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,6 +62,7 @@ export default function App() {
               <Route path="activity" element={<ActivityPage />} />
               <Route path="query" element={<NLQueryPage />} />
               <Route path="api-keys" element={<APIKeysPage />} />
+              <Route path="_dev/term-picker" element={<DevTermPickerPage />} />
             </Route>
           </Routes>
         </BrowserRouter>
