@@ -13,6 +13,7 @@ import {
   Trash2,
   AlertTriangle,
   X,
+  Plus,
 } from 'lucide-react'
 import {
   useTerm,
@@ -29,6 +30,7 @@ import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import JsonViewer from '@/components/common/JsonViewer'
+import AddRelationshipSlideOut from '@/components/ontology/AddRelationshipSlideOut'
 import { cn } from '@/lib/cn'
 
 // ---------------------------------------------------------------------------
@@ -677,9 +679,18 @@ function useRelationships(termId: string, direction: 'outgoing' | 'incoming') {
 function RelationshipsTab({ term }: { term: Term }) {
   const outgoing = useRelationships(term.term_id, 'outgoing')
   const incoming = useRelationships(term.term_id, 'incoming')
+  const [showAdd, setShowAdd] = useState(false)
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-end">
+        <button
+          onClick={() => setShowAdd(true)}
+          className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 inline-flex items-center gap-1.5"
+        >
+          <Plus size={12} /> Add relationship
+        </button>
+      </div>
       <RelationshipSection
         title="Outgoing"
         emptyText="No outgoing relationships"
@@ -694,6 +705,12 @@ function RelationshipsTab({ term }: { term: Term }) {
         query={incoming}
         side="source"
       />
+      {showAdd && (
+        <AddRelationshipSlideOut
+          currentTerm={term}
+          onClose={() => setShowAdd(false)}
+        />
+      )}
     </div>
   )
 }
