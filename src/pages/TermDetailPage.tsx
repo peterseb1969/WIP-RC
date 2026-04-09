@@ -364,12 +364,9 @@ function OverviewEdit({ term, onClose }: { term: Term; onClose: () => void }) {
   const [sortOrder, setSortOrder] = useState(String(term.sort_order ?? ''))
   const [parentTermId, setParentTermId] = useState(term.parent_term_id ?? '')
 
-  // Load sibling terms for the parent picker. We only need active ones for the
-  // dropdown — same behaviour as the inline TermRow editor. The /terms endpoint
-  // caps page_size at 100, so terminologies with more siblings will need a
-  // search-style picker (TODO when we revisit the legacy parent UX).
+  // Load sibling terms for the parent picker.
   const siblingsQuery = useTerms(term.terminology_id, {
-    page_size: 100,
+    page_size: 1000,
     status: 'active',
   })
   const siblings = (siblingsQuery.data?.items ?? []).filter(t => t.term_id !== term.term_id)
@@ -671,7 +668,7 @@ function useRelationships(termId: string, direction: 'outgoing' | 'incoming') {
       client.defStore.listRelationships({
         term_id: termId,
         direction,
-        page_size: 100,
+        page_size: 1000,
       }),
     enabled: !!termId,
     staleTime: 30_000,

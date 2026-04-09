@@ -29,7 +29,7 @@ export interface TermFieldInputProps {
 export default function TermFieldInput({ field, value, onChange, disabled }: TermFieldInputProps) {
   // Resolve terminology_ref → terminology_id
   const ref = field.terminology_ref ?? ''
-  const { data: terminologiesData } = useTerminologies({ page_size: 200 })
+  const { data: terminologiesData } = useTerminologies({ page_size: 1000 })
   const resolvedTerminologyId = useMemo(() => {
     if (!ref) return ''
     const items = terminologiesData?.items ?? []
@@ -41,7 +41,7 @@ export default function TermFieldInput({ field, value, onChange, disabled }: Ter
 
   const { data: termsData, isLoading } = useTerms(
     resolvedTerminologyId,
-    { status: 'active', page_size: 100 },
+    { status: 'active', page_size: 1000 },
     { enabled: !!resolvedTerminologyId },
   )
 

@@ -71,7 +71,7 @@ export default function Breadcrumbs() {
       { label: 'TEMPLATE', to: `/templates/${templateEditMatch.params.id}`, _resolve: 'template', _id: templateEditMatch.params.id! } as Crumb & { _resolve: string; _id: string },
       { label: 'Edit' },
     ]
-  } else if (templateMatch) {
+  } else if (templateMatch && templateMatch.params.id !== 'new') {
     crumbs = [
       { label: 'Templates', to: '/templates' },
       { label: 'TEMPLATE', _resolve: 'template', _id: templateMatch.params.id! } as Crumb & { _resolve: string; _id: string },

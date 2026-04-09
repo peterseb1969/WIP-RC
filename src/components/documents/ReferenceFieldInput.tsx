@@ -78,7 +78,7 @@ function DocumentRefPicker({ field, value, onChange, disabled }: ReferenceFieldI
   // fields constrain to exactly one template; supporting N templates would
   // require N useQueries calls which adds complexity. Surfaces a note if
   // there are more than one.
-  const { data: templatesData } = useTemplates({ status: 'active', latest_only: true, page_size: 200 })
+  const { data: templatesData } = useTemplates({ status: 'active', latest_only: true, page_size: 100 })
   const resolvedTemplateId = useMemo(() => {
     if (!firstTarget) return undefined
     const t = templatesData?.items ?? []
@@ -132,7 +132,7 @@ function TermRefPicker({ field, value, onChange, disabled }: ReferenceFieldInput
   const targets = field.target_terminologies ?? []
   const firstTarget = targets[0]
 
-  const { data: terminologiesData } = useTerminologies({ page_size: 200 })
+  const { data: terminologiesData } = useTerminologies({ page_size: 1000 })
   const resolvedTerminologyId = useMemo(() => {
     if (!firstTarget) return ''
     const items = terminologiesData?.items ?? []
@@ -144,7 +144,7 @@ function TermRefPicker({ field, value, onChange, disabled }: ReferenceFieldInput
 
   const { data: termsData, isLoading } = useTerms(
     resolvedTerminologyId,
-    { status: 'active', page_size: 100 },
+    { status: 'active', page_size: 1000 },
     { enabled: !!resolvedTerminologyId },
   )
 
@@ -175,7 +175,7 @@ function TermRefPicker({ field, value, onChange, disabled }: ReferenceFieldInput
 // ---------------------------------------------------------------------------
 
 function TerminologyRefPicker({ value, onChange, disabled }: ReferenceFieldInputProps) {
-  const { data, isLoading } = useTerminologies({ page_size: 200 })
+  const { data, isLoading } = useTerminologies({ page_size: 1000 })
   const items: Item[] = (data?.items ?? []).map((t: Terminology) => ({
     id: t.terminology_id,
     value: t.value,
@@ -201,7 +201,7 @@ function TerminologyRefPicker({ value, onChange, disabled }: ReferenceFieldInput
 // ---------------------------------------------------------------------------
 
 function TemplateRefPicker({ value, onChange, disabled }: ReferenceFieldInputProps) {
-  const { data, isLoading } = useTemplates({ status: 'active', latest_only: true, page_size: 200 })
+  const { data, isLoading } = useTemplates({ status: 'active', latest_only: true, page_size: 100 })
   const items: Item[] = (data?.items ?? []).map((t: Template) => ({
     id: t.template_id,
     value: t.value,

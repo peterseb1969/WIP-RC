@@ -54,7 +54,7 @@ export default function AddRelationshipSlideOut({
   // terminology. We pass the terminology value (not id) — useTerms accepts
   // either. If the fetch fails or returns empty, fall back to the hardcoded list.
   const typesQuery = useTerms('_ONTOLOGY_RELATIONSHIP_TYPES', {
-    page_size: 100,
+    page_size: 1000,
     status: 'active',
   })
 

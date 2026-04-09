@@ -42,8 +42,8 @@ export default function TemplateBuilderPage() {
   const { data: existing, isLoading: loadingTemplate, error: loadError } = useTemplate(id ?? '')
 
   // Reference data for pickers
-  const { data: terminologiesData } = useTerminologies({ status: 'active', page_size: 200 })
-  const { data: templatesData } = useTemplates({ status: 'active', latest_only: true, page_size: 200 })
+  const { data: terminologiesData } = useTerminologies({ status: 'active', page_size: 1000 })
+  const { data: templatesData } = useTemplates({ status: 'active', latest_only: true, page_size: 100 })
   const { data: namespacesData } = useNamespaces()
 
   // Terminology/template options for reference pickers
@@ -125,9 +125,9 @@ export default function TemplateBuilderPage() {
   // --- Mutations ---
   const createTemplate = useCreateTemplate({
     onSuccess: (result) => {
-      if (saveMode === 'activate' && result.id) {
-        activateTemplate.mutate({ id: result.id, namespace })
-      } else if (result.id) {
+      // WIP creates templates as active by default — no separate
+      // activation step needed for new templates.
+      if (result.id) {
         navigate(`/templates/${result.id}`)
       }
     },

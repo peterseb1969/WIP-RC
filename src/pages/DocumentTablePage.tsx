@@ -174,7 +174,12 @@ export default function DocumentTablePage() {
       {isLoading ? (
         <LoadingState label="Loading table..." />
       ) : error ? (
-        <ErrorState message={error.message} onRetry={() => refetch()} />
+        <ErrorState
+          message={error.message?.includes('500') || error.message?.includes('Internal')
+            ? 'Table view unavailable. Ensure the template has reporting sync enabled (sync_enabled: true in reporting config).'
+            : error.message}
+          onRetry={() => refetch()}
+        />
       ) : rows.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-8">No documents for this template.</p>
       ) : (

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FileCode2, ChevronRight, Hash, Layers, RefreshCw, Plus } from 'lucide-react'
+import { FileCode2, ChevronRight, Hash, Layers, RefreshCw, Plus, Archive } from 'lucide-react'
 import { useTemplates } from '@wip/react'
 import SearchInput from '@/components/common/SearchInput'
 import Pagination from '@/components/common/Pagination'
@@ -14,9 +14,10 @@ export default function TemplateListPage() {
   const { namespace } = useNamespaceFilter()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [showAll, setShowAll] = useState(false)
 
   const { data, isLoading, error, refetch } = useTemplates({
-    status: 'active',
+    status: showAll ? undefined : 'active',
     latest_only: true,
     namespace: namespace || undefined,
     page,
@@ -57,6 +58,19 @@ export default function TemplateListPage() {
       {/* Filters */}
       <div className="flex items-center gap-3">
         <SearchInput value={search} onChange={setSearch} placeholder="Search templates..." className="flex-1 max-w-sm" />
+        <button
+          type="button"
+          onClick={() => { setShowAll(v => !v); setPage(1) }}
+          className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md border transition-colors ${
+            showAll
+              ? 'border-gray-300 bg-gray-100 text-gray-700'
+              : 'border-gray-200 bg-white text-gray-400 hover:text-gray-600 hover:border-gray-300'
+          }`}
+          title={showAll ? 'Showing all templates (active + inactive). Click to show active only.' : 'Showing active only. Click to include inactive.'}
+        >
+          <Archive size={12} />
+          {showAll ? 'All' : 'Active'}
+        </button>
       </div>
 
       {isLoading && <LoadingState label="Loading templates..." />}

@@ -178,7 +178,7 @@ export default function TemplateDetailPage() {
   })
 
   // Build ID→{name,id} lookup maps for terminology and template refs (must be before early returns)
-  const { data: terminologiesData } = useTerminologies({ status: 'active', page_size: 100 })
+  const { data: terminologiesData } = useTerminologies({ status: 'active', page_size: 1000 })
   const { data: templatesData } = useTemplates({ status: 'active', latest_only: true, page_size: 100 })
 
   if (isLoading) return <LoadingState label="Loading template..." />

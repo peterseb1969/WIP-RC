@@ -47,7 +47,7 @@ export default function HierarchyTab({ term }: HierarchyTabProps) {
 
   // Fetch types from _ONTOLOGY_RELATIONSHIP_TYPES with fallback
   const typesQuery = useTerms('_ONTOLOGY_RELATIONSHIP_TYPES', {
-    page_size: 100,
+    page_size: 1000,
     status: 'active',
   })
   const relationshipTypes: string[] =

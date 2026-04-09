@@ -130,7 +130,7 @@ function AuditLogTab() {
   const [actionFilter, setActionFilter] = useState('')
   const [page, setPage] = useState(1)
 
-  const { data: terminologies } = useTerminologies({ status: 'active', page_size: 100 })
+  const { data: terminologies } = useTerminologies({ status: 'active', page_size: 1000 })
   const client = useWipClient()
 
   const { data, isLoading, error, refetch } = useQuery({
