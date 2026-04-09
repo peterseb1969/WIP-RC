@@ -1,4 +1,5 @@
-import { useParams, Link } from 'react-router-dom'
+import { useState } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   FileCode2,
   ArrowLeft,
@@ -14,8 +15,10 @@ import {
   Calendar,
   User,
   Pencil,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react'
-import { useTemplate, useTerminologies, useTemplates } from '@wip/react'
+import { useTemplate, useTerminologies, useTemplates, useDeleteTemplate } from '@wip/react'
 import type { FieldDefinition } from '@wip/client'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
@@ -165,7 +168,14 @@ function FieldRow({ field, isIdentity, terminologyMap, templateMap }: {
 
 export default function TemplateDetailPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { data: template, isLoading, error } = useTemplate(id ?? '')
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false)
+  const [deactivateError, setDeactivateError] = useState<string | null>(null)
+  const deactivate = useDeleteTemplate({
+    onSuccess: () => navigate('/templates'),
+    onError: (err) => setDeactivateError(err.message),
+  })
 
   // Build ID→{name,id} lookup maps for terminology and template refs (must be before early returns)
   const { data: terminologiesData } = useTerminologies({ status: 'active', page_size: 100 })
@@ -213,14 +223,54 @@ export default function TemplateDetailPage() {
               <StatusBadge status={template.status === 'active' ? 'active' : 'inactive'} label={template.status} />
             </div>
           </div>
-          <Link
-            to={`/templates/${template.template_id}/edit`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm rounded-md text-gray-600 hover:bg-gray-50 hover:text-blue-600 shrink-0"
-          >
-            <Pencil size={12} />
-            Edit
-          </Link>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              to={`/templates/${template.template_id}/edit`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm rounded-md text-gray-600 hover:bg-gray-50 hover:text-blue-600"
+            >
+              <Pencil size={12} />
+              Edit
+            </Link>
+            {template.status === 'active' && !confirmDeactivate && (
+              <button
+                onClick={() => setConfirmDeactivate(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-sm rounded-md text-red-500 hover:bg-red-50 hover:text-red-700"
+              >
+                <Trash2 size={12} />
+                Deactivate
+              </button>
+            )}
+          </div>
         </div>
+        {confirmDeactivate && (
+          <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm">
+            <AlertTriangle size={16} className="text-red-500 shrink-0" />
+            <span className="text-red-700">
+              Deactivate <strong>{template.label || template.value}</strong>? Documents using this template will remain but the template will no longer appear in active lists.
+            </span>
+            <div className="flex items-center gap-2 ml-auto shrink-0">
+              <button
+                onClick={() => { setConfirmDeactivate(false); setDeactivateError(null) }}
+                className="px-3 py-1 border border-gray-200 rounded text-gray-600 hover:bg-gray-50 text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => deactivate.mutate({ id: template.template_id, force: true })}
+                disabled={deactivate.isPending}
+                className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-xs disabled:opacity-50"
+              >
+                {deactivate.isPending ? 'Deactivating...' : 'Confirm Deactivate'}
+              </button>
+            </div>
+          </div>
+        )}
+        {deactivateError && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            <AlertTriangle size={14} className="shrink-0" />
+            {deactivateError}
+          </div>
+        )}
         {template.description && (
           <p className="text-sm text-gray-500 mt-2">{template.description}</p>
         )}
