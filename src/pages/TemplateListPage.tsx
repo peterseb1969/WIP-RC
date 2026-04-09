@@ -45,13 +45,23 @@ export default function TemplateListPage() {
           <button onClick={() => refetch()} className="p-2 border border-gray-200 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-50" title="Refresh">
             <RefreshCw size={14} />
           </button>
-          <Link
-            to="/templates/new"
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
-          >
-            <Plus size={14} />
-            Create
-          </Link>
+          {namespace ? (
+            <Link
+              to="/templates/new"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+            >
+              <Plus size={14} />
+              Create
+            </Link>
+          ) : (
+            <span
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600/50 text-white/70 text-sm rounded-md cursor-not-allowed"
+              title="Select a namespace first"
+            >
+              <Plus size={14} />
+              Create
+            </span>
+          )}
         </div>
       </div>
 

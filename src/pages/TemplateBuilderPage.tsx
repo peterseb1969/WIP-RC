@@ -575,11 +575,19 @@ export default function TemplateBuilderPage() {
           </div>
         )}
 
+        {/* Namespace warning */}
+        {!namespace && !isEdit && (
+          <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+            <AlertTriangle size={14} />
+            Select a namespace in the top bar before saving.
+          </div>
+        )}
+
         {/* Action buttons */}
         <div className="flex items-center gap-2 pb-6">
           <button
             onClick={() => handleSave('draft')}
-            disabled={isPending}
+            disabled={isPending || (!isEdit && !namespace)}
             className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-sm rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
             <Save size={14} />
@@ -587,9 +595,9 @@ export default function TemplateBuilderPage() {
           </button>
           <button
             onClick={() => handleSave('active')}
-            disabled={isPending || hasBlockingWarning}
+            disabled={isPending || hasBlockingWarning || (!isEdit && !namespace)}
             className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
-            title={hasBlockingWarning ? 'Resolve blocking warnings before saving' : undefined}
+            title={!namespace && !isEdit ? 'Select a namespace first' : hasBlockingWarning ? 'Resolve blocking warnings before saving' : undefined}
           >
             <CheckCircle size={14} />
             {isPending && saveMode === 'active' ? 'Saving...' : 'Save'}
