@@ -12,6 +12,7 @@ import {
   Plus,
   Archive,
   Table2,
+  Upload,
 } from 'lucide-react'
 import { useTemplates, useDocuments } from '@wip/react'
 import { useNamespaceFilter, useSyncNamespaceFromUrl } from '@/hooks/use-namespace-filter'
@@ -377,6 +378,14 @@ function DocumentTable({
               >
                 <Table2 size={12} />
                 Table
+              </Link>
+              <Link
+                to={`/documents/import?template=${templateValue}`}
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded-md text-gray-600 hover:bg-gray-50"
+                title="Import documents from CSV"
+              >
+                <Upload size={12} />
+                Import
               </Link>
               <Link
                 to={`/documents/${templateValue}/new`}
