@@ -11,6 +11,7 @@ import {
   X,
   Plus,
   Archive,
+  Table2,
 } from 'lucide-react'
 import { useTemplates, useDocuments } from '@wip/react'
 import { useNamespaceFilter, useSyncNamespaceFromUrl } from '@/hooks/use-namespace-filter'
@@ -368,14 +369,24 @@ function DocumentTable({
             {showArchived ? 'All' : 'Active'}
           </button>
           {templateValue && (
-            <Link
-              to={`/documents/${templateValue}/new`}
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-white bg-blue-500 hover:bg-blue-600 rounded-md"
-              title="Create a new document from this template"
-            >
-              <Plus size={12} />
-              New document
-            </Link>
+            <>
+              <Link
+                to={`/documents/${templateValue}/table`}
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded-md text-gray-600 hover:bg-gray-50"
+                title="Spreadsheet view with all fields as columns"
+              >
+                <Table2 size={12} />
+                Table
+              </Link>
+              <Link
+                to={`/documents/${templateValue}/new`}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-white bg-blue-500 hover:bg-blue-600 rounded-md"
+                title="Create a new document from this template"
+              >
+                <Plus size={12} />
+                New document
+              </Link>
+            </>
           )}
           <button onClick={() => refetch()} className="p-1.5 text-gray-400 hover:text-gray-600" title="Refresh">
             <RefreshCw size={14} />
