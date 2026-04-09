@@ -234,8 +234,8 @@ export default function TemplateDetailPage() {
             </Link>
             <Link
               to={`/templates/new?from=${template.template_id}`}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm rounded-md text-gray-600 hover:bg-gray-50 hover:text-blue-600"
-              title="Create a new template pre-filled from this one"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-amber-200 text-sm rounded-md text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+              title="Create a new template pre-filled from this one. WARNING: if the new template shares identity fields with this one, existing documents may be re-parented on upsert (CASE-36)."
             >
               <Copy size={12} />
               Duplicate
