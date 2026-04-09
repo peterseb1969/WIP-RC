@@ -17,6 +17,9 @@ import {
   Tag,
   Pencil,
   Archive,
+  ShieldCheck,
+  AlertTriangle,
+  CheckCircle,
 } from 'lucide-react'
 import { useDocument, useDocumentVersions, useTemplateByValue, useWipClient, useArchiveDocument } from '@wip/react'
 import { useQueries } from '@tanstack/react-query'
@@ -395,6 +398,9 @@ export default function DocumentDetailPage() {
   const { data: doc, isLoading, error } = useDocument(id ?? '')
   const { data: versions } = useDocumentVersions(id ?? '')
   const { data: template } = useTemplateByValue(templateValue ?? '')
+  const client = useWipClient()
+  const [validating, setValidating] = useState(false)
+  const [validationResult, setValidationResult] = useState<{ valid: boolean; errors: Array<{ field: string | null; message: string }>; warnings: string[] } | null>(null)
   const [confirmArchive, setConfirmArchive] = useState(false)
   const [archiveError, setArchiveError] = useState<string | null>(null)
   const archiveDoc = useArchiveDocument({
@@ -473,6 +479,32 @@ export default function DocumentDetailPage() {
                 Edit
               </Link>
             )}
+            <button
+              type="button"
+              disabled={validating || !template}
+              onClick={async () => {
+                if (!template || !doc.namespace) return
+                setValidating(true)
+                setValidationResult(null)
+                try {
+                  const result = await client.documents.validateDocument({
+                    template_id: template.template_id,
+                    namespace: doc.namespace,
+                    data: (doc.data ?? {}) as Record<string, unknown>,
+                  })
+                  setValidationResult({ valid: result.valid, errors: result.errors, warnings: result.warnings })
+                } catch (err: unknown) {
+                  setValidationResult({ valid: false, errors: [{ field: null, message: err instanceof Error ? err.message : String(err) }], warnings: [] })
+                } finally {
+                  setValidating(false)
+                }
+              }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-50"
+              title="Validate this document against its template"
+            >
+              <ShieldCheck size={12} />
+              {validating ? 'Validating…' : 'Validate'}
+            </button>
             {doc.status === 'active' && !confirmArchive && (
               <button
                 type="button"
@@ -512,6 +544,33 @@ export default function DocumentDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Validation result */}
+      {validationResult && (
+        <div className={cn(
+          'flex items-start gap-2 text-xs rounded-lg px-3 py-2 border',
+          validationResult.valid
+            ? 'bg-green-50 border-green-200 text-green-700'
+            : 'bg-red-50 border-red-200 text-red-700'
+        )}>
+          {validationResult.valid ? <CheckCircle size={14} className="shrink-0 mt-0.5" /> : <AlertTriangle size={14} className="shrink-0 mt-0.5" />}
+          <div>
+            <span className="font-medium">{validationResult.valid ? 'Valid' : `${validationResult.errors.length} error${validationResult.errors.length !== 1 ? 's' : ''}`}</span>
+            {validationResult.errors.length > 0 && (
+              <ul className="mt-1 space-y-0.5">
+                {validationResult.errors.map((e, i) => (
+                  <li key={i}>{e.field ? <span className="font-mono">{e.field}:</span> : null} {e.message}</li>
+                ))}
+              </ul>
+            )}
+            {validationResult.warnings.length > 0 && (
+              <ul className="mt-1 space-y-0.5 text-amber-700">
+                {validationResult.warnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Metadata row */}
       <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400">
