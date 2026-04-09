@@ -1,14 +1,17 @@
 # RC-Console
 
-A React + TypeScript admin console for WIP (World In a Pie). Replaces the existing Vue 3 console with a modern stack, adds direct infrastructure inspection (PostgreSQL, MongoDB, NATS), referential integrity checks, and a natural language query interface powered by Claude.
+A React + TypeScript admin console for WIP (World In a Pie). Replaces the existing Vue 3 console with a modern stack, adds full CRUD for all entity types, direct infrastructure inspection (PostgreSQL, MongoDB, NATS), referential integrity checks, and a natural language query interface powered by Claude.
 
 ## What the user sees
 
 - **Dashboard** — service health cards (6 microservices), namespace stats, recent activity
-- **Data pages** — Namespaces, Terminologies (with term management), Templates (field inspector), Documents (template selector + detail), Files, Registry (search + JSON viewer)
+- **Data management** — full CRUD for Namespaces, Terminologies (with term management and ontology browser), Templates (field editor with drag-and-drop, versioning, diff), Documents (create/edit/archive with auto-generated forms from template definitions), Files, Registry
+- **Ontology browser** — Term Detail page with Overview (edit/deprecate/delete), Relationships (add/delete), Hierarchy (lazy-expanding ancestor/descendant trees), Raw JSON
+- **Document CRUD** — auto-generated forms scaffolded from template field definitions, supporting all 11 field types (string, number, integer, boolean, date, datetime, term, reference, file, array, object). Edit mode uses RFC 7396 JSON Merge Patch with optimistic concurrency control.
 - **Infrastructure** — PostgreSQL table browser + SQL query pad, MongoDB collection browser + document inspector, NATS stream/consumer monitoring
 - **Health** — Integrity checks (cross-service referential integrity), Activity (audit trail)
 - **NL Query** — Chat interface for natural language data exploration via Claude API
+- **API Keys** — runtime API key management (create, revoke, view grants)
 
 ## How to run
 
@@ -24,10 +27,10 @@ cp .env.example .env
 npm run dev
 
 # Open in browser
-open http://localhost:5173
+open http://localhost:5174
 ```
 
-The Express backend runs on port 3010. Vite proxies `/wip`, `/api`, `/health`, and `/auth` to it.
+The Express backend runs on port 3010. Vite proxies `/wip`, `/api`, `/health`, and `/auth` to it. The Vite dev server is on port 5174 (5173 is taken by WIP-AA).
 
 ### Production
 
@@ -63,6 +66,8 @@ docker run -p 3010:3010 --env-file .env rc-console
 
 RC-Console inspects WIP itself — it does not require specific terminologies or templates. It works with whatever data model exists in the connected WIP instance.
 
+The system terminology `_ONTOLOGY_RELATIONSHIP_TYPES` is used by the ontology browser to populate the relationship type dropdown. If it doesn't exist, a hardcoded fallback list is used (is_a, has_subtype, part_of, etc.).
+
 ## Tech stack
 
 | Concern | Choice |
@@ -70,9 +75,10 @@ RC-Console inspects WIP itself — it does not require specific terminologies or
 | Frontend | React 19, TypeScript, Vite |
 | Styling | Tailwind CSS |
 | Icons | Lucide React |
-| Data fetching | TanStack Query v5, @wip/react hooks |
+| Data fetching | TanStack Query v5, @wip/react 0.6.0 hooks |
+| WIP client | @wip/client 0.11.0 (RFC 7396 PATCH support) |
 | Routing | React Router v7 |
-| Backend | Express 5, @wip/proxy |
+| Backend | Express 5, @wip/proxy 0.2.0 |
 | Infra connections | mongodb (npm), nats (npm) |
 | NL Query | @anthropic-ai/sdk, Claude Sonnet |
 | Markdown | react-markdown, remark-gfm |
