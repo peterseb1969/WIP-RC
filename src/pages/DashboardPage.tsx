@@ -13,8 +13,14 @@ import {
   Server,
   Clock,
   RefreshCw,
+  Plus,
+  Upload,
+  ShieldCheck,
+  AlertTriangle,
+  CheckCircle,
+  Layers,
 } from 'lucide-react'
-import { useActivity } from '@wip/react'
+import { useActivity, useTerminologies, useTemplates, useDocuments } from '@wip/react'
 import { useServiceHealth, type ServiceHealth } from '@/hooks/use-service-health'
 import { useNamespaceStats, type NamespaceWithStats } from '@/hooks/use-namespace-stats'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
@@ -277,6 +283,251 @@ function formatTimestamp(ts: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Quick Actions
+// ---------------------------------------------------------------------------
+
+function QuickActions() {
+  const { namespace } = useNamespaceFilter()
+  const actions = [
+    { label: 'New Terminology', to: '/terminologies', icon: BookOpen },
+    { label: 'New Template', to: '/templates/new', icon: FileCode2, needsNs: true },
+    { label: 'New Document', to: '/documents', icon: FileText },
+    { label: 'Upload File', to: '/files', icon: Upload },
+    { label: 'Import Docs', to: '/documents/import', icon: Upload },
+  ]
+
+  return (
+    <section>
+      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Quick Actions</h2>
+      <div className="flex flex-wrap gap-2">
+        {actions.map(a => {
+          const disabled = a.needsNs && !namespace
+          const Icon = a.icon
+          return disabled ? (
+            <span
+              key={a.label}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs bg-gray-100 text-gray-400 rounded-md cursor-not-allowed"
+              title="Select a namespace first"
+            >
+              <Icon size={12} />
+              {a.label}
+            </span>
+          ) : (
+            <Link
+              key={a.label}
+              to={a.to}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs bg-white border border-gray-200 text-gray-700 rounded-md hover:border-blue-300 hover:text-blue-600 transition-colors"
+            >
+              <Plus size={10} className="text-gray-400" />
+              <Icon size={12} />
+              {a.label}
+            </Link>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Data Quality Card
+// ---------------------------------------------------------------------------
+
+interface IntegritySummary {
+  status: string
+  summary: {
+    total_templates: number
+    total_documents: number
+    documents_checked: number
+    templates_with_issues: number
+    documents_with_issues: number
+  }
+  checked_at: string
+}
+
+function DataQualityCard() {
+  const [result, setResult] = useState<IntegritySummary | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleCheck = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/wip/api/reporting-sync/health/integrity')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      setResult(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Check failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Data Quality</h2>
+        <Link to="/integrity" className="text-xs text-blue-500 hover:text-blue-700">Full report</Link>
+      </div>
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        {!result && !loading && !error && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-400">Run an integrity check to verify data quality.</p>
+            <button onClick={handleCheck} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-500 text-white rounded-md hover:bg-blue-600">
+              <ShieldCheck size={12} />
+              Run Check
+            </button>
+          </div>
+        )}
+        {loading && (
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <RefreshCw size={14} className="animate-spin" />
+            Running integrity check...
+          </div>
+        )}
+        {error && (
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-2 text-sm text-red-600"><AlertTriangle size={14} />{error}</span>
+            <button onClick={handleCheck} className="text-xs text-blue-500 hover:text-blue-700">Retry</button>
+          </div>
+        )}
+        {result && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {result.status === 'healthy' || result.status === 'ok' ? (
+                  <CheckCircle size={16} className="text-green-500" />
+                ) : (
+                  <AlertTriangle size={16} className="text-amber-500" />
+                )}
+                <span className={cn('text-sm font-medium', result.status === 'healthy' || result.status === 'ok' ? 'text-green-700' : 'text-amber-700')}>
+                  {result.status === 'healthy' || result.status === 'ok' ? 'Healthy' : 'Issues found'}
+                </span>
+              </div>
+              <button onClick={handleCheck} className="text-xs text-gray-400 hover:text-gray-600">
+                <RefreshCw size={12} />
+              </button>
+            </div>
+            <div className="grid grid-cols-4 gap-3 text-center text-xs">
+              <div>
+                <div className="text-lg font-semibold text-gray-700">{result.summary.total_templates}</div>
+                <div className="text-gray-400">Templates</div>
+              </div>
+              <div>
+                <div className="text-lg font-semibold text-gray-700">{result.summary.documents_checked}</div>
+                <div className="text-gray-400">Docs checked</div>
+              </div>
+              <div>
+                <div className={cn('text-lg font-semibold', result.summary.templates_with_issues > 0 ? 'text-amber-600' : 'text-gray-700')}>
+                  {result.summary.templates_with_issues}
+                </div>
+                <div className="text-gray-400">Tpl issues</div>
+              </div>
+              <div>
+                <div className={cn('text-lg font-semibold', result.summary.documents_with_issues > 0 ? 'text-amber-600' : 'text-gray-700')}>
+                  {result.summary.documents_with_issues}
+                </div>
+                <div className="text-gray-400">Doc issues</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Recent Items Grid
+// ---------------------------------------------------------------------------
+
+function RecentItemsGrid() {
+  const { namespace } = useNamespaceFilter()
+  const ns = namespace || undefined
+  const { data: termsData } = useTerminologies({ namespace: ns, page_size: 5 })
+  const { data: tplData } = useTemplates({ namespace: ns, latest_only: true, page_size: 5 })
+  const { data: docsData } = useDocuments({ namespace: ns, page_size: 5 })
+
+  const terminologies = termsData?.items ?? []
+  const templates = tplData?.items ?? []
+  const documents = docsData?.items ?? []
+
+  if (terminologies.length === 0 && templates.length === 0 && documents.length === 0) return null
+
+  return (
+    <section>
+      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Recent Items</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Terminologies */}
+        <div className="bg-white rounded-lg border border-gray-200">
+          <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
+            <span className="text-xs font-medium text-gray-500">Terminologies</span>
+            <Link to="/terminologies" className="text-[10px] text-blue-500 hover:text-blue-700">View all</Link>
+          </div>
+          {terminologies.length === 0 ? (
+            <p className="text-xs text-gray-400 px-3 py-4 text-center">None</p>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {terminologies.map(t => (
+                <Link key={t.terminology_id} to={`/terminologies/${t.terminology_id}`} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-xs">
+                  <BookOpen size={10} className="text-gray-400 shrink-0" />
+                  <span className="text-gray-700 truncate">{t.label || t.value}</span>
+                  <span className="text-gray-400 ml-auto shrink-0">{t.term_count ?? '—'}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Templates */}
+        <div className="bg-white rounded-lg border border-gray-200">
+          <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
+            <span className="text-xs font-medium text-gray-500">Templates</span>
+            <Link to="/templates" className="text-[10px] text-blue-500 hover:text-blue-700">View all</Link>
+          </div>
+          {templates.length === 0 ? (
+            <p className="text-xs text-gray-400 px-3 py-4 text-center">None</p>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {templates.map(t => (
+                <Link key={t.template_id} to={`/templates/${t.template_id}`} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-xs">
+                  <FileCode2 size={10} className="text-indigo-400 shrink-0" />
+                  <span className="text-gray-700 truncate">{t.label || t.value}</span>
+                  <span className="text-gray-400 ml-auto shrink-0 flex items-center gap-1"><Layers size={8} />v{t.version ?? 1}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Documents */}
+        <div className="bg-white rounded-lg border border-gray-200">
+          <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
+            <span className="text-xs font-medium text-gray-500">Documents</span>
+            <Link to="/documents" className="text-[10px] text-blue-500 hover:text-blue-700">View all</Link>
+          </div>
+          {documents.length === 0 ? (
+            <p className="text-xs text-gray-400 px-3 py-4 text-center">None</p>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {documents.map(d => (
+                <Link key={d.document_id} to={`/documents/${d.template_value ?? '_'}/${d.document_id}`} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-xs">
+                  <FileText size={10} className="text-gray-400 shrink-0" />
+                  <span className="text-gray-700 truncate font-mono">{d.document_id.slice(0, 12)}...</span>
+                  {d.template_value && <span className="text-indigo-400 ml-auto shrink-0">{d.template_value}</span>}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Infrastructure Summary (quick status cards for PG, Mongo, NATS)
 // ---------------------------------------------------------------------------
 
@@ -333,7 +584,10 @@ export default function DashboardPage() {
       </div>
 
       <ServiceHealthGrid />
+      <QuickActions />
       <NamespaceSummary />
+      <DataQualityCard />
+      <RecentItemsGrid />
       <InfraQuickStatus />
       <RecentActivity />
     </div>
