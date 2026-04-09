@@ -92,7 +92,7 @@ export default function TemplateBuilderPage() {
   // UI state
   const [selectedFieldIndex, setSelectedFieldIndex] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [saveMode, setSaveMode] = useState<'draft' | 'activate' | null>(null)
+  const [saveMode, setSaveMode] = useState<'draft' | 'active' | null>(null)
   const [hasBlockingWarning, setHasBlockingWarning] = useState(false)
 
   // Initialize form from existing template (edit mode)
@@ -125,18 +125,14 @@ export default function TemplateBuilderPage() {
   // --- Mutations ---
   const createTemplate = useCreateTemplate({
     onSuccess: (result) => {
-      // WIP creates templates as active by default — no separate
-      // activation step needed for new templates.
-      if (result.id) {
-        navigate(`/templates/${result.id}`)
-      }
+      if (result.id) navigate(`/templates/${result.id}`)
     },
     onError: (err: Error) => setError(err.message),
   })
 
   const updateTemplate = useUpdateTemplate({
     onSuccess: (result) => {
-      if (saveMode === 'activate' && (result.id || id)) {
+      if (saveMode === 'active' && (result.id || id)) {
         activateTemplate.mutate({ id: (result.id || id)!, namespace })
       } else {
         navigate(`/templates/${id}`)
@@ -149,7 +145,7 @@ export default function TemplateBuilderPage() {
     onSuccess: () => {
       navigate(`/templates/${id ?? ''}`)
     },
-    onError: (err: Error) => setError(`Activation failed: ${err.message}`),
+    onError: (err: Error) => setError(`Save succeeded but activation failed: ${err.message}`),
   })
 
   const isPending = createTemplate.isPending || updateTemplate.isPending || activateTemplate.isPending
@@ -206,7 +202,7 @@ export default function TemplateBuilderPage() {
   }, [selectedFieldIndex, fields])
 
   // --- Save ---
-  const handleSave = (mode: 'draft' | 'activate') => {
+  const handleSave = (mode: 'draft' | 'active') => {
     setError(null)
     setSaveMode(mode)
 
@@ -257,7 +253,7 @@ export default function TemplateBuilderPage() {
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
         reporting: Object.keys(reporting).length > 0 ? reporting as CreateTemplateRequest['reporting'] : undefined,
         created_by: 'rc-console',
-        status: mode === 'draft' ? 'draft' : undefined,
+        status: mode,
       }
       createTemplate.mutate(data)
     }
@@ -581,36 +577,23 @@ export default function TemplateBuilderPage() {
 
         {/* Action buttons */}
         <div className="flex items-center gap-2 pb-6">
-          {isEdit ? (
-            <>
-              <button
-                onClick={() => handleSave('draft')}
-                disabled={isPending}
-                className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-sm rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                <Save size={14} />
-                {isPending && saveMode === 'draft' ? 'Saving...' : 'Save as Draft'}
-              </button>
-              <button
-                onClick={() => handleSave('activate')}
-                disabled={isPending || hasBlockingWarning}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
-                title={hasBlockingWarning ? 'Resolve blocking warnings before activating' : undefined}
-              >
-                <CheckCircle size={14} />
-                {isPending && saveMode === 'activate' ? 'Saving...' : 'Save & Activate'}
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => handleSave('draft')}
-              disabled={isPending}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
-            >
-              <Save size={14} />
-              {isPending ? 'Saving...' : 'Save'}
-            </button>
-          )}
+          <button
+            onClick={() => handleSave('draft')}
+            disabled={isPending}
+            className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-sm rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            <Save size={14} />
+            {isPending && saveMode === 'draft' ? 'Saving...' : 'Save as Draft'}
+          </button>
+          <button
+            onClick={() => handleSave('active')}
+            disabled={isPending || hasBlockingWarning}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+            title={hasBlockingWarning ? 'Resolve blocking warnings before saving' : undefined}
+          >
+            <CheckCircle size={14} />
+            {isPending && saveMode === 'active' ? 'Saving...' : 'Save'}
+          </button>
           <Link
             to={isEdit ? `/templates/${id}` : '/templates'}
             className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700"
