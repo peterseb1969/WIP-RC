@@ -17,6 +17,7 @@ import {
   Pencil,
   Trash2,
   AlertTriangle,
+  Copy,
 } from 'lucide-react'
 import { useTemplate, useTerminologies, useTemplates, useDeleteTemplate } from '@wip/react'
 import type { FieldDefinition } from '@wip/client'
@@ -230,6 +231,14 @@ export default function TemplateDetailPage() {
             >
               <Pencil size={12} />
               Edit
+            </Link>
+            <Link
+              to={`/templates/new?from=${template.template_id}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm rounded-md text-gray-600 hover:bg-gray-50 hover:text-blue-600"
+              title="Create a new template pre-filled from this one"
+            >
+              <Copy size={12} />
+              Duplicate
             </Link>
             {template.status === 'active' && !confirmDeactivate && (
               <button

@@ -421,7 +421,7 @@ export default function DocumentDetailPage() {
       {/* Header */}
       <div>
         <Link
-          to="/documents"
+          to={`/documents?template=${templateValue}`}
           className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 mb-2"
         >
           <ArrowLeft size={12} />

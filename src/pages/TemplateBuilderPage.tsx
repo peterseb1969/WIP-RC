@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import {
   ArrowLeft,
   Save,
@@ -34,12 +34,14 @@ import { cn } from '@/lib/cn'
 
 export default function TemplateBuilderPage() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const isEdit = !!id
+  const cloneFromId = !isEdit ? (searchParams.get('from') ?? '') : ''
   const { namespace: globalNs } = useNamespaceFilter()
 
-  // Load existing template for edit mode
-  const { data: existing, isLoading: loadingTemplate, error: loadError } = useTemplate(id ?? '')
+  // Load existing template for edit mode, or source template for clone mode
+  const { data: existing, isLoading: loadingTemplate, error: loadError } = useTemplate(id || cloneFromId || '')
 
   // Reference data for pickers
   const { data: terminologiesData } = useTerminologies({ status: 'active', page_size: 1000 })
@@ -95,12 +97,12 @@ export default function TemplateBuilderPage() {
   const [saveMode, setSaveMode] = useState<'draft' | 'active' | null>(null)
   const [hasBlockingWarning, setHasBlockingWarning] = useState(false)
 
-  // Initialize form from existing template (edit mode)
-  if (isEdit && existing && !initialized) {
-    setValue(existing.value ?? '')
-    setLabel(existing.label ?? '')
+  // Initialize form from existing template (edit mode or clone mode)
+  if ((isEdit || cloneFromId) && existing && !initialized) {
+    setValue(isEdit ? (existing.value ?? '') : '') // blank value for clones — user must choose
+    setLabel(isEdit ? (existing.label ?? '') : `${existing.label ?? existing.value ?? ''} (copy)`)
     setDescription(existing.description ?? '')
-    setNamespace(existing.namespace ?? '')
+    setNamespace(isEdit ? (existing.namespace ?? '') : (globalNs || (existing.namespace ?? '')))
     setExtendsTemplate(existing.extends ?? undefined)
     setExtendsVersion(existing.extends_version ?? undefined)
     setIdentityFields(existing.identity_fields ?? [])
@@ -111,14 +113,14 @@ export default function TemplateBuilderPage() {
     setTags((existing.metadata?.tags ?? []).join(', '))
     setSyncEnabled(existing.reporting?.sync_enabled ?? false)
     setSyncStrategy(existing.reporting?.sync_strategy ?? '')
-    setTableName(existing.reporting?.table_name ?? '')
+    setTableName(isEdit ? (existing.reporting?.table_name ?? '') : '') // blank table name for clones
     setIncludeMetadata(existing.reporting?.include_metadata ?? false)
     setFlattenArrays(existing.reporting?.flatten_arrays ?? false)
     setMaxArrayElements(existing.reporting?.max_array_elements ?? undefined)
     setInitialized(true)
   }
-  // For create mode, mark initialized immediately
-  if (!isEdit && !initialized) {
+  // For create mode (no clone), mark initialized immediately
+  if (!isEdit && !cloneFromId && !initialized) {
     setInitialized(true)
   }
 
@@ -260,8 +262,8 @@ export default function TemplateBuilderPage() {
   }
 
   // --- Loading / error states ---
-  if (isEdit && loadingTemplate) return <LoadingState label="Loading template..." />
-  if (isEdit && loadError) return <ErrorState message={loadError.message} />
+  if ((isEdit || cloneFromId) && loadingTemplate) return <LoadingState label="Loading template..." />
+  if ((isEdit || cloneFromId) && loadError) return <ErrorState message={loadError.message} />
   if (isEdit && !existing && !loadingTemplate) return <ErrorState message="Template not found" />
 
   const selectedField = selectedFieldIndex !== null ? fields[selectedFieldIndex] : null
