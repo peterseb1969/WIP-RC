@@ -29,6 +29,7 @@ import {
   useDeprecateTerm,
   useWipClient,
 } from '@wip/react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { Term } from '@wip/client'
 
 import SearchInput from '@/components/common/SearchInput'
@@ -574,11 +575,134 @@ function ValidatePanel({ terminologyId, terminologyValue }: { terminologyId: str
 
 function ImportPanel({ terminologyId, namespace, onClose }: { terminologyId: string; namespace: string; onClose: () => void }) {
   const client = useWipClient()
+  const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [detectedFormat, setDetectedFormat] = useState<'json' | 'csv' | 'obo' | null>(null)
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState<{ terms: number; errors: number; relationships: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const handleFileSelect = (file: File | null) => {
+    setSelectedFile(file)
+    setError(null)
+    setResult(null)
+    if (!file) { setDetectedFormat(null); return }
+    const name = file.name.toLowerCase()
+    if (name.endsWith('.csv') || name.endsWith('.tsv')) setDetectedFormat('csv')
+    else if (name.endsWith('.obo') || name.endsWith('.obo.json')) setDetectedFormat('obo')
+    else setDetectedFormat('json')
+  }
+
+  // --- CSV import: value, label, description, aliases (pipe-separated) ---
+  const importCsv = async (text: string) => {
+    const Papa = (await import('papaparse')).default
+    const parsed = Papa.parse<Record<string, string>>(text, { header: true, skipEmptyLines: true })
+    if (parsed.errors.length > 0 && parsed.data.length === 0) throw new Error(parsed.errors[0]?.message ?? 'CSV parse failed')
+    let created = 0
+    let errors = 0
+    for (const row of parsed.data) {
+      const value = row['value'] || row['code'] || row['term'] || row['name']
+      if (!value) { errors++; continue }
+      try {
+        await client.defStore.createTerm(terminologyId, {
+          value,
+          label: row['label'] || row['display_name'] || undefined,
+          description: row['description'] || row['definition'] || undefined,
+          aliases: row['aliases'] ? row['aliases'].split('|').map(a => a.trim()).filter(Boolean) : undefined,
+          sort_order: row['sort_order'] ? Number(row['sort_order']) : undefined,
+          created_by: 'rc-console',
+        }, { namespace })
+        created++
+      } catch { errors++ }
+    }
+    return { terms: created, errors, relationships: 0 }
+  }
+
+  // --- OBO JSON import: OBO Graph JSON with nodes + edges ---
+  const importObo = async (text: string) => {
+    const data = JSON.parse(text)
+    const graphs = data.graphs ?? [data]
+    const graph = graphs[0]
+    if (!graph) throw new Error('No graph found in OBO JSON')
+
+    const nodes: Array<{ id: string; lbl?: string; meta?: { definition?: { val?: string }; synonyms?: Array<{ val: string }> } }> = graph.nodes ?? []
+    const edges: Array<{ sub: string; pred: string; obj: string }> = graph.edges ?? []
+
+    // Extract terms from nodes
+    let created = 0
+    let errors = 0
+    const idToValue = new Map<string, string>()
+
+    for (const node of nodes) {
+      if (node.id?.startsWith('http')) continue // skip URL-based class nodes
+      const value = node.id?.split('/').pop()?.split('#').pop() ?? node.id
+      if (!value) continue
+      idToValue.set(node.id, value)
+      try {
+        await client.defStore.createTerm(terminologyId, {
+          value,
+          label: node.lbl || undefined,
+          description: node.meta?.definition?.val || undefined,
+          aliases: node.meta?.synonyms?.map(s => s.val).filter(Boolean) || undefined,
+          created_by: 'rc-console',
+        }, { namespace })
+        created++
+      } catch { errors++ }
+    }
+
+    // Note: OBO edges (relationships) require term_ids which we don't have
+    // at this point. For a full OBO import with relationships, use the
+    // importTerminology API with a pre-processed payload. This importer
+    // handles nodes (terms) only.
+    const edgeCount = edges.length
+
+    return { terms: created, errors, relationships: edgeCount > 0 ? 0 : 0 }
+  }
+
+  // --- JSON import (existing logic) ---
+  const importJson = async (text: string) => {
+    const data = JSON.parse(text)
+    if (Array.isArray(data)) {
+      let created = 0
+      let errors = 0
+      for (const term of data) {
+        try {
+          await client.defStore.createTerm(terminologyId, {
+            value: term.value,
+            label: term.label,
+            description: term.description,
+            aliases: term.aliases,
+            sort_order: term.sort_order,
+            parent_term_id: term.parent_term_id,
+            translations: term.translations,
+            metadata: term.metadata,
+            created_by: 'rc-console',
+          }, { namespace })
+          created++
+        } catch { errors++ }
+      }
+      return { terms: created, errors, relationships: 0 }
+    } else if (data.terminology && data.terms) {
+      const res = await client.defStore.importTerminology({
+        terminology: { ...data.terminology, namespace },
+        terms: data.terms,
+        relationships: data.relationships,
+      })
+      const termsOk = (res.terms_result?.results ?? []).filter((r: { status: string }) => r.status === 'ok' || r.status === 'created').length
+      const termsErr = (res.terms_result?.results ?? []).filter((r: { status: string }) => r.status !== 'ok' && r.status !== 'created').length
+      return {
+        terms: termsOk,
+        errors: termsErr,
+        relationships: res.relationships_result?.created ?? 0,
+      }
+    } else if (data.graphs || data.nodes) {
+      // OBO Graph JSON with .json extension
+      return importObo(text)
+    } else {
+      throw new Error('Unrecognized JSON format. Expected: array of terms, {terminology, terms}, or OBO Graph JSON.')
+    }
+  }
 
   const handleImport = async () => {
     if (!selectedFile) return
@@ -586,49 +710,16 @@ function ImportPanel({ terminologyId, namespace, onClose }: { terminologyId: str
     setError(null)
     try {
       const text = await selectedFile.text()
-      const data = JSON.parse(text)
-
-      // Support two formats: full ImportTerminologyRequest (with terminology+terms) or just an array of terms
-      if (Array.isArray(data)) {
-        // Array of terms — create them via createTerms
-        let created = 0
-        let errors = 0
-        for (const term of data) {
-          try {
-            await client.defStore.createTerm(terminologyId, {
-              value: term.value,
-              label: term.label,
-              description: term.description,
-              aliases: term.aliases,
-              sort_order: term.sort_order,
-              parent_term_id: term.parent_term_id,
-              translations: term.translations,
-              metadata: term.metadata,
-              created_by: 'rc-console',
-            }, { namespace })
-            created++
-          } catch {
-            errors++
-          }
-        }
-        setResult({ terms: created, errors, relationships: 0 })
-      } else if (data.terminology && data.terms) {
-        // Full import format
-        const res = await client.defStore.importTerminology({
-          terminology: { ...data.terminology, namespace },
-          terms: data.terms,
-          relationships: data.relationships,
-        })
-        const termsOk = (res.terms_result?.results ?? []).filter(r => r.status === 'ok' || r.status === 'created').length
-        const termsErr = (res.terms_result?.results ?? []).filter(r => r.status !== 'ok' && r.status !== 'created').length
-        setResult({
-          terms: termsOk,
-          errors: termsErr,
-          relationships: res.relationships_result?.created ?? 0,
-        })
+      let res: { terms: number; errors: number; relationships: number }
+      if (detectedFormat === 'csv') {
+        res = await importCsv(text)
+      } else if (detectedFormat === 'obo') {
+        res = await importObo(text)
       } else {
-        setError('Unrecognized format. Expected either a JSON array of terms or an object with {terminology, terms}.')
+        res = await importJson(text)
       }
+      setResult(res)
+      queryClient.invalidateQueries({ queryKey: ['wip', 'terms'] })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Import failed')
     } finally {
@@ -636,26 +727,32 @@ function ImportPanel({ terminologyId, namespace, onClose }: { terminologyId: str
     }
   }
 
+  const formatLabel = detectedFormat === 'csv' ? 'CSV' : detectedFormat === 'obo' ? 'OBO Graph JSON' : 'JSON'
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
-      <h3 className="text-sm font-medium text-gray-700">Import Terms (JSON)</h3>
+      <h3 className="text-sm font-medium text-gray-700">Import Terms</h3>
       <p className="text-xs text-gray-400">
-        Upload a JSON file: either an array of term objects [{`{value, label, ...}`}] or a full export [{`{terminology, terms, relationships}`}].
+        Upload a file to import terms. Supported formats: JSON (array or full export), CSV (headers: value, label, description, aliases), OBO Graph JSON.
       </p>
       <div>
         <input
           ref={fileInputRef}
           type="file"
-          accept=".json"
+          accept=".json,.csv,.tsv,.obo"
           className="hidden"
-          onChange={e => { setSelectedFile(e.target.files?.[0] ?? null); setError(null); setResult(null) }}
+          onChange={e => handleFileSelect(e.target.files?.[0] ?? null)}
         />
         <button
           onClick={() => fileInputRef.current?.click()}
           className="w-full border-2 border-dashed border-gray-200 rounded-lg py-4 text-sm text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors flex flex-col items-center gap-1"
         >
           <Upload size={18} />
-          {selectedFile ? selectedFile.name : 'Click to select a JSON file'}
+          {selectedFile ? (
+            <span>{selectedFile.name} <span className="text-xs text-gray-300">({formatLabel})</span></span>
+          ) : (
+            'Click to select a file'
+          )}
         </button>
       </div>
       {error && <p className="text-xs text-red-500">{error}</p>}
