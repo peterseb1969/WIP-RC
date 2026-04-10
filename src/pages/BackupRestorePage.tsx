@@ -59,11 +59,10 @@ function BackupTab() {
     setError(null)
     setActiveJob(null)
     try {
-      const res = await fetch(apiUrl(`/wip/api/document-store/backup`), {
+      const res = await fetch(apiUrl(`/wip/api/document-store/backup/namespaces/${namespace}/backup`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          namespace,
           include_files: includeFiles,
           include_inactive: includeInactive,
           latest_only: latestOnly,
@@ -75,7 +74,7 @@ function BackupTab() {
       // Start polling
       pollRef.current = setInterval(async () => {
         try {
-          const r = await fetch(apiUrl(`/wip/api/document-store/backup/${job.job_id}`))
+          const r = await fetch(apiUrl(`/wip/api/document-store/backup/jobs/${job.job_id}`))
           if (!r.ok) return
           const updated = await r.json() as BackupJob
           setActiveJob(updated)
@@ -92,7 +91,7 @@ function BackupTab() {
   const handleDownload = async () => {
     if (!activeJob) return
     try {
-      const res = await fetch(apiUrl(`/wip/api/document-store/backup/${activeJob.job_id}/download`))
+      const res = await fetch(apiUrl(`/wip/api/document-store/backup/jobs/${activeJob.job_id}/download`))
       if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`)
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
@@ -157,6 +156,7 @@ function BackupTab() {
 // ---------------------------------------------------------------------------
 
 function RestoreTab() {
+  const { namespace } = useNamespaceFilter()
   const { data: namespaces } = useNamespaces()
   const existingPrefixes = new Set((namespaces ?? []).map(ns => ns.prefix))
 
@@ -186,11 +186,13 @@ function RestoreTab() {
     setRestoring(true)
     setError(null)
     try {
+      if (!namespace) throw new Error('Select a namespace in the top bar first (used for auth check)')
+
       const formData = new FormData()
       formData.append('archive', file)
       formData.append('mode', 'restore')
 
-      const res = await fetch(apiUrl('/wip/api/document-store/restore'), {
+      const res = await fetch(apiUrl(`/wip/api/document-store/backup/namespaces/${namespace}/restore`), {
         method: 'POST',
         body: formData,
       })
@@ -206,7 +208,7 @@ function RestoreTab() {
       // Start polling
       pollRef.current = setInterval(async () => {
         try {
-          const r = await fetch(apiUrl(`/wip/api/document-store/backup/${job.job_id}`))
+          const r = await fetch(apiUrl(`/wip/api/document-store/backup/jobs/${job.job_id}`))
           if (!r.ok) return
           const updated = await r.json() as BackupJob
           setActiveJob(updated)
@@ -325,7 +327,7 @@ function JobsList() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(apiUrl('/wip/api/document-store/backup?limit=20'))
+      const res = await fetch(apiUrl('/wip/api/document-store/backup/jobs?limit=20'))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setJobs(data.jobs ?? data.items ?? data ?? [])
@@ -340,7 +342,7 @@ function JobsList() {
 
   const handleDelete = async (jobId: string) => {
     try {
-      const res = await fetch(apiUrl(`/wip/api/document-store/backup/${jobId}`), { method: 'DELETE' })
+      const res = await fetch(apiUrl(`/wip/api/document-store/backup/jobs/${jobId}`), { method: 'DELETE' })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setJobs(prev => prev.filter(j => j.job_id !== jobId))
     } catch (err) {
