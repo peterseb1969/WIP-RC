@@ -54,7 +54,7 @@ function FilePreview({ contentType, downloadUrl, filename }: { contentType: stri
   } else if (contentType.startsWith('audio/')) {
     content = <audio src={downloadUrl} controls className="w-full" />
   } else if (contentType === 'application/pdf') {
-    content = <iframe src={downloadUrl} title={filename} className="w-full h-[600px] rounded border-0" />
+    content = <PdfPreview downloadUrl={downloadUrl} filename={filename} />
   } else if (contentType.startsWith('text/') || contentType.includes('json') || contentType.includes('xml') || contentType.includes('csv')) {
     content = <TextPreview downloadUrl={downloadUrl} />
   } else {
@@ -69,6 +69,23 @@ function FilePreview({ contentType, downloadUrl, filename }: { contentType: stri
       </div>
     </div>
   )
+}
+
+function PdfPreview({ downloadUrl, filename }: { downloadUrl: string; filename: string }) {
+  const { data: blobUrl, isLoading } = useQuery({
+    queryKey: ['rc-console', 'pdf-preview', downloadUrl],
+    queryFn: async () => {
+      const res = await fetch(downloadUrl)
+      const blob = await res.blob()
+      return URL.createObjectURL(blob)
+    },
+    enabled: !!downloadUrl,
+    staleTime: 300_000,
+  })
+
+  if (isLoading) return <p className="text-xs text-gray-400">Loading PDF...</p>
+  if (!blobUrl) return null
+  return <iframe src={blobUrl} title={filename} className="w-full h-[600px] rounded border-0" />
 }
 
 function TextPreview({ downloadUrl }: { downloadUrl: string }) {
