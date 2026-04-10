@@ -88,21 +88,15 @@ function BackupTab() {
     }
   }
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     if (!activeJob) return
-    try {
-      const res = await fetch(apiUrl(`/wip/api/document-store/backup/jobs/${activeJob.job_id}/download`))
-      if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`)
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${activeJob.namespace}_backup.zip`
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Download failed')
-    }
+    // Open download URL directly — lets the browser stream the file
+    // instead of buffering the entire archive in JS memory.
+    // This avoids 502s on large archives (2GB+) and works with any size.
+    const a = document.createElement('a')
+    a.href = apiUrl(`/wip/api/document-store/backup/jobs/${activeJob.job_id}/download`)
+    a.download = `${activeJob.namespace}_backup.zip`
+    a.click()
   }
 
   return (
@@ -297,9 +291,16 @@ function JobProgress({ job, onDownload }: { job: BackupJob; onDownload?: () => v
         </div>
       )}
 
-      {job.phase && <p className="text-xs text-gray-500">Phase: {job.phase}</p>}
+      {job.phase && (
+        <div className="flex items-center gap-3 text-xs">
+          <span className="text-gray-500 font-medium">Phase: {job.phase}</span>
+          {job.archive_size != null && job.archive_size > 0 && (
+            <span className="text-gray-400 flex items-center gap-1"><HardDrive size={10} /> {formatBytes(job.archive_size)}</span>
+          )}
+        </div>
+      )}
       {job.message && <p className="text-xs text-gray-500">{job.message}</p>}
-      {job.archive_size != null && <p className="text-xs text-gray-400 flex items-center gap-1"><HardDrive size={10} /> {formatBytes(job.archive_size)}</p>}
+      {!job.phase && job.archive_size != null && <p className="text-xs text-gray-400 flex items-center gap-1"><HardDrive size={10} /> {formatBytes(job.archive_size)}</p>}
 
       {job.status === 'complete' && onDownload && (
         <button
