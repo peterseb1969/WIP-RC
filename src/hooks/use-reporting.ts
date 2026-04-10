@@ -1,4 +1,5 @@
 import { useQuery, useMutation } from '@tanstack/react-query'
+import { apiUrl } from '@/lib/wip'
 
 // ---------------------------------------------------------------------------
 // Types — matched to actual reporting-sync API responses
@@ -40,7 +41,7 @@ export interface SyncStatus {
 // ---------------------------------------------------------------------------
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/wip/api/reporting-sync${path}`, init)
+  const res = await fetch(apiUrl(`/wip/api/reporting-sync${path}`), init)
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     throw new Error(`reporting-sync ${path}: HTTP ${res.status} — ${body}`)

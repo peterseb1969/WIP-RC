@@ -27,6 +27,7 @@ import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import { cn } from '@/lib/cn'
+import { apiUrl } from '@/lib/wip'
 
 // ---------------------------------------------------------------------------
 // Service Health Cards
@@ -354,7 +355,7 @@ function DataQualityCard() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/wip/api/reporting-sync/health/integrity')
+      const res = await fetch(apiUrl('/wip/api/reporting-sync/health/integrity'))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setResult(data)

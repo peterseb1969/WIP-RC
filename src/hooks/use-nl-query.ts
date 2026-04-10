@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { apiUrl } from '@/lib/wip'
 
 export interface ChatMessage {
   id: string
@@ -45,7 +46,7 @@ export function useNLQuery() {
   const checkStatus = useCallback(async () => {
     setStatusLoading(true)
     try {
-      const res = await fetch('/api/nl/status')
+      const res = await fetch(apiUrl('/api/nl/status'))
       const data = (await res.json()) as NLStatus
       setStatus(data)
     } catch {
@@ -73,7 +74,7 @@ export function useNLQuery() {
         content: m.content,
       }))
 
-      const res = await fetch('/api/nl/query', {
+      const res = await fetch(apiUrl('/api/nl/query'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question, history }),

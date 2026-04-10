@@ -25,6 +25,7 @@ import DataTable from '@/components/common/DataTable'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import { cn } from '@/lib/cn'
+import { apiUrl } from '@/lib/wip'
 
 // ---------------------------------------------------------------------------
 // Query History (persisted in localStorage)
@@ -273,7 +274,7 @@ function QueryPad() {
   const handleExportCsv = async () => {
     if (!sql.trim()) return
     try {
-      const resp = await fetch('/wip/api/reporting-sync/export/csv', {
+      const resp = await fetch(apiUrl('/wip/api/reporting-sync/export/csv'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sql: sql.trim() }),

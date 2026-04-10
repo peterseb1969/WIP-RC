@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { apiUrl } from '@/lib/wip'
 
 export interface MongoDatabase {
   name: string
@@ -34,7 +35,7 @@ export interface MongoDocBrowse {
 }
 
 async function fetchInfra<T>(path: string): Promise<T> {
-  const res = await fetch(`/api/infra/mongo${path}`)
+  const res = await fetch(apiUrl(`/api/infra/mongo${path}`))
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     throw new Error(`MongoDB ${path}: HTTP ${res.status} — ${body}`)

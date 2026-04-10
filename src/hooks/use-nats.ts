@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { apiUrl } from '@/lib/wip'
 
 export interface NatsStatus {
   connected: boolean
@@ -31,7 +32,7 @@ export interface NatsConsumer {
 }
 
 async function fetchNats<T>(path: string): Promise<T> {
-  const res = await fetch(`/api/infra/nats${path}`)
+  const res = await fetch(apiUrl(`/api/infra/nats${path}`))
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     throw new Error(`NATS ${path}: HTTP ${res.status} — ${body}`)
@@ -69,7 +70,7 @@ export function useIngestGatewayStatus() {
     queryKey: ['rc-console', 'ingest-gateway', 'status'],
     queryFn: async (): Promise<IngestGatewayStatus | null> => {
       try {
-        const res = await fetch('/wip/api/ingest-gateway/status')
+        const res = await fetch(apiUrl('/wip/api/ingest-gateway/status'))
         if (!res.ok) return null
         return res.json()
       } catch {

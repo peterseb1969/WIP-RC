@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { apiUrl } from '@/lib/wip'
 
 interface UserInfo {
   email?: string
@@ -21,7 +22,7 @@ export function useAuth() {
   const { data, isLoading, error, refetch } = useQuery<UserInfo>({
     queryKey: ['auth', 'me'],
     queryFn: async () => {
-      const res = await fetch('/api/me')
+      const res = await fetch(apiUrl('/api/me'))
       if (!res.ok) throw new Error(`Auth check failed: ${res.status}`)
       return res.json()
     },

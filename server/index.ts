@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import express from 'express'
+import express, { Router } from 'express'
 import cors from 'cors'
 import session from 'express-session'
 import path from 'path'
@@ -11,43 +11,59 @@ import natsRouter from './infra/nats.js'
 import nlRouter from './nl/query.js'
 
 const PORT = parseInt(process.env.PORT || '3010')
+
+/**
+ * APP_BASE_PATH — the external path prefix when behind a reverse proxy.
+ * E.g. /apps/rc when Caddy routes https://host:8443/apps/rc/* to this app.
+ *
+ * With Option 2 (CASE-38), Caddy does NOT strip the prefix. The app
+ * receives the full path and mounts all routes under APP_BASE_PATH.
+ * This means the app is fully aware of where it lives — cookies,
+ * OIDC redirects, and internal routing all use the same prefix.
+ *
+ * When unset (local dev), defaults to '/' — no prefix.
+ */
+const BASE_PATH = (process.env.APP_BASE_PATH || '').replace(/\/$/, '') || '/'
+
 const app = express()
+const router = Router()
 
 app.use(cors())
-// Parse JSON only for our own routes — NOT for /wip, which @wip/proxy
-// needs to forward as a raw stream. express.json() consumes the body
-// stream, causing "stream is not readable" in the proxy's body-parser.
-app.use((req, res, next) => {
-  if (req.path.startsWith('/wip')) return next()
-  express.json()(req, res, next)
-})
 
 // Session (required for OIDC auth)
-const basePath = (process.env.APP_BASE_PATH || '').replace(/\/$/, '')
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-session-secret',
+  name: 'rc.sid',
   resave: false,
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000,
-    path: basePath || '/',
+    path: BASE_PATH,
   },
 }))
 
+// Parse JSON only for our own routes — NOT for /wip, which @wip/proxy
+// needs to forward as a raw stream. express.json() consumes the body
+// stream, causing "stream is not readable" in the proxy's body-parser.
+router.use((req, res, next) => {
+  if (req.path.startsWith('/wip')) return next()
+  express.json()(req, res, next)
+})
+
 // Auth routes
-app.get('/auth/callback', (req, res) => { handleCallback(req, res) })
-app.get('/auth/logout', handleLogout)
-app.use(requireAuth())
+router.get('/auth/callback', (req, res) => { handleCallback(req, res) })
+router.get('/auth/logout', handleLogout)
+router.use(requireAuth())
 
 // Health
-app.get('/health', (_req, res) => {
+router.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'rc-console' })
 })
 
 // WIP API proxy — frontend uses @wip/client with baseUrl: '/wip'
-app.use('/wip', wipProxy({
+router.use('/wip', wipProxy({
   baseUrl: process.env.WIP_BASE_URL || 'https://localhost:8443',
   apiKey: process.env.WIP_API_KEY || '',
 }))
@@ -62,7 +78,7 @@ const WIP_SERVICES = [
   { name: 'Ingest-Gateway', slug: 'ingest-gateway', path: '/api/ingest-gateway/health' },
 ]
 
-app.get('/api/infra/health', async (_req, res) => {
+router.get('/api/infra/health', async (_req, res) => {
   const wipBase = process.env.WIP_BASE_URL || 'https://localhost:8443'
   const apiKey = process.env.WIP_API_KEY || ''
 
@@ -105,14 +121,14 @@ app.get('/api/infra/health', async (_req, res) => {
 })
 
 // Infrastructure routes
-app.use('/api/infra/mongo', mongoRouter)
-app.use('/api/infra/nats', natsRouter)
+router.use('/api/infra/mongo', mongoRouter)
+router.use('/api/infra/nats', natsRouter)
 
 // NL Query — Claude API with WIP tool calls
-app.use('/api/nl', nlRouter)
+router.use('/api/nl', nlRouter)
 
 // User info
-app.get('/api/me', (req, res) => {
+router.get('/api/me', (req, res) => {
   if (req.session.user) {
     res.json(req.session.user)
   } else {
@@ -124,17 +140,23 @@ app.get('/api/me', (req, res) => {
 if (process.env.NODE_ENV === 'production') {
   const __dirname = path.dirname(fileURLToPath(import.meta.url))
   const distPath = path.resolve(__dirname, '..', 'dist')
-  app.use(express.static(distPath))
+  router.use(express.static(distPath))
   // SPA fallback — serve index.html for all unmatched routes
-  app.get('/{0,}', (_req, res) => {
+  router.get('/{0,}', (_req, res) => {
     res.sendFile(path.join(distPath, 'index.html'))
   })
 }
+
+// Mount router at BASE_PATH
+app.use(BASE_PATH, router)
 
 async function main() {
   await initAuth()
   app.listen(PORT, () => {
     console.log(`rc-console backend listening on http://localhost:${PORT}`)
+    if (BASE_PATH !== '/') {
+      console.log(`  base path: ${BASE_PATH}`)
+    }
   })
 }
 

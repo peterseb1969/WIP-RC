@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig({
+  // VITE_BASE_PATH sets the public base path for production builds.
+  // E.g. VITE_BASE_PATH=/apps/rc/ → assets load from /apps/rc/assets/...
+  // In dev mode (no VITE_BASE_PATH), defaults to '/' — no prefix.
+  base: process.env.VITE_BASE_PATH || '/',
   plugins: [react()],
   resolve: {
     alias: {

@@ -43,7 +43,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <WipProvider client={wipClient}>
         <NamespaceFilterProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={import.meta.env.BASE_URL?.replace(/\/$/, '') || '/'}>
           <Routes>
             <Route element={<AppLayout />}>
               <Route index element={<DashboardPage />} />

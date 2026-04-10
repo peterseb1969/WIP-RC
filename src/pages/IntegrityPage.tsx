@@ -4,6 +4,7 @@ import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import { cn } from '@/lib/cn'
+import { apiUrl } from '@/lib/wip'
 
 interface IntegrityResult {
   status: string
@@ -40,7 +41,7 @@ export default function IntegrityPage() {
     setIsLoading(true)
     setError(null)
     try {
-      const res = await fetch('/wip/api/reporting-sync/health/integrity')
+      const res = await fetch(apiUrl('/wip/api/reporting-sync/health/integrity'))
       if (!res.ok) {
         const text = await res.text().catch(() => '')
         throw new Error(`HTTP ${res.status}: ${text}`)
