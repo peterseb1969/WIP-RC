@@ -16,10 +16,10 @@ export default defineConfig({
   server: {
     port: 5174,
     proxy: {
-      '/wip': 'http://localhost:3010',
-      '/api': 'http://localhost:3010',
-      '/health': 'http://localhost:3010',
-      '/auth': 'http://localhost:3010',
+      '/wip': 'http://localhost:3011',
+      '/api': 'http://localhost:3011',
+      '/health': 'http://localhost:3011',
+      '/auth': 'http://localhost:3011',
     },
   },
   test: {

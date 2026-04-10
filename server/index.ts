@@ -10,7 +10,7 @@ import mongoRouter from './infra/mongo.js'
 import natsRouter from './infra/nats.js'
 import nlRouter from './nl/query.js'
 
-const PORT = parseInt(process.env.PORT || '3010')
+const PORT = parseInt(process.env.PORT || '3011')
 
 /**
  * APP_BASE_PATH — the external path prefix when behind a reverse proxy.
