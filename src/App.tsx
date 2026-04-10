@@ -23,6 +23,7 @@ import PostgresPage from '@/pages/PostgresPage'
 import MongoPage from '@/pages/MongoPage'
 import NatsPage from '@/pages/NatsPage'
 import IntegrityPage from '@/pages/IntegrityPage'
+import AuditExplorerPage from '@/pages/AuditExplorerPage'
 import ActivityPage from '@/pages/ActivityPage'
 import NLQueryPage from '@/pages/NLQueryPage'
 import APIKeysPage from '@/pages/APIKeysPage'
@@ -67,6 +68,7 @@ export default function App() {
               <Route path="mongodb" element={<MongoPage />} />
               <Route path="nats" element={<NatsPage />} />
               <Route path="integrity" element={<IntegrityPage />} />
+              <Route path="audit-explorer" element={<AuditExplorerPage />} />
               <Route path="activity" element={<ActivityPage />} />
               <Route path="query" element={<NLQueryPage />} />
               <Route path="api-keys" element={<APIKeysPage />} />

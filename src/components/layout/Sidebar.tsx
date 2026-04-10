@@ -13,6 +13,7 @@ import {
   Radio,
   ShieldCheck,
   Activity,
+  Search,
   MessageSquare,
   ChevronLeft,
   ChevronRight,
@@ -49,6 +50,7 @@ const navSections = [
     label: 'Health',
     items: [
       { to: '/integrity', icon: ShieldCheck, label: 'Integrity' },
+      { to: '/audit-explorer', icon: Search, label: 'Audit Explorer' },
       { to: '/activity', icon: Activity, label: 'Activity' },
     ],
   },
