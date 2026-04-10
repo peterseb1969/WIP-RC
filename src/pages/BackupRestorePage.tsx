@@ -24,7 +24,8 @@ import { apiUrl } from '@/lib/wip'
 interface BackupJob {
   job_id: string
   namespace: string
-  type: 'backup' | 'restore'
+  type?: 'backup' | 'restore'
+  kind?: 'backup' | 'restore'
   status: 'pending' | 'running' | 'complete' | 'failed'
   phase?: string
   percent?: number
@@ -368,9 +369,9 @@ function JobsList() {
         <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
           {jobs.map(job => (
             <div key={job.job_id} className="flex items-center gap-3 px-4 py-2.5 text-xs">
-              {job.type === 'backup' ? <Download size={12} className="text-blue-500 shrink-0" /> : <Upload size={12} className="text-green-500 shrink-0" />}
+              {(job.kind ?? job.type) === 'backup' ? <Download size={12} className="text-blue-500 shrink-0" /> : <Upload size={12} className="text-green-500 shrink-0" />}
               <div className="flex-1 min-w-0">
-                <span className="font-medium text-gray-700">{job.type}</span>
+                <span className="font-medium text-gray-700">{job.kind ?? job.type ?? 'job'}</span>
                 <span className="text-gray-400 ml-2">{job.namespace}</span>
                 {job.message && <span className="text-gray-400 ml-2 truncate">{job.message}</span>}
               </div>
@@ -382,7 +383,7 @@ function JobsList() {
                 label={job.status}
               />
               {job.created_at && <span className="text-gray-300">{new Date(job.created_at).toLocaleDateString()}</span>}
-              {job.status === 'complete' && job.type === 'backup' && (
+              {job.status === 'complete' && (job.kind ?? job.type) === 'backup' && (
                 <a
                   href={apiUrl(`/wip/api/document-store/backup/jobs/${job.job_id}/download`)}
                   download={`${job.namespace}_backup.zip`}
