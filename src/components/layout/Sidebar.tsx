@@ -21,6 +21,7 @@ import {
   ChevronDown,
   Plus,
   Upload,
+  Archive,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
@@ -96,6 +97,7 @@ const navSections: NavSection[] = [
     label: 'Admin',
     items: [
       { to: '/api-keys', icon: Key, label: 'API Keys' },
+      { to: '/backup', icon: Archive, label: 'Backup & Restore' },
     ],
   },
   {
