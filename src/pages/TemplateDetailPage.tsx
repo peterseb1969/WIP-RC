@@ -227,7 +227,10 @@ export default function TemplateDetailPage() {
               {versions.length > 1 ? (
                 <select
                   value={template.template_id}
-                  onChange={e => navigate(`/templates/${e.target.value}`)}
+                  onChange={e => {
+                    const newId = e.target.value
+                    if (newId !== id) navigate(`/templates/${newId}`)
+                  }}
                   className="text-xs text-gray-500 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-400"
                   title="Switch version"
                 >
