@@ -23,6 +23,7 @@ app.use((req, res, next) => {
 })
 
 // Session (required for OIDC auth)
+const basePath = (process.env.APP_BASE_PATH || '').replace(/\/$/, '')
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-session-secret',
   resave: false,
@@ -31,6 +32,7 @@ app.use(session({
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000,
+    path: basePath || '/',
   },
 }))
 
