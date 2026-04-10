@@ -44,19 +44,48 @@ function fileTypeIcon(contentType: string, size: number = 24) {
 // Image preview
 // ---------------------------------------------------------------------------
 
-function ImagePreview({ downloadUrl, filename }: { downloadUrl: string; filename: string }) {
+function FilePreview({ contentType, downloadUrl, filename }: { contentType: string; downloadUrl: string; filename: string }) {
+  let content: React.ReactNode = null
+
+  if (contentType.startsWith('image/')) {
+    content = <img src={downloadUrl} alt={filename} className="max-h-96 max-w-full rounded object-contain" />
+  } else if (contentType.startsWith('video/')) {
+    content = <video src={downloadUrl} controls className="max-h-96 max-w-full rounded" />
+  } else if (contentType.startsWith('audio/')) {
+    content = <audio src={downloadUrl} controls className="w-full" />
+  } else if (contentType === 'application/pdf') {
+    content = <iframe src={downloadUrl} title={filename} className="w-full h-[600px] rounded border-0" />
+  } else if (contentType.startsWith('text/') || contentType.includes('json') || contentType.includes('xml') || contentType.includes('csv')) {
+    content = <TextPreview downloadUrl={downloadUrl} />
+  } else {
+    return null
+  }
+
   return (
     <div>
       <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Preview</h2>
       <div className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-center">
-        <img
-          src={downloadUrl}
-          alt={filename}
-          className="max-h-96 max-w-full rounded object-contain"
-        />
+        {content}
       </div>
     </div>
   )
+}
+
+function TextPreview({ downloadUrl }: { downloadUrl: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['rc-console', 'text-preview', downloadUrl],
+    queryFn: async () => {
+      const res = await fetch(downloadUrl)
+      const text = await res.text()
+      // Cap at 10KB to avoid rendering huge files
+      return text.length > 10_000 ? text.slice(0, 10_000) + '\n\n... (truncated)' : text
+    },
+    enabled: !!downloadUrl,
+    staleTime: 60_000,
+  })
+
+  if (isLoading) return <p className="text-xs text-gray-400">Loading preview...</p>
+  return <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono max-h-96 overflow-auto w-full">{data}</pre>
 }
 
 // ---------------------------------------------------------------------------
@@ -508,9 +537,9 @@ export default function FileDetailPage() {
         </div>
       )}
 
-      {/* Image preview */}
-      {file.content_type.startsWith('image/') && downloadInfo?.download_url && (
-        <ImagePreview downloadUrl={downloadInfo.download_url} filename={file.filename} />
+      {/* File preview (image, video, audio, PDF, text) */}
+      {downloadInfo?.download_url && (
+        <FilePreview contentType={file.content_type} downloadUrl={downloadInfo.download_url} filename={file.filename} />
       )}
 
       {/* Duplicate detection */}
