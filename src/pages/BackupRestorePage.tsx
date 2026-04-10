@@ -151,9 +151,7 @@ function BackupTab() {
 // ---------------------------------------------------------------------------
 
 function RestoreTab() {
-  const { namespace } = useNamespaceFilter()
   const { data: namespaces } = useNamespaces()
-  const existingPrefixes = new Set((namespaces ?? []).map(ns => ns.prefix))
 
   const [file, setFile] = useState<File | null>(null)
   const [restoring, setRestoring] = useState(false)
@@ -180,23 +178,27 @@ function RestoreTab() {
     if (!file) return
     setRestoring(true)
     setError(null)
+    setWarning(null)
     try {
-      if (!namespace) throw new Error('Select a namespace in the top bar first (used for auth check)')
-
       const formData = new FormData()
       formData.append('archive', file)
       formData.append('mode', 'restore')
 
-      const res = await fetch(apiUrl(`/wip/api/document-store/backup/namespaces/${namespace}/restore`), {
+      const res = await fetch(apiUrl('/api/backup-restore'), {
         method: 'POST',
         body: formData,
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
       const job = await res.json() as BackupJob
 
-      // Check if target namespace already exists
-      if (job.namespace && existingPrefixes.has(job.namespace)) {
-        setWarning(`Namespace "${job.namespace}" already exists. Restore will merge/overwrite existing data.`)
+      // Inform user which namespace the archive will restore into
+      const existingPrefixes = new Set((namespaces ?? []).map(ns => ns.prefix))
+      if (job.namespace) {
+        if (existingPrefixes.has(job.namespace)) {
+          setWarning(`Restoring into existing namespace "${job.namespace}" — data will be merged/overwritten.`)
+        } else {
+          setWarning(`Restoring into new namespace "${job.namespace}".`)
+        }
       }
 
       setActiveJob(job)

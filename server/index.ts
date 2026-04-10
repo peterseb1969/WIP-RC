@@ -165,6 +165,36 @@ router.get('/api/backup-download/:jobId', async (req, res) => {
   }
 })
 
+// Streaming restore proxy.
+// The restore endpoint requires a namespace in the URL for auth, but restore
+// mode ignores it (the archive determines the target). We use 'wip' as a
+// placeholder since the admin API key has access to all namespaces.
+router.post('/api/backup-restore', async (req, res) => {
+  const wipBase = process.env.WIP_BASE_URL || 'https://localhost:8443'
+  const apiKey = process.env.WIP_API_KEY || ''
+  try {
+    // Forward the multipart form body directly to WIP
+    const contentType = req.headers['content-type'] || ''
+    const upstream = await fetch(
+      `${wipBase}/api/document-store/backup/namespaces/wip/restore`,
+      {
+        method: 'POST',
+        headers: {
+          'X-API-Key': apiKey,
+          'Content-Type': contentType,
+        },
+        body: req as unknown as BodyInit,
+        // @ts-expect-error -- duplex required for streaming request bodies in Node
+        duplex: 'half',
+      },
+    )
+    const data = await upstream.text()
+    res.status(upstream.status).setHeader('Content-Type', 'application/json').send(data)
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : 'Restore proxy failed' })
+  }
+})
+
 // Infrastructure routes
 router.use('/api/infra/mongo', mongoRouter)
 router.use('/api/infra/nats', natsRouter)
