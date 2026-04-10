@@ -101,10 +101,12 @@ export function requireAuth(): RequestHandler {
     const callbackUrl = getCallbackUrl(req)
     const codeVerifier = client.randomPKCECodeVerifier()
     const codeChallenge = client.calculatePKCECodeChallenge(codeVerifier)
+    const state = client.randomState()
 
-    // Store PKCE verifier and return URL in session
+    // Store PKCE verifier, state, and return URL in session
     req.session.returnTo = req.originalUrl
     ;(req.session as any).codeVerifier = codeVerifier
+    ;(req.session as any).oauthState = state
 
     codeChallenge.then(challenge => {
       const params = new URLSearchParams({
@@ -114,6 +116,7 @@ export function requireAuth(): RequestHandler {
         scope: 'openid email profile groups',
         code_challenge: challenge,
         code_challenge_method: 'S256',
+        state,
       })
 
       const authUrl = `${oidcConfig!.serverMetadata().authorization_endpoint}?${params}`
@@ -134,12 +137,13 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
   try {
     const callbackUrl = getCallbackUrl(req)
     const codeVerifier = (req.session as any).codeVerifier
+    const expectedState = (req.session as any).oauthState
 
     const callbackParams = new URLSearchParams(req.url.split('?')[1] || '')
     const tokens = await client.authorizationCodeGrant(
       oidcConfig,
       new URL(`${callbackUrl}?${callbackParams}`),
-      { pkceCodeVerifier: codeVerifier },
+      { pkceCodeVerifier: codeVerifier, expectedState },
     )
 
     const claims = tokens.claims()!
@@ -151,8 +155,9 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
       name: claims.name as string | undefined,
     }
 
-    // Clean up PKCE verifier
+    // Clean up PKCE verifier and state
     delete (req.session as any).codeVerifier
+    delete (req.session as any).oauthState
 
     const returnTo = req.session.returnTo || '/'
     delete req.session.returnTo
