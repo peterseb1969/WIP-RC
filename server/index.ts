@@ -28,9 +28,15 @@ const BASE_PATH = (process.env.APP_BASE_PATH || '').replace(/\/$/, '') || '/'
 const app = express()
 const router = Router()
 
+// Trust reverse proxy (Caddy) — required for secure cookies and
+// correct req.protocol when behind HTTPS termination
+app.set('trust proxy', 1)
+
 app.use(cors())
 
 // Session (required for OIDC auth)
+// Must be on `app` (not `router`) so it runs for all paths including
+// the callback route before the router mounts.
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-session-secret',
   name: 'rc.sid',
@@ -40,7 +46,7 @@ app.use(session({
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000,
-    path: BASE_PATH,
+    path: BASE_PATH.endsWith('/') ? BASE_PATH : `${BASE_PATH}/`,
   },
 }))
 
