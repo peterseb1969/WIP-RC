@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { FileIcon, Calendar, Hash, RefreshCw, HardDrive, ChevronRight, AlertTriangle, Upload, Plus, X } from 'lucide-react'
-import { useFiles, useUploadFile, useNamespaces } from '@wip/react'
+import { FileIcon, Calendar, Hash, RefreshCw, HardDrive, ChevronRight, AlertTriangle, Upload, Plus, X, Trash2, Search as SearchIcon, Loader2 } from 'lucide-react'
+import { useFiles, useUploadFile, useNamespaces, useWipClient } from '@wip/react'
+import type { FileEntity } from '@wip/client'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
@@ -234,7 +235,157 @@ export default function FileListPage() {
           <p className="text-xs text-gray-400">{data.total ?? 0} file{(data.total ?? 0) !== 1 ? 's' : ''}</p>
         </>
       )}
+
+      <OrphanScanner />
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Orphan Scanner
+// ---------------------------------------------------------------------------
+
+function OrphanScanner() {
+  const client = useWipClient()
+  const [orphans, setOrphans] = useState<FileEntity[] | null>(null)
+  const [scanning, setScanning] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [olderThanHours, setOlderThanHours] = useState(0)
+  const [scanError, setScanError] = useState<string | null>(null)
+  const [deleteResult, setDeleteResult] = useState<{ succeeded: number; failed: number } | null>(null)
+
+  const handleScan = useCallback(async () => {
+    setScanning(true)
+    setScanError(null)
+    setOrphans(null)
+    setSelected(new Set())
+    setDeleteResult(null)
+    try {
+      const result = await client.files.listOrphans({
+        older_than_hours: olderThanHours || undefined,
+        limit: 200,
+      })
+      setOrphans(result)
+    } catch (err) {
+      setScanError(err instanceof Error ? err.message : 'Scan failed')
+    } finally {
+      setScanning(false)
+    }
+  }, [client, olderThanHours])
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const selectAll = () => {
+    if (!orphans) return
+    if (selected.size === orphans.length) setSelected(new Set())
+    else setSelected(new Set(orphans.map(f => f.file_id)))
+  }
+
+  const handleDelete = async () => {
+    if (selected.size === 0) return
+    setDeleting(true)
+    try {
+      const res = await client.files.deleteFiles(Array.from(selected))
+      setDeleteResult({ succeeded: res.succeeded, failed: res.failed })
+      // Re-scan to refresh
+      const result = await client.files.listOrphans({ older_than_hours: olderThanHours || undefined, limit: 200 })
+      setOrphans(result)
+      setSelected(new Set())
+    } catch (err) {
+      setScanError(err instanceof Error ? err.message : 'Delete failed')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <details className="group">
+      <summary className="text-sm font-semibold text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 flex items-center gap-2">
+        <AlertTriangle size={14} className="text-amber-500" />
+        Orphan Scanner
+      </summary>
+      <div className="mt-3 space-y-3">
+        <div className="flex items-center gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Older than (hours)</label>
+            <input
+              type="number"
+              value={olderThanHours}
+              onChange={e => setOlderThanHours(Number(e.target.value))}
+              min={0}
+              placeholder="0 = all"
+              className="border border-gray-200 rounded-md px-3 py-1.5 text-sm w-24 focus:outline-none focus:border-blue-400"
+            />
+          </div>
+          <button
+            onClick={handleScan}
+            disabled={scanning}
+            className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 disabled:opacity-50"
+          >
+            {scanning ? <Loader2 size={12} className="animate-spin" /> : <SearchIcon size={12} />}
+            {scanning ? 'Scanning...' : 'Scan'}
+          </button>
+        </div>
+
+        {scanError && <p className="text-xs text-red-500">{scanError}</p>}
+        {deleteResult && (
+          <p className="text-xs text-green-600">
+            Deleted {deleteResult.succeeded} file{deleteResult.succeeded !== 1 ? 's' : ''}
+            {deleteResult.failed > 0 && <span className="text-red-500"> ({deleteResult.failed} failed)</span>}
+          </p>
+        )}
+
+        {orphans !== null && (
+          <>
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <span>{orphans.length} orphan{orphans.length !== 1 ? 's' : ''} found</span>
+              {orphans.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <button onClick={selectAll} className="text-blue-500 hover:text-blue-700">
+                    {selected.size === orphans.length ? 'Deselect all' : 'Select all'}
+                  </button>
+                  {selected.size > 0 && (
+                    <button
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 disabled:opacity-50"
+                    >
+                      <Trash2 size={10} />
+                      {deleting ? 'Deleting...' : `Delete ${selected.size}`}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+            {orphans.length > 0 && (
+              <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-80 overflow-y-auto">
+                {orphans.map(f => (
+                  <label key={f.file_id} className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 cursor-pointer text-xs">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(f.file_id)}
+                      onChange={() => toggleSelect(f.file_id)}
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-gray-700 truncate flex-1">{f.filename}</span>
+                    <span className="text-gray-400">{formatBytes(f.size_bytes ?? 0)}</span>
+                    <span className="text-gray-400">{f.content_type}</span>
+                    {f.uploaded_at && <span className="text-gray-300">{new Date(f.uploaded_at).toLocaleDateString()}</span>}
+                  </label>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </details>
   )
 }
 

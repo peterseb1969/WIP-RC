@@ -48,6 +48,10 @@ function CreateNamespaceForm({ onClose }: { onClose: () => void }) {
   const [description, setDescription] = useState('')
   const [isolationMode, setIsolationMode] = useState<'open' | 'strict'>('open')
   const [deletionMode, setDeletionMode] = useState<'retain' | 'full'>('retain')
+  const [showIdConfig, setShowIdConfig] = useState(false)
+  const [idAlgorithm, setIdAlgorithm] = useState<'uuid7' | 'prefixed' | 'nanoid'>('uuid7')
+  const [idPrefix, setIdPrefix] = useState('')
+  const [idLength, setIdLength] = useState<number | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
 
   const create = useCreateNamespace({
@@ -62,11 +66,19 @@ function CreateNamespaceForm({ onClose }: { onClose: () => void }) {
       setError('Prefix must start with a letter and contain only lowercase letters, numbers, and hyphens')
       return
     }
+    const idConfig = showIdConfig && idAlgorithm !== 'uuid7' ? {
+      default: {
+        algorithm: idAlgorithm,
+        ...(idPrefix ? { prefix: idPrefix } : {}),
+        ...(idLength ? { length: idLength } : {}),
+      },
+    } : undefined
     create.mutate({
       prefix: trimmedPrefix,
       description: description.trim() || undefined,
       isolation_mode: isolationMode,
       deletion_mode: deletionMode,
+      id_config: idConfig,
     })
   }
 
@@ -118,6 +130,53 @@ function CreateNamespaceForm({ onClose }: { onClose: () => void }) {
               <option value="full">full</option>
             </select>
           </div>
+        </div>
+        {/* ID Configuration (optional) */}
+        <div>
+          <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+            <input type="checkbox" checked={showIdConfig} onChange={e => setShowIdConfig(e.target.checked)} className="rounded border-gray-300" />
+            Custom ID generation
+          </label>
+          {showIdConfig && (
+            <div className="mt-2 flex items-center gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Algorithm</label>
+                <select
+                  value={idAlgorithm}
+                  onChange={e => setIdAlgorithm(e.target.value as 'uuid7' | 'prefixed' | 'nanoid')}
+                  className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                >
+                  <option value="uuid7">UUID7 (default)</option>
+                  <option value="prefixed">Prefixed Sequential</option>
+                  <option value="nanoid">NanoID</option>
+                </select>
+              </div>
+              {idAlgorithm === 'prefixed' && (
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Prefix</label>
+                  <input
+                    type="text"
+                    value={idPrefix}
+                    onChange={e => setIdPrefix(e.target.value)}
+                    placeholder="e.g. DOC-"
+                    className="border border-gray-200 rounded-md px-3 py-1.5 text-sm w-32 focus:outline-none focus:border-blue-400"
+                  />
+                </div>
+              )}
+              {idAlgorithm === 'nanoid' && (
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Length</label>
+                  <input
+                    type="number"
+                    value={idLength ?? ''}
+                    onChange={e => setIdLength(e.target.value ? Number(e.target.value) : undefined)}
+                    placeholder="21"
+                    className="border border-gray-200 rounded-md px-3 py-1.5 text-sm w-20 focus:outline-none focus:border-blue-400"
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
         {error && <p className="text-xs text-red-500">{error}</p>}
         <div className="flex items-center gap-2">

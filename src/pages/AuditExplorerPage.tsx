@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useCallback, useEffect } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   Search,
   ChevronRight,
@@ -269,6 +269,7 @@ function IncomingRefRow({ ref_, onInspect }: { ref_: IncomingReference; onInspec
 
 export default function AuditExplorerPage() {
   const client = useWipClient()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [searchResults, setSearchResults] = useState<SearchResult[] | null>(null)
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
@@ -282,6 +283,7 @@ export default function AuditExplorerPage() {
     setSearching(true)
     setSearchError(null)
     setInspectedEntity(null)
+    setSearchParams(prev => { prev.set('q', query); prev.delete('type'); prev.delete('id'); return prev }, { replace: true })
     try {
       const res = await client.reporting.search({ query, limit: 50, namespace: undefined as unknown as string })
       setSearchResults(res.results)
@@ -290,10 +292,11 @@ export default function AuditExplorerPage() {
     } finally {
       setSearching(false)
     }
-  }, [client])
+  }, [client, setSearchParams])
 
   const handleInspect = useCallback(async (type: string, id: string) => {
     setInspecting(true)
+    setSearchParams(prev => { prev.set('type', type); prev.set('id', id); return prev }, { replace: true })
     try {
       const entityType = type as 'document' | 'template' | 'terminology' | 'term' | 'file'
       const [outgoing, incoming] = await Promise.all([
@@ -308,7 +311,16 @@ export default function AuditExplorerPage() {
     } finally {
       setInspecting(false)
     }
-  }, [client])
+  }, [client, setSearchParams])
+
+  // Restore from URL params on mount
+  useEffect(() => {
+    const q = searchParams.get('q')
+    const type = searchParams.get('type')
+    const id = searchParams.get('id')
+    if (q && !searchResults) handleSearch(q)
+    if (type && id && !inspectedEntity && !inspecting) handleInspect(type, id)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-4 max-w-5xl">
