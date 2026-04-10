@@ -8,6 +8,9 @@ COPY libs/ libs/
 RUN npm ci --ignore-scripts
 
 # Copy source and build
+# VITE_BASE_PATH sets the public base path for assets (e.g. /apps/rc/)
+ARG VITE_BASE_PATH=/
+ENV VITE_BASE_PATH=${VITE_BASE_PATH}
 COPY . .
 RUN npm run build
 
@@ -31,11 +34,11 @@ COPY --from=build /app/dist dist/
 # (In dev, Vite serves the frontend; in prod, Express serves dist/)
 
 ENV NODE_ENV=production
-ENV PORT=3010
+ENV PORT=3011
 
-EXPOSE 3010
+EXPOSE 3011
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
-  CMD wget -qO- http://localhost:3010/health || exit 1
+  CMD wget -qO- http://localhost:3011${APP_BASE_PATH:-}/health || exit 1
 
 CMD ["npx", "tsx", "server/index.ts"]
