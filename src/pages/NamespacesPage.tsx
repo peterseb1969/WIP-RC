@@ -14,7 +14,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useNamespaces, useWipClient, useCreateNamespace, useUpdateNamespace, useDeleteNamespace } from '@wip/react'
-import type { Namespace } from '@wip/client'
+import type { Namespace, IdAlgorithmConfig } from '@wip/client'
 import { useQuery } from '@tanstack/react-query'
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
@@ -40,6 +40,75 @@ function useNamespaceDetail(prefix: string | null) {
 }
 
 // ---------------------------------------------------------------------------
+// ID Config Editor — reusable for create + edit
+// ---------------------------------------------------------------------------
+
+const ID_ENTITY_TYPES = ['terminology', 'term', 'template', 'document', 'file'] as const
+const ID_ALGORITHMS = ['uuid7', 'prefixed', 'nanoid'] as const
+type IdAlgo = typeof ID_ALGORITHMS[number]
+
+function IdConfigEditor({
+  value,
+  onChange,
+}: {
+  value: Record<string, IdAlgorithmConfig>
+  onChange: (v: Record<string, IdAlgorithmConfig>) => void
+}) {
+  const setEntityConfig = (entity: string, config: IdAlgorithmConfig | null) => {
+    const next = { ...value }
+    if (config) next[entity] = config; else delete next[entity]
+    onChange(next)
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="text-xs text-gray-500 mb-1">Configure ID generation per entity type. Leave unset for UUID7 default.</div>
+      {ID_ENTITY_TYPES.map(entity => {
+        const cfg = value[entity]
+        const algo = (cfg?.algorithm ?? 'uuid7') as IdAlgo
+        const isCustom = !!cfg && cfg.algorithm !== 'uuid7'
+        return (
+          <div key={entity} className="flex items-center gap-3 text-xs">
+            <span className="w-24 text-gray-600 capitalize">{entity}s</span>
+            <select
+              value={cfg ? algo : 'uuid7'}
+              onChange={e => {
+                const a = e.target.value as IdAlgo
+                if (a === 'uuid7') setEntityConfig(entity, null)
+                else setEntityConfig(entity, { algorithm: a })
+              }}
+              className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-blue-400"
+            >
+              <option value="uuid7">UUID7 (default)</option>
+              <option value="prefixed">Prefixed Sequential</option>
+              <option value="nanoid">NanoID</option>
+            </select>
+            {isCustom && algo === 'prefixed' && (
+              <input
+                type="text"
+                value={cfg?.prefix ?? ''}
+                onChange={e => setEntityConfig(entity, { ...cfg!, prefix: e.target.value || undefined })}
+                placeholder="Prefix"
+                className="border border-gray-200 rounded-md px-2 py-1 text-xs w-24 focus:outline-none focus:border-blue-400"
+              />
+            )}
+            {isCustom && algo === 'nanoid' && (
+              <input
+                type="number"
+                value={cfg?.length ?? ''}
+                onChange={e => setEntityConfig(entity, { ...cfg!, length: e.target.value ? Number(e.target.value) : undefined })}
+                placeholder="Length"
+                className="border border-gray-200 rounded-md px-2 py-1 text-xs w-20 focus:outline-none focus:border-blue-400"
+              />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Create Namespace Dialog (inline)
 // ---------------------------------------------------------------------------
 
@@ -49,9 +118,7 @@ function CreateNamespaceForm({ onClose }: { onClose: () => void }) {
   const [isolationMode, setIsolationMode] = useState<'open' | 'strict'>('open')
   const [deletionMode, setDeletionMode] = useState<'retain' | 'full'>('retain')
   const [showIdConfig, setShowIdConfig] = useState(false)
-  const [idAlgorithm, setIdAlgorithm] = useState<'uuid7' | 'prefixed' | 'nanoid'>('uuid7')
-  const [idPrefix, setIdPrefix] = useState('')
-  const [idLength, setIdLength] = useState<number | undefined>(undefined)
+  const [idConfig, setIdConfig] = useState<Record<string, IdAlgorithmConfig>>({})
   const [error, setError] = useState<string | null>(null)
 
   const create = useCreateNamespace({
@@ -66,19 +133,13 @@ function CreateNamespaceForm({ onClose }: { onClose: () => void }) {
       setError('Prefix must start with a letter and contain only lowercase letters, numbers, and hyphens')
       return
     }
-    const idConfig = showIdConfig && idAlgorithm !== 'uuid7' ? {
-      default: {
-        algorithm: idAlgorithm,
-        ...(idPrefix ? { prefix: idPrefix } : {}),
-        ...(idLength ? { length: idLength } : {}),
-      },
-    } : undefined
+    const idCfg = showIdConfig && Object.keys(idConfig).length > 0 ? idConfig : undefined
     create.mutate({
       prefix: trimmedPrefix,
       description: description.trim() || undefined,
       isolation_mode: isolationMode,
       deletion_mode: deletionMode,
-      id_config: idConfig,
+      id_config: idCfg,
     })
   }
 
@@ -138,43 +199,8 @@ function CreateNamespaceForm({ onClose }: { onClose: () => void }) {
             Custom ID generation
           </label>
           {showIdConfig && (
-            <div className="mt-2 flex items-center gap-3">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Algorithm</label>
-                <select
-                  value={idAlgorithm}
-                  onChange={e => setIdAlgorithm(e.target.value as 'uuid7' | 'prefixed' | 'nanoid')}
-                  className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
-                >
-                  <option value="uuid7">UUID7 (default)</option>
-                  <option value="prefixed">Prefixed Sequential</option>
-                  <option value="nanoid">NanoID</option>
-                </select>
-              </div>
-              {idAlgorithm === 'prefixed' && (
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Prefix</label>
-                  <input
-                    type="text"
-                    value={idPrefix}
-                    onChange={e => setIdPrefix(e.target.value)}
-                    placeholder="e.g. DOC-"
-                    className="border border-gray-200 rounded-md px-3 py-1.5 text-sm w-32 focus:outline-none focus:border-blue-400"
-                  />
-                </div>
-              )}
-              {idAlgorithm === 'nanoid' && (
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Length</label>
-                  <input
-                    type="number"
-                    value={idLength ?? ''}
-                    onChange={e => setIdLength(e.target.value ? Number(e.target.value) : undefined)}
-                    placeholder="21"
-                    className="border border-gray-200 rounded-md px-3 py-1.5 text-sm w-20 focus:outline-none focus:border-blue-400"
-                  />
-                </div>
-              )}
+            <div className="mt-2">
+              <IdConfigEditor value={idConfig} onChange={setIdConfig} />
             </div>
           )}
         </div>
@@ -219,6 +245,7 @@ function NamespaceRow({
   const [editDesc, setEditDesc] = useState(ns.description ?? '')
   const [editIsolation, setEditIsolation] = useState(ns.isolation_mode ?? 'open')
   const [editDeletionMode, setEditDeletionMode] = useState(ns.deletion_mode ?? 'retain')
+  const [editIdConfig, setEditIdConfig] = useState<Record<string, IdAlgorithmConfig>>(ns.id_config ?? {})
   // Delete states: false → 'confirm' → 'confirm-retain' (second gate for protected namespaces)
   const [deleteStep, setDeleteStep] = useState<false | 'confirm' | 'confirm-retain'>(false)
   const [deleting, setDeleting] = useState(false)
@@ -270,6 +297,7 @@ function NamespaceRow({
     setEditDesc(ns.description ?? '')
     setEditIsolation(ns.isolation_mode ?? 'open')
     setEditDeletionMode(ns.deletion_mode ?? 'retain')
+    setEditIdConfig(ns.id_config ?? {})
     update.reset()
     setEditing(true)
   }
@@ -449,10 +477,14 @@ function NamespaceRow({
                   </select>
                 </div>
               </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">ID Configuration</label>
+                <IdConfigEditor value={editIdConfig} onChange={setEditIdConfig} />
+              </div>
               {update.error && <p className="text-xs text-red-500">{update.error.message}</p>}
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => update.mutate({ prefix: ns.prefix, data: { description: editDesc.trim() || undefined, isolation_mode: editIsolation as 'open' | 'strict', deletion_mode: editDeletionMode as 'retain' | 'full' } })}
+                  onClick={() => update.mutate({ prefix: ns.prefix, data: { description: editDesc.trim() || undefined, isolation_mode: editIsolation as 'open' | 'strict', deletion_mode: editDeletionMode as 'retain' | 'full', id_config: Object.keys(editIdConfig).length > 0 ? editIdConfig : undefined } })}
                   disabled={update.isPending}
                   className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
                 >
