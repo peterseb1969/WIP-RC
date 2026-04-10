@@ -153,6 +153,7 @@ function BackupTab() {
 function RestoreTab() {
   const { data: namespaces } = useNamespaces()
 
+  const [targetNamespace, setTargetNamespace] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [restoring, setRestoring] = useState(false)
   const [activeJob, setActiveJob] = useState<BackupJob | null>(null)
@@ -180,11 +181,14 @@ function RestoreTab() {
     setError(null)
     setWarning(null)
     try {
+      if (!targetNamespace.trim()) throw new Error('Enter the target namespace (must match the namespace in the archive)')
+
+      const ns = targetNamespace.trim()
       const formData = new FormData()
       formData.append('archive', file)
       formData.append('mode', 'restore')
 
-      const res = await fetch(apiUrl('/api/backup-restore'), {
+      const res = await fetch(apiUrl(`/api/backup-restore?ns=${encodeURIComponent(ns)}`), {
         method: 'POST',
         body: formData,
       })
@@ -222,8 +226,20 @@ function RestoreTab() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-gray-500">
-        Upload a backup archive to restore a namespace. The namespace is determined by the archive — it restores to the original source namespace with original IDs.
+        Upload a backup archive to restore a namespace. Restore mode preserves original IDs and writes to the specified namespace.
       </p>
+
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Target namespace</label>
+        <input
+          type="text"
+          value={targetNamespace}
+          onChange={e => setTargetNamespace(e.target.value)}
+          placeholder="e.g. dnd, clintrial"
+          className="w-full max-w-xs border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+        />
+        <p className="text-[10px] text-gray-400 mt-1">Must match the namespace in the archive. The namespace must be empty or not yet exist.</p>
+      </div>
 
       <div
         onClick={() => inputRef.current?.click()}
@@ -249,7 +265,7 @@ function RestoreTab() {
 
       <button
         onClick={handleRestore}
-        disabled={restoring || !file || (activeJob?.status === 'running')}
+        disabled={restoring || !file || !targetNamespace.trim() || (activeJob?.status === 'running')}
         className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
       >
         {restoring ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}

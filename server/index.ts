@@ -166,26 +166,26 @@ router.get('/api/backup-download/:jobId', async (req, res) => {
 })
 
 // Streaming restore proxy.
-// The restore endpoint requires a namespace in the URL for auth, but restore
-// mode ignores it (the archive determines the target). We use 'wip' as a
-// placeholder since the admin API key has access to all namespaces.
-router.post('/api/backup-restore', async (req, res) => {
+// The restore endpoint requires the target namespace in the URL path.
+// The frontend sends the namespace as a form field alongside the archive.
+// We extract it and forward the rest to WIP.
+router.post('/api/backup-restore', express.raw({ type: 'multipart/form-data', limit: '10gb' }), async (req, res) => {
   const wipBase = process.env.WIP_BASE_URL || 'https://localhost:8443'
   const apiKey = process.env.WIP_API_KEY || ''
   try {
     // Forward the multipart form body directly to WIP
+    // The namespace is passed as a query param to avoid parsing multipart here
+    const ns = req.query.ns as string || 'wip'
     const contentType = req.headers['content-type'] || ''
     const upstream = await fetch(
-      `${wipBase}/api/document-store/backup/namespaces/wip/restore`,
+      `${wipBase}/api/document-store/backup/namespaces/${ns}/restore`,
       {
         method: 'POST',
         headers: {
           'X-API-Key': apiKey,
           'Content-Type': contentType,
         },
-        body: req as unknown as BodyInit,
-        // @ts-expect-error -- duplex required for streaming request bodies in Node
-        duplex: 'half',
+        body: req.body as unknown as BodyInit,
       },
     )
     const data = await upstream.text()
