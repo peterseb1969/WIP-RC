@@ -19,7 +19,8 @@ import {
   AlertTriangle,
   Copy,
 } from 'lucide-react'
-import { useTemplate, useTerminologies, useTemplates, useDeleteTemplate } from '@wip/react'
+import { useTemplate, useTerminologies, useTemplates, useDeleteTemplate, useWipClient } from '@wip/react'
+import { useQuery } from '@tanstack/react-query'
 import type { FieldDefinition } from '@wip/client'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
@@ -170,6 +171,7 @@ function FieldRow({ field, isIdentity, terminologyMap, templateMap }: {
 export default function TemplateDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const client = useWipClient()
   const { data: template, isLoading, error } = useTemplate(id ?? '')
   const [confirmDeactivate, setConfirmDeactivate] = useState(false)
   const [deactivateError, setDeactivateError] = useState<string | null>(null)
@@ -177,6 +179,15 @@ export default function TemplateDetailPage() {
     onSuccess: () => navigate('/templates'),
     onError: (err) => setDeactivateError(err.message),
   })
+
+  // Fetch all versions of this template (by value code)
+  const { data: versionsData } = useQuery({
+    queryKey: ['rc-console', 'template-versions', template?.value],
+    queryFn: () => client.templates.getTemplateVersions(template!.value),
+    enabled: !!template?.value,
+    staleTime: 60_000,
+  })
+  const versions = versionsData?.items ?? []
 
   // Build ID→{name,id} lookup maps for terminology and template refs (must be before early returns)
   const { data: terminologiesData } = useTerminologies({ status: 'active', page_size: 1000 })
@@ -213,9 +224,26 @@ export default function TemplateDetailPage() {
             <h1 className="text-2xl font-semibold text-gray-800">{template.label || template.value}</h1>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-sm font-mono text-gray-400">{template.value}</span>
-              <span className="flex items-center gap-1 text-xs text-gray-400">
-                <Layers size={10} /> v{template.version ?? 1}
-              </span>
+              {versions.length > 1 ? (
+                <select
+                  value={template.template_id}
+                  onChange={e => navigate(`/templates/${e.target.value}`)}
+                  className="text-xs text-gray-500 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  title="Switch version"
+                >
+                  {versions
+                    .sort((a, b) => (b.version ?? 0) - (a.version ?? 0))
+                    .map(v => (
+                      <option key={v.template_id} value={v.template_id}>
+                        v{v.version ?? 1} — {v.status}
+                      </option>
+                    ))}
+                </select>
+              ) : (
+                <span className="flex items-center gap-1 text-xs text-gray-400">
+                  <Layers size={10} /> v{template.version ?? 1}
+                </span>
+              )}
               {template.namespace && (
                 <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
                   {template.namespace}
