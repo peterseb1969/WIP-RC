@@ -152,11 +152,13 @@ function EntityInspector({
   incoming,
   incomingTotal,
   loading,
+  onInspect,
 }: {
   entity: EntityDetails | null
   incoming: IncomingReference[]
   incomingTotal: number
   loading: boolean
+  onInspect: (type: string, id: string) => void
 }) {
   if (loading) return <div className="flex items-center gap-2 py-8 justify-center text-sm text-gray-500"><Loader2 size={14} className="animate-spin" />Loading references...</div>
   if (!entity) return null
@@ -202,7 +204,7 @@ function EntityInspector({
         ) : (
           <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
             {entity.references.map((ref, i) => (
-              <OutgoingRefRow key={i} ref_={ref} />
+              <OutgoingRefRow key={i} ref_={ref} onInspect={onInspect} />
             ))}
           </div>
         )}
@@ -219,7 +221,7 @@ function EntityInspector({
         ) : (
           <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
             {incoming.map((ref, i) => (
-              <IncomingRefRow key={i} ref_={ref} />
+              <IncomingRefRow key={i} ref_={ref} onInspect={onInspect} />
             ))}
           </div>
         )}
@@ -228,36 +230,36 @@ function EntityInspector({
   )
 }
 
-function OutgoingRefRow({ ref_ }: { ref_: EntityReference }) {
+function OutgoingRefRow({ ref_, onInspect }: { ref_: EntityReference; onInspect: (type: string, id: string) => void }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-2 text-xs">
+    <button
+      onClick={() => onInspect(ref_.ref_type, ref_.ref_id)}
+      className="w-full flex items-center gap-3 px-4 py-2 text-xs hover:bg-gray-50 transition-colors text-left"
+    >
       <RefStatusIcon status={ref_.status} />
       <TypeBadge type={ref_.ref_type} />
-      <Link
-        to={entityLink(ref_.ref_type, ref_.ref_id)}
-        className="text-blue-500 hover:text-blue-700 truncate"
-      >
+      <span className="text-blue-500 hover:text-blue-700 truncate">
         {ref_.ref_label || ref_.ref_value || ref_.ref_id}
-      </Link>
+      </span>
       {ref_.field_path && <span className="text-gray-400 font-mono">{ref_.field_path}</span>}
       {ref_.error && <span className="text-red-500">{ref_.error}</span>}
-    </div>
+    </button>
   )
 }
 
-function IncomingRefRow({ ref_ }: { ref_: IncomingReference }) {
+function IncomingRefRow({ ref_, onInspect }: { ref_: IncomingReference; onInspect: (type: string, id: string) => void }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-2 text-xs">
+    <button
+      onClick={() => onInspect(ref_.entity_type, ref_.entity_id)}
+      className="w-full flex items-center gap-3 px-4 py-2 text-xs hover:bg-gray-50 transition-colors text-left"
+    >
       <TypeBadge type={ref_.entity_type} />
-      <Link
-        to={entityLink(ref_.entity_type, ref_.entity_id)}
-        className="text-blue-500 hover:text-blue-700 truncate"
-      >
+      <span className="text-blue-500 hover:text-blue-700 truncate">
         {ref_.entity_label || ref_.entity_value || ref_.entity_id}
-      </Link>
+      </span>
       <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{ref_.reference_type}</span>
       {ref_.field_path && <span className="text-gray-400 font-mono">{ref_.field_path}</span>}
-    </div>
+    </button>
   )
 }
 
@@ -347,6 +349,7 @@ export default function AuditExplorerPage() {
                 incoming={incomingRefs}
                 incomingTotal={incomingTotal}
                 loading={inspecting}
+                onInspect={handleInspect}
               />
             </>
           )}
