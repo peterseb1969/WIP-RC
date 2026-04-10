@@ -369,9 +369,8 @@ function JobsList() {
         <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
           {jobs.map(job => (
             <div key={job.job_id} className="flex items-center gap-3 px-4 py-2.5 text-xs">
-              {(job.kind ?? job.type) === 'backup' ? <Download size={12} className="text-blue-500 shrink-0" /> : <Upload size={12} className="text-green-500 shrink-0" />}
               <div className="flex-1 min-w-0">
-                <span className="font-medium text-gray-700">{job.kind ?? job.type ?? 'job'}</span>
+                <span className={cn('font-medium', (job.kind ?? job.type) === 'backup' ? 'text-blue-600' : 'text-green-600')}>{job.kind ?? job.type ?? 'job'}</span>
                 <span className="text-gray-400 ml-2">{job.namespace}</span>
                 {job.message && <span className="text-gray-400 ml-2 truncate">{job.message}</span>}
               </div>
