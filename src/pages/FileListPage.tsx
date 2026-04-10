@@ -185,6 +185,8 @@ export default function FileListPage() {
         <UploadForm defaultNamespace={namespace} onClose={() => setShowUpload(false)} />
       )}
 
+      <OrphanScanner />
+
       {isLoading && <LoadingState label="Loading files..." />}
       {error && <ErrorState message={error.message} onRetry={() => refetch()} />}
 
@@ -236,7 +238,6 @@ export default function FileListPage() {
         </>
       )}
 
-      <OrphanScanner />
     </div>
   )
 }
