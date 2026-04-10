@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   FileCode2,
   ArrowLeft,
@@ -19,7 +19,7 @@ import {
   AlertTriangle,
   Copy,
 } from 'lucide-react'
-import { useTemplate, useTerminologies, useTemplates, useDeleteTemplate, useWipClient } from '@wip/react'
+import { useTerminologies, useTemplates, useDeleteTemplate, useWipClient } from '@wip/react'
 import { useQuery } from '@tanstack/react-query'
 import type { FieldDefinition } from '@wip/client'
 import LoadingState from '@/components/common/LoadingState'
@@ -170,9 +170,17 @@ function FieldRow({ field, isIdentity, terminologyMap, templateMap }: {
 
 export default function TemplateDetailPage() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
+  const selectedVersion = searchParams.get('v') ? Number(searchParams.get('v')) : undefined
   const navigate = useNavigate()
   const client = useWipClient()
-  const { data: template, isLoading, error } = useTemplate(id ?? '')
+
+  // If ?v= is set, fetch that specific version; otherwise latest
+  const { data: template, isLoading, error } = useQuery({
+    queryKey: ['wip', 'template', id, selectedVersion],
+    queryFn: () => client.templates.getTemplate(id!, selectedVersion),
+    enabled: !!id,
+  })
   const [confirmDeactivate, setConfirmDeactivate] = useState(false)
   const [deactivateError, setDeactivateError] = useState<string | null>(null)
   const deactivate = useDeleteTemplate({
@@ -233,11 +241,11 @@ export default function TemplateDetailPage() {
                     .sort((a, b) => (b.version ?? 0) - (a.version ?? 0))
                     .map(v => (
                       <Link
-                        key={v.template_id}
-                        to={`/templates/${v.template_id}`}
+                        key={v.version}
+                        to={`/templates/${template.template_id}?v=${v.version}`}
                         className={cn(
                           'px-1.5 py-0.5 rounded border text-[10px]',
-                          v.template_id === template.template_id
+                          v.version === template.version
                             ? 'bg-blue-100 border-blue-300 text-blue-700 font-medium'
                             : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
                         )}
