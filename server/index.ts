@@ -126,6 +126,45 @@ router.get('/api/infra/health', async (_req, res) => {
   res.json({ services })
 })
 
+// Streaming download proxy for large backup archives.
+// The standard @wip/proxy buffers responses which fails for multi-GB files.
+// This route pipes the response directly from WIP to the client.
+router.get('/api/backup-download/:jobId', async (req, res) => {
+  const wipBase = process.env.WIP_BASE_URL || 'https://localhost:8443'
+  const apiKey = process.env.WIP_API_KEY || ''
+  try {
+    const upstream = await fetch(
+      `${wipBase}/api/document-store/backup/jobs/${req.params.jobId}/download`,
+      { headers: { 'X-API-Key': apiKey } },
+    )
+    if (!upstream.ok) {
+      res.status(upstream.status).send(await upstream.text())
+      return
+    }
+    res.setHeader('Content-Type', 'application/zip')
+    res.setHeader('Content-Disposition', `attachment; filename="backup-${req.params.jobId}.zip"`)
+    if (upstream.headers.get('content-length')) {
+      res.setHeader('Content-Length', upstream.headers.get('content-length')!)
+    }
+    // Pipe the readable stream directly to the response
+    const reader = upstream.body?.getReader()
+    if (!reader) { res.status(502).send('No response body'); return }
+    const pump = async (): Promise<void> => {
+      const { done, value } = await reader.read()
+      if (done) { res.end(); return }
+      if (!res.write(value)) {
+        await new Promise<void>(resolve => res.once('drain', resolve))
+      }
+      return pump()
+    }
+    await pump()
+  } catch (err) {
+    if (!res.headersSent) {
+      res.status(502).json({ error: err instanceof Error ? err.message : 'Download proxy failed' })
+    }
+  }
+})
+
 // Infrastructure routes
 router.use('/api/infra/mongo', mongoRouter)
 router.use('/api/infra/nats', natsRouter)

@@ -95,7 +95,7 @@ function BackupTab() {
     // instead of buffering the entire archive in JS memory.
     // This avoids 502s on large archives (2GB+) and works with any size.
     const a = document.createElement('a')
-    a.href = apiUrl(`/wip/api/document-store/backup/jobs/${activeJob.job_id}/download`)
+    a.href = apiUrl(`/api/backup-download/${activeJob.job_id}`)
     a.download = `${activeJob.namespace}_backup.zip`
     a.click()
   }
@@ -384,7 +384,7 @@ function JobsList() {
               {job.created_at && <span className="text-gray-300">{new Date(job.created_at).toLocaleDateString()}</span>}
               {job.status === 'complete' && (job.kind ?? job.type) === 'backup' && (
                 <a
-                  href={apiUrl(`/wip/api/document-store/backup/jobs/${job.job_id}/download`)}
+                  href={apiUrl(`/api/backup-download/${job.job_id}`)}
                   download={`${job.namespace}_backup.zip`}
                   className="text-blue-400 hover:text-blue-600"
                   title="Download archive"
