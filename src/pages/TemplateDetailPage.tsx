@@ -224,27 +224,28 @@ export default function TemplateDetailPage() {
             <h1 className="text-2xl font-semibold text-gray-800">{template.label || template.value}</h1>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-sm font-mono text-gray-400">{template.value}</span>
-              {versions.length > 1 ? (
-                <select
-                  value={template.template_id}
-                  onChange={e => {
-                    const newId = e.target.value
-                    if (newId !== id) navigate(`/templates/${newId}`)
-                  }}
-                  className="text-xs text-gray-500 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-400"
-                  title="Switch version"
-                >
+              <span className="flex items-center gap-1 text-xs text-gray-400">
+                <Layers size={10} /> v{template.version ?? 1}
+              </span>
+              {versions.length > 1 && (
+                <span className="flex items-center gap-1 text-xs">
                   {versions
                     .sort((a, b) => (b.version ?? 0) - (a.version ?? 0))
                     .map(v => (
-                      <option key={v.template_id} value={v.template_id}>
-                        v{v.version ?? 1} — {v.status}
-                      </option>
+                      <Link
+                        key={v.template_id}
+                        to={`/templates/${v.template_id}`}
+                        className={cn(
+                          'px-1.5 py-0.5 rounded border text-[10px]',
+                          v.template_id === template.template_id
+                            ? 'bg-blue-100 border-blue-300 text-blue-700 font-medium'
+                            : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
+                        )}
+                      >
+                        v{v.version ?? 1}
+                        {v.status !== 'active' && ` (${v.status})`}
+                      </Link>
                     ))}
-                </select>
-              ) : (
-                <span className="flex items-center gap-1 text-xs text-gray-400">
-                  <Layers size={10} /> v{template.version ?? 1}
                 </span>
               )}
               {template.namespace && (
