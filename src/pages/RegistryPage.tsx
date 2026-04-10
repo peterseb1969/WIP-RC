@@ -91,6 +91,16 @@ function entityLink(entry: { entry_id: string; entity_type: string; namespace: s
 // Landing stats (no query)
 // ---------------------------------------------------------------------------
 
+// Registry uses plural entity types (documents, terms, etc.) but our UI
+// constants are singular. This map bridges the gap for the browse API.
+const ENTITY_TYPE_PLURAL: Record<EntityType, string> = {
+  terminology: 'terminologies',
+  term: 'terms',
+  template: 'templates',
+  document: 'documents',
+  file: 'files',
+}
+
 function RegistryStats() {
   const client = useWipClient()
   const { data, isLoading } = useQuery({
@@ -98,7 +108,7 @@ function RegistryStats() {
     queryFn: async () => {
       const results = await Promise.all(
         ENTITY_TYPES.map(async type => {
-          const res = await client.registry.listEntries({ entity_type: type, page_size: 1 })
+          const res = await client.registry.listEntries({ entity_type: ENTITY_TYPE_PLURAL[type], page_size: 1 })
           return { type, total: res.total }
         })
       )
@@ -563,7 +573,7 @@ function BrowseEntries({
     queryKey: ['rc-console', 'registry-browse', namespace, entityType, page],
     queryFn: () => client.registry.listEntries({
       namespace: namespace || undefined,
-      entity_type: entityType || undefined,
+      entity_type: entityType ? ENTITY_TYPE_PLURAL[entityType] : undefined,
       page,
       page_size: 25,
     }),
