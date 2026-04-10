@@ -306,12 +306,13 @@ function OrphanScanner() {
   }
 
   return (
-    <details className="group">
-      <summary className="text-sm font-semibold text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 flex items-center gap-2">
+    <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+      <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
         <AlertTriangle size={14} className="text-amber-500" />
         Orphan Scanner
-      </summary>
-      <div className="mt-3 space-y-3">
+      </h2>
+      <p className="text-xs text-gray-400">Find files with no document references. These may be leftover from abandoned uploads.</p>
+      <div className="space-y-3">
         <div className="flex items-center gap-3">
           <div>
             <label className="block text-xs text-gray-500 mb-1">Older than (hours)</label>
@@ -385,7 +386,7 @@ function OrphanScanner() {
           </>
         )}
       </div>
-    </details>
+    </div>
   )
 }
 
