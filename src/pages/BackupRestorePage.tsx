@@ -382,6 +382,16 @@ function JobsList() {
                 label={job.status}
               />
               {job.created_at && <span className="text-gray-300">{new Date(job.created_at).toLocaleDateString()}</span>}
+              {job.status === 'complete' && job.type === 'backup' && (
+                <a
+                  href={apiUrl(`/wip/api/document-store/backup/jobs/${job.job_id}/download`)}
+                  download={`${job.namespace}_backup.zip`}
+                  className="text-blue-400 hover:text-blue-600"
+                  title="Download archive"
+                >
+                  <Download size={12} />
+                </a>
+              )}
               {(job.status === 'complete' || job.status === 'failed') && (
                 <button onClick={() => handleDelete(job.job_id)} className="text-gray-300 hover:text-red-500" title="Delete job">
                   <Trash2 size={12} />
