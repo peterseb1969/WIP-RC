@@ -173,6 +173,11 @@ function RestoreTab() {
     setError(null)
     setWarning(null)
     setActiveJob(null)
+    // Auto-detect namespace from filename (our backups are named {namespace}_backup.zip)
+    if (f?.name) {
+      const match = f.name.match(/^(.+?)_backup\.zip$/)
+      if (match?.[1]) setTargetNamespace(match[1])
+    }
   }
 
   const handleRestore = async () => {
@@ -238,7 +243,7 @@ function RestoreTab() {
           placeholder="e.g. dnd, clintrial"
           className="w-full max-w-xs border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
         />
-        <p className="text-[10px] text-gray-400 mt-1">Must match the namespace in the archive. The namespace must be empty or not yet exist.</p>
+        <p className="text-[10px] text-gray-400 mt-1">Auto-filled from filename. Must match the namespace in the archive. The namespace must be empty or not yet exist.</p>
       </div>
 
       <div
