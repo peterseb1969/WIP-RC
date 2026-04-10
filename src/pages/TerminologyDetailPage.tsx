@@ -17,6 +17,7 @@ import {
   Upload,
   CheckCircle,
   XCircle,
+  ChevronDown,
 } from 'lucide-react'
 import {
   useTerminology,
@@ -783,6 +784,96 @@ function ImportPanel({ terminologyId, namespace, onClose }: { terminologyId: str
 }
 
 // ---------------------------------------------------------------------------
+// Export Dropdown (JSON + CSV)
+// ---------------------------------------------------------------------------
+
+function ExportDropdown({ terminology, client, loading, setLoading }: {
+  terminology: { terminology_id: string; value: string }
+  client: ReturnType<typeof useWipClient>
+  loading: boolean
+  setLoading: (v: boolean) => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  const doExport = async (format: 'json' | 'csv') => {
+    setOpen(false)
+    setLoading(true)
+    try {
+      const result = await client.defStore.exportTerminology(terminology.terminology_id, {
+        format: 'json',
+        includeInactive: true,
+        includeRelationships: true,
+        includeMetadata: true,
+      })
+
+      let blob: Blob
+      let filename: string
+
+      if (format === 'csv') {
+        const exported = typeof result === 'string' ? JSON.parse(result) : result
+        const terms: Array<{ value: string; label?: string | null; description?: string | null; aliases?: string[]; status?: string; sort_order?: number }> = exported.terms ?? []
+        const header = 'value,label,description,aliases,status,sort_order'
+        const rows = terms.map(t =>
+          [
+            csvEscape(t.value),
+            csvEscape(t.label ?? ''),
+            csvEscape(t.description ?? ''),
+            csvEscape((t.aliases ?? []).join('|')),
+            csvEscape(t.status ?? 'active'),
+            String(t.sort_order ?? 0),
+          ].join(',')
+        )
+        blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv' })
+        filename = `${terminology.value}.csv`
+      } else {
+        blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' })
+        filename = `${terminology.value}.json`
+      }
+
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        disabled={loading}
+        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+      >
+        <Download size={12} />
+        {loading ? '...' : 'Export'}
+        <ChevronDown size={10} />
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 py-1 min-w-[120px]">
+          <button onClick={() => doExport('json')} className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50">
+            JSON (full)
+          </button>
+          <button onClick={() => doExport('csv')} className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50">
+            CSV (terms)
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function csvEscape(val: string): string {
+  if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+    return `"${val.replace(/"/g, '""')}"`
+  }
+  return val
+}
+
+// ---------------------------------------------------------------------------
 // Terminology Detail Page
 // ---------------------------------------------------------------------------
 
@@ -906,33 +997,12 @@ export default function TerminologyDetailPage() {
           {/* Action buttons */}
           {!editing && !confirmDelete && (
             <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={async () => {
-                  setExportLoading(true)
-                  try {
-                    const result = await client.defStore.exportTerminology(terminology!.terminology_id, {
-                      format: 'json',
-                      includeInactive: true,
-                      includeRelationships: true,
-                      includeMetadata: true,
-                    })
-                    const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' })
-                    const url = URL.createObjectURL(blob)
-                    const a = document.createElement('a')
-                    a.href = url
-                    a.download = `${terminology!.value}.json`
-                    a.click()
-                    URL.revokeObjectURL(url)
-                  } finally {
-                    setExportLoading(false)
-                  }
-                }}
-                disabled={exportLoading}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                <Download size={12} />
-                {exportLoading ? '...' : 'Export'}
-              </button>
+              <ExportDropdown
+                terminology={terminology!}
+                client={client}
+                loading={exportLoading}
+                setLoading={setExportLoading}
+              />
               <button
                 onClick={() => { setShowImport(s => !s); setShowValidate(false) }}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-50"
