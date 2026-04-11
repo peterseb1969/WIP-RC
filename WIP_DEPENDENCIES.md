@@ -10,17 +10,17 @@ RC-Console is a WIP admin console — it **inspects and manages WIP itself** rat
 |---------|-------------|---------|
 | def-store | @wip/proxy | Terminologies, terms, ontology relationships, hierarchy traversal |
 | template-store | @wip/proxy | Templates, fields, versions, activation |
-| document-store | @wip/proxy | Documents: list, create (POST), update (PATCH), archive, validate, versions |
-| registry | @wip/proxy | Entry search, namespace stats, API key management |
+| document-store | @wip/proxy | Documents: list, create (POST), update (PATCH), archive, validate, versions, CSV import |
+| registry | @wip/proxy | Entry search, namespace stats, API key management, backup/restore jobs |
 | reporting-sync | @wip/proxy | SQL queries, table browser, sync status, integrity, search |
 | ingest-gateway | @wip/proxy (health only) | Health check on dashboard |
-| files | @wip/proxy | File listing, metadata, upload |
+| files | @wip/proxy | File listing, metadata, upload, download (streaming proxy for backup archives) |
 
 ## Client libraries
 
 | Library | Version | Key features used |
 |---------|---------|-------------------|
-| @wip/client | 0.11.0 | `documents.updateDocument(id, patch, { ifMatch })` (RFC 7396 PATCH), `documents.createDocument`, `documents.archiveDocument`, `defStore.getTerm/getParents/getChildren`, `defStore.listRelationships`, `reporting.search` |
+| @wip/client | 0.11.0 | `documents.updateDocument(id, patch, { ifMatch })` (RFC 7396 PATCH), `documents.createDocument`, `documents.archiveDocument`, `documents.validateDocument`, `defStore.getTerm/getParents/getChildren`, `defStore.listRelationships`, `reporting.search`, backup/restore job management |
 | @wip/react | 0.6.0 | `useUpdateDocument`, `useCreateDocument`, `useArchiveDocument`, `useUploadFile`, `useCreateRelationships`, `useDeleteRelationships`, plus all read hooks (`useDocument`, `useTerms`, `useTemplates`, etc.) |
 | @wip/proxy | 0.2.0 | Express middleware for API proxying with auth injection |
 
@@ -32,6 +32,10 @@ RC-Console is a WIP admin console — it **inspects and manages WIP itself** rat
 | NATS | `nats://localhost:4222` | JetStream stream/consumer monitoring (read-only) |
 
 These bypass WIP's API layer because WIP does not expose infrastructure metrics via REST.
+
+## Backup & restore
+
+The backup/restore page uses WIP's registry API to start backup/restore jobs and poll their status. Completed backup archives are downloaded via a streaming proxy in the Express backend (`/api/backup/download/:jobId`) — this avoids buffering multi-GB archives in browser memory. The proxy streams the response directly from WIP to the browser with appropriate `Content-Disposition` and `Content-Length` headers.
 
 ## WIP databases inspected (MongoDB)
 

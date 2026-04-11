@@ -62,11 +62,11 @@
 **Description:** Only unit tests exist (35 tests). No E2E tests with a real WIP instance.
 **Context:** Requires a running WIP instance in CI. Can be added with Playwright.
 
-### OIDC auth not tested end-to-end
-**Status:** known
+### Document table view returns 500 on some templates (CASE-35)
+**Status:** open
 **Severity:** medium
-**Description:** The OIDC auth middleware (auth.ts) is complete but has not been tested with a live Dex instance from this console. It was ported from the scaffold template.
-**Context:** Dev mode runs without auth (OIDC_ISSUER not set). The auth code is proven from other WIP apps but needs verification for this specific app.
+**Description:** The table view (`/documents/:tv/table`) returns a 500 error for some templates. The root cause is under investigation on the WIP side.
+**Context:** Not all templates are affected. Standard templates with simple field types work fine.
 
 ### MongoDB document filter is basic
 **Status:** known
@@ -75,6 +75,21 @@
 **Context:** Sufficient for quick inspection. Advanced querying should go through the NL Query interface.
 
 ## Resolved Issues
+
+### OIDC auth not tested end-to-end
+**Resolved:** 2026-04-09
+**Description:** OIDC auth middleware was untested with a live Dex instance from this console.
+**Resolution:** Tested end-to-end as part of CASE-38 production deployment. Added OAuth state parameter, trust proxy, and session cookie path fixes.
+
+### Backup archive OOM on large namespaces (CASE-28)
+**Resolved:** 2026-04-09
+**Description:** ArchiveWriter caused OOM when backing up large namespaces.
+**Resolution:** Fixed on the WIP side. RC-Console backup page uses streaming download proxy to handle large archives without buffering the entire response in memory.
+
+### Template duplicate creates broken copy (CASE-36)
+**Resolved:** 2026-04-09
+**Description:** Duplicating a template via the UI produced a broken copy.
+**Resolution:** Fixed on the WIP side. The amber warning was removed from the Duplicate button.
 
 ### Vite pre-bundled deps cache after lib bump
 **Resolved:** 2026-04-08

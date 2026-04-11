@@ -4,11 +4,13 @@ A React + TypeScript admin console for WIP (World In a Pie). Replaces the existi
 
 ## What the user sees
 
-- **Dashboard** — service health cards (6 microservices), namespace stats, recent activity
-- **Data management** — full CRUD for Namespaces, Terminologies (with term management and ontology browser), Templates (field editor with drag-and-drop, versioning, diff), Documents (create/edit/archive with auto-generated forms from template definitions), Files, Registry
+- **Dashboard** — service health cards (6 microservices), namespace stats, recent items grid, data quality card, quick actions
+- **Data management** — full CRUD for Namespaces, Terminologies (with term management, ontology browser, CSV/OBO import, CSV export), Templates (field editor with drag-and-drop, versioning, diff, deactivate, duplicate), Documents (create/edit/archive with auto-generated forms, table view with CSV export, CSV import wizard, validate), Files (preview for video/audio/PDF/text, orphan scanner), Registry
+- **Backup & restore** — namespace backup/restore with async job tracking, streaming download for large archives
 - **Ontology browser** — Term Detail page with Overview (edit/deprecate/delete), Relationships (add/delete), Hierarchy (lazy-expanding ancestor/descendant trees), Raw JSON
 - **Document CRUD** — auto-generated forms scaffolded from template field definitions, supporting all 11 field types (string, number, integer, boolean, date, datetime, term, reference, file, array, object). Edit mode uses RFC 7396 JSON Merge Patch with optimistic concurrency control.
 - **Infrastructure** — PostgreSQL table browser + SQL query pad, MongoDB collection browser + document inspector, NATS stream/consumer monitoring
+- **Audit explorer** — entity search with reverse reference inspection
 - **Health** — Integrity checks (cross-service referential integrity), Activity (audit trail)
 - **NL Query** — Chat interface for natural language data exploration via Claude API
 - **API Keys** — runtime API key management (create, revoke, view grants)
@@ -30,7 +32,7 @@ npm run dev
 open http://localhost:5174
 ```
 
-The Express backend runs on port 3010. Vite proxies `/wip`, `/api`, `/health`, and `/auth` to it. The Vite dev server is on port 5174 (5173 is taken by WIP-AA).
+The Express backend runs on port 3011. Vite proxies `/wip`, `/api`, `/health`, and `/auth` to it. The Vite dev server is on port 5174 (5173 is taken by WIP-AA).
 
 ### Production
 
@@ -43,7 +45,7 @@ Or with Docker:
 
 ```bash
 docker build -t rc-console .
-docker run -p 3010:3010 --env-file .env rc-console
+docker run -p 3011:3011 --env-file .env rc-console
 ```
 
 ## Environment variables
@@ -55,7 +57,8 @@ docker run -p 3010:3010 --env-file .env rc-console
 | `MONGO_URI` | No | MongoDB connection string (for infra views) | `mongodb://localhost:27017/` |
 | `NATS_URL` | No | NATS server URL (for infra views) | `nats://localhost:4222` |
 | `ANTHROPIC_API_KEY` | No | Claude API key (for NL Query) | `sk-ant-...` |
-| `PORT` | No | Express server port (default 3010) | `3010` |
+| `PORT` | No | Express server port (default 3011) | `3011` |
+| `APP_BASE_PATH` | No | External path prefix behind reverse proxy (Option 2) | `/apps/rc` |
 | `OIDC_ISSUER` | No | Dex OIDC issuer URL (enables auth) | `http://localhost:5556/dex` |
 | `OIDC_CLIENT_ID` | No | OIDC client ID | `wip-apps` |
 | `OIDC_CLIENT_SECRET` | No | OIDC client secret | `wip-apps-secret` |
@@ -76,7 +79,8 @@ The system terminology `_ONTOLOGY_RELATIONSHIP_TYPES` is used by the ontology br
 | Styling | Tailwind CSS |
 | Icons | Lucide React |
 | Data fetching | TanStack Query v5, @wip/react 0.6.0 hooks |
-| WIP client | @wip/client 0.11.0 (RFC 7396 PATCH support) |
+| WIP client | @wip/client 0.11.0 (RFC 7396 PATCH, backup/restore) |
+| CSV parsing | PapaParse |
 | Routing | React Router v7 |
 | Backend | Express 5, @wip/proxy 0.2.0 |
 | Infra connections | mongodb (npm), nats (npm) |

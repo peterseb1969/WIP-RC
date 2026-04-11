@@ -9,13 +9,16 @@ Browser (React SPA)
     ↓
 Vite dev proxy (dev) / Express static (prod)
     ↓
-Express Backend (port 3010)
+Express Backend (port 3011)
     ├── /wip/*        → @wip/proxy → WIP Caddy (:8443)
     ├── /api/infra/*  → Direct MongoDB/NATS connections
     ├── /api/nl/*     → Claude API with WIP tool calls
+    ├── /api/backup/* → Streaming download proxy for large backup archives
     ├── /api/me       → User info from session
     ├── /health       → Health check
     └── /auth/*       → OIDC flow with Dex
+
+All routes mount under APP_BASE_PATH when set (e.g. `/apps/rc`). In local dev, APP_BASE_PATH defaults to `/`.
 ```
 
 ## Route structure
@@ -32,8 +35,10 @@ Express Backend (port 3010)
 | `/templates/:id` | TemplateDetailPage | Field inspector, cross-links |
 | `/templates/:id/edit` | TemplateBuilderPage | Edit existing template |
 | `/documents` | DocumentListPage | Template selector → document table, all-templates view |
+| `/documents/import` | DocumentImportPage | CSV import wizard with column mapping |
+| `/documents/:templateValue/table` | DocumentTablePage | Flat table view with CSV export |
 | `/documents/:templateValue/new` | DocumentFormPage | Create document (auto-generated form from template) |
-| `/documents/:templateValue/:id` | DocumentDetailPage | Document detail with hydrated references |
+| `/documents/:templateValue/:id` | DocumentDetailPage | Document detail with hydrated references, validate button |
 | `/documents/:templateValue/:id/edit` | DocumentFormPage | Edit document (PATCH-based with concurrency control) |
 | `/files` | FileListPage | Paginated file browser |
 | `/files/:id` | FileDetailPage | File metadata + download |
@@ -42,9 +47,11 @@ Express Backend (port 3010)
 | `/mongodb` | MongoPage | Database → collection → document drill-down |
 | `/nats` | NatsPage | Stream cards with consumer details |
 | `/integrity` | IntegrityPage | On-demand integrity checks |
+| `/audit-explorer` | AuditExplorerPage | Entity search with reverse reference inspection |
 | `/activity` | ActivityPage | Audit trail timeline |
 | `/query` | NLQueryPage | Chat-style NL query interface |
 | `/api-keys` | APIKeysPage | API key management (create, revoke, view grants) |
+| `/backup` | BackupRestorePage | Namespace backup/restore with async job tracking |
 
 ## Component hierarchy
 
@@ -55,7 +62,7 @@ App
 │       └── NamespaceFilterProvider
 │           └── BrowserRouter
 │               └── AppLayout
-│                   ├── Sidebar (collapsible, dark, 5 nav sections)
+│                   ├── Sidebar (collapsible, dark, hierarchical sub-menus)
 │                   ├── TopBar (home link, namespace selector, auth state)
 │                   ├── Breadcrumbs (pattern-matched, entity-label-resolving)
 │                   └── <Outlet> (page content)
@@ -75,7 +82,7 @@ App
 
 **`src/components/layout/`** — app shell
 - **AppLayout** — sidebar + topbar + breadcrumbs + outlet
-- **Sidebar** — collapsible dark nav with 5 sections
+- **Sidebar** — collapsible dark nav with hierarchical sub-menus
 - **TopBar** — home link, global namespace selector (localStorage-persisted), auth state
 - **Breadcrumbs** — pattern-matched route crumbs with entity-label resolution via `useTerminology`, `useTerm`, `useTemplate` hooks
 
@@ -198,6 +205,9 @@ The Template Builder uses plain `useState` for form state. Introducing a form li
 ### Why react-markdown for NL Query
 The Claude API returns markdown-formatted responses. react-markdown + remark-gfm handles tables, code blocks, bold text, and lists without a custom renderer.
 
+### Why APP_BASE_PATH (Option 2 for reverse proxy)
+When deployed behind Caddy at a sub-path (e.g. `/apps/rc`), the proxy does NOT strip the prefix. Instead, the app mounts all Express routes and Vite's `base` under `APP_BASE_PATH`. This keeps cookies, OIDC redirects, and client-side routing aligned without path rewriting. The Dockerfile accepts `VITE_BASE_PATH` as a build arg for the frontend base.
+
 ### Why Vite port 5174
 Port 5173 is taken by WIP-AA (the existing Vue console). RC-Console uses 5174 to avoid conflicts during development.
 
@@ -205,8 +215,8 @@ Port 5173 is taken by WIP-AA (the existing Vue console). RC-Console uses 5174 to
 
 ```
 server/
-├── index.ts          # Express entry, routes, static serving
-├── auth.ts           # OIDC middleware (Dex, PKCE, sessions)
+├── index.ts          # Express entry, routes, static serving, backup streaming proxy, APP_BASE_PATH
+├── auth.ts           # OIDC middleware (Dex, PKCE, sessions, state param)
 ├── infra/
 │   ├── mongo.ts      # Direct MongoDB routes (4 WIP databases)
 │   └── nats.ts       # Direct NATS JetStream routes
@@ -231,5 +241,5 @@ src/
 │   ├── templates/             # Template builder internals (6 components)
 │   ├── ontology/              # Term detail internals (3 components)
 │   └── documents/             # Document form internals (8 components)
-└── pages/                     # 21 page components
+└── pages/                     # 25 page components
 ```

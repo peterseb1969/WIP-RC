@@ -1,5 +1,61 @@
 # RC-Console — Changelog
 
+## 2026-04-09 — Tier features, backup/restore, production deployment
+
+This update covers session APP-RC-20260409-1649 (~47 commits). Major feature additions across all entity types, a new backup/restore page, audit explorer, and production deployment fixes.
+
+### Documents
+- Added: Table view (`/documents/:tv/table`) with flat columns and CSV export
+- Added: CSV import wizard (`/documents/import`) with column mapping via PapaParse
+- Added: Validate button on document detail page
+
+### Templates
+- Added: Deactivate action on template detail page
+- Added: Duplicate button (creates a copy as draft)
+- Added: Version navigation via `?v=` URL parameter with Link pills (replaces dropdown)
+- Fixed: Save + Save as Draft buttons, removed activation jargon for new templates
+- Fixed: Template lifecycle bugs, breadcrumb 404s
+
+### Dashboard
+- Added: Quick actions panel
+- Added: Data quality card
+- Added: Recent items grid (replaces simple activity feed)
+
+### Audit explorer
+- Added: New page (`/audit-explorer`) with entity search and reverse reference inspection
+- Added: Click-to-inspect references in place (no navigation away)
+
+### Files
+- Added: Preview support for video, audio, PDF (inline render), and text files
+- Added: File orphan scanner (always visible above file list)
+
+### Terminologies
+- Added: CSV and OBO Graph JSON import alongside existing JSON import
+- Added: CSV export alongside JSON export
+
+### Backup & restore
+- Added: Backup & restore page (`/backup`) with async job tracking
+- Added: Streaming download proxy for large backup archives
+- Fixed: Multiple restore workflow bugs (namespace handling, endpoint paths, job type display)
+
+### Sidebar
+- Changed: Hierarchical sub-menus for the Data section
+
+### Namespaces
+- Added: Per-entity-type ID configuration on namespace create and edit
+
+### Production deployment (CASE-38)
+- Added: `APP_BASE_PATH` support (Option 2) — app mounts all routes under the configured prefix
+- Added: OIDC state parameter for OAuth security
+- Added: Trust proxy + session cookie path fixes
+- Added: Dockerfile `VITE_BASE_PATH` build arg
+- Changed: Default Express port from 3010 to 3011
+
+### Bug fixes
+- Fixed: Express 5 catch-all route compatibility (CASE-37)
+- Fixed: Registry browse API uses plural entity_type
+- Fixed: `page_size` cap raised to 1000
+
 ## 2026-04-08 — Document CRUD, Ontology UI, API Keys, Template Builder
 
 This is a major update covering four sessions (APP-RC-20260408-*) and several sessions prior. RC-Console is now feature-complete for v1: full CRUD for all entity types, ontology browsing, and auto-generated document forms.
