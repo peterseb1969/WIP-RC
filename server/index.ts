@@ -54,7 +54,7 @@ app.use(session({
 // needs to forward as a raw stream. express.json() consumes the body
 // stream, causing "stream is not readable" in the proxy's body-parser.
 router.use((req, res, next) => {
-  if (req.path.startsWith('/wip')) return next()
+  if (req.path.startsWith('/wip') || req.path.startsWith('/api/backup-restore')) return next()
   express.json()(req, res, next)
 })
 
