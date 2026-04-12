@@ -49,35 +49,8 @@ async function wipPost(path: string, body: unknown): Promise<unknown> {
 // ─── Tool Definitions ───────────────────────────────────────────────
 
 export const toolDefinitions: Anthropic.Tool[] = [
-  {
-    name: 'search',
-    description:
-      'Free-text search across all WIP entity types (documents, terminologies, templates). Returns matching entities with snippets.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        query: {
-          type: 'string',
-          description: 'The search query text',
-        },
-        types: {
-          type: 'array',
-          items: { type: 'string' },
-          description:
-            'Optional array of entity types to search: "document", "terminology", "template". If omitted, searches all types.',
-        },
-        namespace: {
-          type: 'string',
-          description: 'Optional namespace prefix to filter results',
-        },
-        limit: {
-          type: 'number',
-          description: 'Max results to return (default 20, max 100)',
-        },
-      },
-      required: ['query'],
-    },
-  },
+  // search tool removed — CASE-45: reporting-sync has no /search endpoint.
+  // Claude compensates via run_report_query (SQL) and query_by_template.
   {
     name: 'query_by_template',
     description:
@@ -201,16 +174,7 @@ export async function executeTool(
   input: Record<string, unknown>
 ): Promise<unknown> {
   switch (name) {
-    case 'search': {
-      const params = new URLSearchParams()
-      params.set('q', String(input.query ?? ''))
-      if (input.types && Array.isArray(input.types)) {
-        params.set('types', (input.types as string[]).join(','))
-      }
-      if (input.namespace) params.set('namespace', String(input.namespace))
-      params.set('limit', String(input.limit ?? 20))
-      return wipGet(`/api/reporting-sync/search?${params}`)
-    }
+    // 'search' case removed — CASE-45
 
     case 'query_by_template': {
       const body: Record<string, unknown> = {
