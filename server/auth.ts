@@ -21,6 +21,10 @@ declare module 'express-session' {
 let oidcConfig: client.Configuration | null = null
 
 const OIDC_ISSUER = process.env.OIDC_ISSUER
+/** Internal issuer URL for server-to-server discovery (e.g. http://wip-dex:5556/dex).
+ *  Falls back to OIDC_ISSUER. Needed when OIDC_ISSUER uses 'localhost' which
+ *  resolves to the container itself, not the host machine. */
+const OIDC_INTERNAL_ISSUER = process.env.OIDC_INTERNAL_ISSUER || OIDC_ISSUER
 const OIDC_CLIENT_ID = process.env.OIDC_CLIENT_ID || 'wip-apps'
 const OIDC_CLIENT_SECRET = process.env.OIDC_CLIENT_SECRET || 'wip-apps-secret'
 
@@ -45,12 +49,14 @@ export async function initAuth(): Promise<boolean> {
     return false
   }
 
-  const issuer = new URL(OIDC_ISSUER)
-  oidcConfig = await client.discovery(issuer, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET)
+  // Use internal issuer for discovery (server-to-server), but Dex's metadata
+  // contains the external URLs which the browser will follow.
+  const discoveryUrl = new URL(OIDC_INTERNAL_ISSUER!)
+  oidcConfig = await client.discovery(discoveryUrl, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET)
   const groupInfo = ALLOWED_GROUPS.length > 0
     ? `allowed_groups=[${ALLOWED_GROUPS.join(', ')}]`
     : 'allowed_groups=* (all authenticated users)'
-  console.log(`[auth] OIDC configured: issuer=${OIDC_ISSUER}, client=${OIDC_CLIENT_ID}, ${groupInfo}`)
+  console.log(`[auth] OIDC configured: issuer=${OIDC_ISSUER}, discovery=${OIDC_INTERNAL_ISSUER}, client=${OIDC_CLIENT_ID}, ${groupInfo}`)
   return true
 }
 
