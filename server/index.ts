@@ -215,9 +215,10 @@ if (process.env.NODE_ENV === 'production') {
   const distPath = path.resolve(__dirname, '..', 'dist')
   router.use(express.static(distPath))
   // SPA fallback — serve index.html for all unmatched routes
-  router.get('{*path}', (_req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'))
-  })
+  // Explicit root handler + wildcard for deep routes
+  const indexHtml = path.join(distPath, 'index.html')
+  router.get('/', (_req, res) => { res.sendFile(indexHtml) })
+  router.get('{*path}', (_req, res) => { res.sendFile(indexHtml) })
 }
 
 // Mount router at BASE_PATH
