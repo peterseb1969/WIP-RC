@@ -49,14 +49,38 @@ export async function initAuth(): Promise<boolean> {
     return false
   }
 
-  // Use internal issuer for discovery (server-to-server), but Dex's metadata
-  // contains the external URLs which the browser will follow.
-  const discoveryUrl = new URL(OIDC_INTERNAL_ISSUER!)
-  oidcConfig = await client.discovery(discoveryUrl, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET)
+  // Discovery uses the external issuer URL (what Dex puts in its 'issuer'
+  // claim). If OIDC_INTERNAL_ISSUER is set, we intercept fetch calls during
+  // discovery and JWKS retrieval to route them through the internal network
+  // while keeping the issuer identity as the external URL.
+  const issuer = new URL(OIDC_ISSUER)
+  const internalOrigin = OIDC_INTERNAL_ISSUER && OIDC_INTERNAL_ISSUER !== OIDC_ISSUER
+    ? new URL(OIDC_INTERNAL_ISSUER).origin
+    : null
+  const externalOrigin = issuer.origin
+
+  const discoveryOptions: Record<string, unknown> = {}
+  if (internalOrigin) {
+    // Rewrite fetch URLs from external → internal origin so discovery and
+    // JWKS requests reach Dex via the container network, while the issuer
+    // identity stays as the external URL (no issuer mismatch).
+    discoveryOptions[client.customFetch as unknown as string] = (url: string | URL, init?: RequestInit) => {
+      const rewritten = String(url).replace(externalOrigin, internalOrigin)
+      console.log(`[auth] OIDC fetch: ${url} → ${rewritten}`)
+      return fetch(rewritten, init)
+    }
+    // Internal Dex uses HTTP, not HTTPS
+    discoveryOptions.execute = [client.allowInsecureRequests]
+  }
+  oidcConfig = await client.discovery(issuer, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, undefined, discoveryOptions as Parameters<typeof client.discovery>[4])
+  if (internalOrigin) {
+    // Also allow insecure requests for token exchange etc.
+    client.allowInsecureRequests(oidcConfig)
+  }
   const groupInfo = ALLOWED_GROUPS.length > 0
     ? `allowed_groups=[${ALLOWED_GROUPS.join(', ')}]`
     : 'allowed_groups=* (all authenticated users)'
-  console.log(`[auth] OIDC configured: issuer=${OIDC_ISSUER}, discovery=${OIDC_INTERNAL_ISSUER}, client=${OIDC_CLIENT_ID}, ${groupInfo}`)
+  console.log(`[auth] OIDC configured: issuer=${OIDC_ISSUER}${internalOrigin ? `, internal=${internalOrigin}` : ''}, client=${OIDC_CLIENT_ID}, ${groupInfo}`)
   return true
 }
 
