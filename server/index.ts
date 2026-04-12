@@ -82,6 +82,7 @@ const WIP_SERVICES = [
   { name: 'Document-Store', slug: 'document-store', path: '/api/document-store/documents?page_size=1' },
   { name: 'Reporting-Sync', slug: 'reporting-sync', path: '/api/reporting-sync/status' },
   { name: 'Ingest-Gateway', slug: 'ingest-gateway', path: '/api/ingest-gateway/health' },
+  { name: 'File-Store', slug: 'file-store', path: '/api/file-store/files?page_size=1' },
 ]
 
 router.get('/api/infra/health', async (_req, res) => {
