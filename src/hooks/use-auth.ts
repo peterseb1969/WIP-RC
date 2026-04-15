@@ -24,7 +24,15 @@ export function useAuth() {
     queryKey: ['auth', 'me'],
     queryFn: async () => {
       const res = await fetch(apiUrl('/api/me'))
-      if (!res.ok) throw new Error(`Auth check failed: ${res.status}`)
+      if (!res.ok) {
+        // In production behind the gateway, a 401 means the gateway session
+        // expired. Redirect to gateway login instead of showing stale UI.
+        if (res.status === 401 && import.meta.env.PROD) {
+          window.location.href = '/auth/login'
+          return { anonymous: true } // won't render — redirect in progress
+        }
+        throw new Error(`Auth check failed: ${res.status}`)
+      }
       return res.json()
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
