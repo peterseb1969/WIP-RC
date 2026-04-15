@@ -200,13 +200,22 @@ router.use('/api/infra/nats', natsRouter)
 // NL Query — Claude API with WIP tool calls
 router.use('/api/nl', nlRouter)
 
-// User info
+// User info — reads identity from gateway headers (X-WIP-User) first,
+// falls back to OIDC session, then anonymous.
 router.get('/api/me', (req, res) => {
-  if (req.session.user) {
-    res.json(req.session.user)
-  } else {
-    res.json({ anonymous: true })
+  // Gateway auth: identity injected by wip-auth-gateway via Caddy forward_auth
+  const gwUser = req.headers['x-wip-user'] as string | undefined
+  if (gwUser) {
+    const groups = (req.headers['x-wip-groups'] as string || '').split(',').filter(Boolean)
+    res.json({ email: gwUser, groups, method: 'gateway' })
+    return
   }
+  // OIDC session (standalone mode)
+  if (req.session?.user) {
+    res.json(req.session.user)
+    return
+  }
+  res.json({ anonymous: true })
 })
 
 // In production, serve the built frontend from dist/

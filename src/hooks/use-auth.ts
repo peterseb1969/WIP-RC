@@ -6,6 +6,7 @@ interface UserInfo {
   name?: string
   groups?: string[]
   anonymous?: boolean
+  method?: 'gateway' | string
 }
 
 /**

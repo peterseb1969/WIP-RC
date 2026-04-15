@@ -45,7 +45,7 @@ const PUBLIC_PATHS = ['/api/health', '/auth/callback', '/auth/logout']
  */
 export async function initAuth(): Promise<boolean> {
   if (!OIDC_ISSUER) {
-    console.log('[auth] OIDC_ISSUER not set — auth disabled (local dev mode)')
+    console.log('[auth] OIDC_ISSUER not set — using gateway auth (X-WIP-User headers) or dev mode')
     return false
   }
 

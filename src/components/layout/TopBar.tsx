@@ -3,6 +3,7 @@ import { Home, User, LogOut, Shield, FolderTree } from 'lucide-react'
 import { useNamespaces } from '@wip/react'
 import { useAuth } from '@/hooks/use-auth'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
+import { apiUrl } from '@/lib/wip'
 
 export default function TopBar() {
   const { user, isAuthenticated, isAnonymous, isLoading } = useAuth()
@@ -51,7 +52,7 @@ export default function TopBar() {
               </div>
             )}
             <a
-              href="/auth/logout"
+              href={user.method === 'gateway' ? '/auth/logout' : apiUrl('/auth/logout')}
               className="flex items-center gap-1 text-gray-400 hover:text-red-500 transition-colors"
               title="Logout"
             >
