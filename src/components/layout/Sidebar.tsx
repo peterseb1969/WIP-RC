@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
   FolderTree,
@@ -18,26 +17,11 @@ import {
   MessageSquare,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
-  Plus,
-  Upload,
   Archive,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
-interface NavItem {
-  to: string
-  icon: React.ComponentType<{ size?: number; className?: string }>
-  label: string
-  children?: Array<{ to: string; label: string; icon?: React.ComponentType<{ size?: number; className?: string }> }>
-}
-
-interface NavSection {
-  label: string
-  items: NavItem[]
-}
-
-const navSections: NavSection[] = [
+const navSections = [
   {
     label: 'Overview',
     items: [
@@ -48,32 +32,10 @@ const navSections: NavSection[] = [
     label: 'Data',
     items: [
       { to: '/namespaces', icon: FolderTree, label: 'Namespaces' },
-      {
-        to: '/terminologies', icon: BookOpen, label: 'Terminologies',
-        children: [
-          { to: '/terminologies', label: 'Browse' },
-        ],
-      },
-      {
-        to: '/templates', icon: FileCode2, label: 'Templates',
-        children: [
-          { to: '/templates', label: 'Browse' },
-          { to: '/templates/new', label: 'New Template', icon: Plus },
-        ],
-      },
-      {
-        to: '/documents', icon: FileText, label: 'Documents',
-        children: [
-          { to: '/documents', label: 'Browse' },
-          { to: '/documents/import', label: 'Import CSV', icon: Upload },
-        ],
-      },
-      {
-        to: '/files', icon: Files, label: 'Files',
-        children: [
-          { to: '/files', label: 'Browse' },
-        ],
-      },
+      { to: '/terminologies', icon: BookOpen, label: 'Terminologies' },
+      { to: '/templates', icon: FileCode2, label: 'Templates' },
+      { to: '/documents', icon: FileText, label: 'Documents' },
+      { to: '/files', icon: Files, label: 'Files' },
       { to: '/registry', icon: BookMarked, label: 'Registry' },
     ],
   },
@@ -114,8 +76,6 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
-  const location = useLocation()
-
   return (
     <aside
       className={cn(
@@ -146,76 +106,27 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
               </div>
             )}
             {section.items.map(item => (
-              <SidebarItem key={item.to} item={item} collapsed={collapsed} currentPath={location.pathname} />
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/'}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 px-4 py-2 text-sm transition-colors',
+                    isActive
+                      ? 'bg-gray-800 text-white border-r-2 border-blue-500'
+                      : 'hover:bg-gray-800/50 hover:text-white'
+                  )
+                }
+                title={collapsed ? item.label : undefined}
+              >
+                <item.icon size={18} />
+                {!collapsed && <span>{item.label}</span>}
+              </NavLink>
             ))}
           </div>
         ))}
       </nav>
     </aside>
-  )
-}
-
-function SidebarItem({ item, collapsed, currentPath }: { item: NavItem; collapsed: boolean; currentPath: string }) {
-  const hasChildren = item.children && item.children.length > 0
-  const isParentActive = currentPath.startsWith(item.to) && item.to !== '/'
-  const [expanded, setExpanded] = useState(isParentActive)
-
-  if (!hasChildren || collapsed) {
-    return (
-      <NavLink
-        to={item.to}
-        end={item.to === '/'}
-        className={({ isActive }) =>
-          cn(
-            'flex items-center gap-3 px-4 py-2 text-sm transition-colors',
-            isActive
-              ? 'bg-gray-800 text-white border-r-2 border-blue-500'
-              : 'hover:bg-gray-800/50 hover:text-white'
-          )
-        }
-        title={collapsed ? item.label : undefined}
-      >
-        <item.icon size={18} />
-        {!collapsed && <span>{item.label}</span>}
-      </NavLink>
-    )
-  }
-
-  return (
-    <div>
-      <button
-        onClick={() => setExpanded(e => !e)}
-        className={cn(
-          'w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors text-left',
-          isParentActive ? 'text-white' : 'hover:bg-gray-800/50 hover:text-white'
-        )}
-      >
-        <item.icon size={18} />
-        <span className="flex-1">{item.label}</span>
-        <ChevronDown size={14} className={cn('text-gray-500 transition-transform', !expanded && '-rotate-90')} />
-      </button>
-      {expanded && (
-        <div className="ml-6 border-l border-gray-800">
-          {item.children!.map(child => (
-            <NavLink
-              key={child.to}
-              to={child.to}
-              end
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-2 pl-4 pr-4 py-1.5 text-xs transition-colors',
-                  isActive
-                    ? 'text-white bg-gray-800'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
-                )
-              }
-            >
-              {child.icon && <child.icon size={12} />}
-              {child.label}
-            </NavLink>
-          ))}
-        </div>
-      )}
-    </div>
   )
 }
