@@ -162,6 +162,52 @@ router.get('/api/infra/health', async (_req, res) => {
   res.json({ services })
 })
 
+// Streaming proxy for file content.
+// WIP's getDownloadUrl returns a presigned MinIO URL with hostname 'localhost:9000'
+// which is unreachable from the browser outside the cluster. This endpoint
+// fetches the file content via WIP's /content endpoint (which streams from
+// MinIO internally) and pipes it to the browser.
+router.get('/api/file-content/:fileId', async (req, res) => {
+  const wipBase = process.env.WIP_BASE_URL || 'https://localhost:8443'
+  const apiKey = process.env.WIP_API_KEY || ''
+  try {
+    const upstream = await fetch(
+      `${wipBase}/api/document-store/files/${req.params.fileId}/content`,
+      { headers: { 'X-API-Key': apiKey } },
+    )
+    if (!upstream.ok) {
+      res.status(upstream.status).send(await upstream.text())
+      return
+    }
+    const contentType = upstream.headers.get('content-type')
+    if (contentType) res.setHeader('Content-Type', contentType)
+    const contentLength = upstream.headers.get('content-length')
+    if (contentLength) res.setHeader('Content-Length', contentLength)
+    // If query param ?download=1, set attachment header; otherwise inline for preview
+    if (req.query.download === '1') {
+      const filename = req.query.filename ?? req.params.fileId
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    } else {
+      res.setHeader('Content-Disposition', 'inline')
+    }
+    const reader = upstream.body?.getReader()
+    if (!reader) { res.status(502).send('No response body'); return }
+    const pump = async (): Promise<void> => {
+      const { done, value } = await reader.read()
+      if (done) { res.end(); return }
+      if (!res.write(value)) {
+        await new Promise<void>(resolve => res.once('drain', resolve))
+      }
+      return pump()
+    }
+    await pump()
+  } catch (err) {
+    if (!res.headersSent) {
+      res.status(502).json({ error: err instanceof Error ? err.message : 'File proxy failed' })
+    }
+  }
+})
+
 // Streaming download proxy for large backup archives.
 // The standard @wip/proxy buffers responses which fails for multi-GB files.
 // This route pipes the response directly from WIP to the client.

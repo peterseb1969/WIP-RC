@@ -17,12 +17,13 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react'
-import { useFile, useDownloadUrl, useWipClient, useUpdateFileMetadata, useDeleteFile } from '@wip/react'
+import { useFile, useWipClient, useUpdateFileMetadata, useDeleteFile } from '@wip/react'
 import { useQuery } from '@tanstack/react-query'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
 import JsonViewer from '@/components/common/JsonViewer'
+import { apiUrl } from '@/lib/wip'
 
 // ---------------------------------------------------------------------------
 // Content-type-aware icon
@@ -241,7 +242,12 @@ export default function FileDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { data: file, isLoading, error } = useFile(id ?? '')
-  const { data: downloadInfo } = useDownloadUrl(id ?? '')
+
+  // Route file access through our Express streaming proxy instead of the
+  // presigned MinIO URL (which points to localhost:9000 and is unreachable
+  // from the browser outside the cluster).
+  const previewUrl = id ? apiUrl(`/api/file-content/${id}`) : ''
+  const downloadUrl = id && file ? apiUrl(`/api/file-content/${id}?download=1&filename=${encodeURIComponent(file.filename)}`) : ''
 
   // Edit metadata state
   const [editing, setEditing] = useState(false)
@@ -324,9 +330,9 @@ export default function FileDetailPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {downloadInfo?.download_url && (
+            {downloadUrl && (
               <a
-                href={downloadInfo.download_url}
+                href={downloadUrl}
                 download={file.filename}
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
               >
@@ -555,8 +561,8 @@ export default function FileDetailPage() {
       )}
 
       {/* File preview (image, video, audio, PDF, text) */}
-      {downloadInfo?.download_url && (
-        <FilePreview contentType={file.content_type} downloadUrl={downloadInfo.download_url} filename={file.filename} />
+      {previewUrl && (
+        <FilePreview contentType={file.content_type} downloadUrl={previewUrl} filename={file.filename} />
       )}
 
       {/* Duplicate detection */}
