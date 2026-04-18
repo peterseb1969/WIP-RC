@@ -98,21 +98,56 @@ router.get('/api/infra/health', async (_req, res) => {
           signal: AbortSignal.timeout(5000),
         })
         const ms = Math.round(performance.now() - start)
+        const contentType = resp.headers.get('content-type') ?? ''
+        const isJson = contentType.includes('application/json')
+
+        // 404 / non-JSON response usually means the service isn't deployed
+        // (Caddy returns a fallback HTML page or 404 for unrouted paths).
+        if (resp.status === 404 || (!isJson && resp.status >= 400)) {
+          return {
+            name: svc.name,
+            slug: svc.slug,
+            status: 'inactive',
+            responseTimeMs: ms,
+            error: 'Service not deployed',
+          }
+        }
+        if (!resp.ok) {
+          return {
+            name: svc.name,
+            slug: svc.slug,
+            status: 'unhealthy',
+            responseTimeMs: ms,
+            error: `HTTP ${resp.status}`,
+          }
+        }
+        // 2xx but not JSON → Caddy fallback page or similar
+        if (!isJson) {
+          return {
+            name: svc.name,
+            slug: svc.slug,
+            status: 'inactive',
+            responseTimeMs: ms,
+            error: 'Service not deployed',
+          }
+        }
         return {
           name: svc.name,
           slug: svc.slug,
-          status: resp.ok ? 'healthy' : 'unhealthy',
+          status: 'healthy',
           responseTimeMs: ms,
-          ...(resp.ok ? {} : { error: `HTTP ${resp.status}` }),
         }
       } catch (err: unknown) {
         const ms = Math.round(performance.now() - start)
+        const msg = err instanceof Error ? err.message : 'Connection failed'
+        // ECONNREFUSED / getaddrinfo failures → treat as inactive
+        const isInactive = /ECONNREFUSED|ENOTFOUND|getaddrinfo|fetch failed/i.test(msg)
         return {
           name: svc.name,
           slug: svc.slug,
-          status: 'unhealthy',
+          status: isInactive ? 'inactive' : 'unhealthy',
           responseTimeMs: ms,
-          error: err instanceof Error ? err.message : 'Connection failed',
+          error: msg,
         }
       }
     })

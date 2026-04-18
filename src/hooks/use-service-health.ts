@@ -4,7 +4,7 @@ import { apiUrl } from '@/lib/wip'
 export interface ServiceHealth {
   name: string
   slug: string
-  status: 'healthy' | 'unhealthy' | 'unknown'
+  status: 'healthy' | 'unhealthy' | 'inactive' | 'unknown'
   responseTimeMs: number | null
   error?: string
 }
@@ -23,4 +23,15 @@ export function useServiceHealth() {
     staleTime: 30_000,
     refetchInterval: 60_000,
   })
+}
+
+/**
+ * Check if a specific WIP service is inactive (not deployed).
+ * Returns undefined while loading, true/false once resolved.
+ */
+export function useIsServiceInactive(slug: string): boolean | undefined {
+  const { data, isLoading } = useServiceHealth()
+  if (isLoading || !data) return undefined
+  const svc = data.find(s => s.slug === slug)
+  return svc?.status === 'inactive'
 }

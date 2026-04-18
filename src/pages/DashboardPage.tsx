@@ -21,7 +21,7 @@ import {
   Layers,
 } from 'lucide-react'
 import { useActivity, useTerminologies, useTemplates, useDocuments } from '@wip/react'
-import { useServiceHealth, type ServiceHealth } from '@/hooks/use-service-health'
+import { useServiceHealth, useIsServiceInactive, type ServiceHealth } from '@/hooks/use-service-health'
 import { useNamespaceStats, type NamespaceWithStats } from '@/hooks/use-namespace-stats'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 import StatusBadge from '@/components/common/StatusBadge'
@@ -102,19 +102,21 @@ function ServiceCard({ service }: { service: ServiceHealth }) {
           ? 'border-green-200 bg-green-50/50'
           : service.status === 'unhealthy'
           ? 'border-red-200 bg-red-50/50'
+          : service.status === 'inactive'
+          ? 'border-gray-200 bg-gray-50/70 opacity-60'
           : 'border-yellow-200 bg-yellow-50/50'
       )}
     >
       <div className="flex items-center justify-between">
         <Server size={16} className="text-gray-400" />
-        <StatusBadge status={service.status} />
+        <StatusBadge status={service.status === 'inactive' ? 'inactive' : service.status} label={service.status === 'inactive' ? 'inactive' : undefined} />
       </div>
       <div className="text-sm font-medium text-gray-700 truncate">{service.name}</div>
       <div className="text-xs text-gray-400">
         {service.responseTimeMs !== null ? `${service.responseTimeMs}ms` : '—'}
         <span className="ml-1 text-gray-300">{service.slug}</span>
       </div>
-      {service.error && (
+      {service.error && service.status !== 'inactive' && (
         <div className="text-xs text-red-500 truncate" title={service.error}>
           {service.error}
         </div>
@@ -227,9 +229,20 @@ function NamespaceRow({ ns }: { ns: NamespaceWithStats }) {
 // ---------------------------------------------------------------------------
 
 function RecentActivity() {
-  const { data, isLoading } = useActivity({ limit: 15 })
+  const isInactive = useIsServiceInactive('reporting-sync')
+  const { data, isLoading, error } = useActivity({ limit: 15 }, { enabled: isInactive === false })
+
+  if (isInactive) {
+    return (
+      <section>
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Recent Activity</h2>
+        <p className="text-sm text-gray-400">Reporting-Sync module not deployed — activity stream unavailable.</p>
+      </section>
+    )
+  }
 
   if (isLoading) return <LoadingState label="Loading activity..." />
+  if (error) return <p className="text-sm text-red-500">Failed to load activity: {error.message}</p>
 
   const activities = data?.activities ?? []
 
@@ -347,9 +360,21 @@ interface IntegritySummary {
 }
 
 function DataQualityCard() {
+  const isInactive = useIsServiceInactive('reporting-sync')
   const [result, setResult] = useState<IntegritySummary | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  if (isInactive) {
+    return (
+      <section>
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Data Quality</h2>
+        <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 text-sm text-gray-500">
+          Reporting-Sync module not deployed — integrity checks unavailable.
+        </div>
+      </section>
+    )
+  }
 
   const handleCheck = async () => {
     setLoading(true)

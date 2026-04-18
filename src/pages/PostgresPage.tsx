@@ -26,6 +26,7 @@ import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import { cn } from '@/lib/cn'
 import { apiUrl } from '@/lib/wip'
+import { useIsServiceInactive } from '@/hooks/use-service-health'
 
 // ---------------------------------------------------------------------------
 // Query History (persisted in localStorage)
@@ -426,6 +427,25 @@ function QueryPad() {
 export default function PostgresPage() {
   const [selectedTable, setSelectedTable] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'browser' | 'query'>('browser')
+  const isInactive = useIsServiceInactive('reporting-sync')
+
+  if (isInactive) {
+    return (
+      <div className="space-y-4 max-w-7xl">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
+            <Database size={24} className="text-gray-400" />
+            PostgreSQL
+          </h1>
+          <p className="text-sm text-gray-400 mt-1">Reporting layer inspection and ad-hoc queries</p>
+        </div>
+        <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500">
+          <Database size={16} className="text-gray-400" />
+          <span>Reporting-Sync module not deployed in this WIP instance. PostgreSQL reporting tables are unavailable.</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4 max-w-7xl">

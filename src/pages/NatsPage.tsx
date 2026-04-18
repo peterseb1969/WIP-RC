@@ -38,6 +38,18 @@ function NatsStatusBar() {
   if (isLoading) return null
 
   const connected = data?.connected ?? false
+  const errMsg = data?.error ?? ''
+  // ECONNREFUSED / ENOTFOUND / timeout → module not deployed
+  const isInactive = !connected && /ECONNREFUSED|ENOTFOUND|getaddrinfo|timeout|no servers available/i.test(errMsg)
+
+  if (isInactive) {
+    return (
+      <div className="flex items-center gap-3 px-4 py-2.5 border rounded-lg text-sm bg-gray-50 border-gray-200 text-gray-500">
+        <WifiOff size={16} className="text-gray-400" />
+        <span>NATS module not deployed in this WIP instance.</span>
+      </div>
+    )
+  }
 
   return (
     <div className={cn(
@@ -278,6 +290,8 @@ function IngestGatewayPanel() {
 
 export default function NatsPage() {
   const [expandedStream, setExpandedStream] = useState<string | null>(null)
+  const { data: status } = useNatsStatus()
+  const isInactive = status && !status.connected && /ECONNREFUSED|ENOTFOUND|getaddrinfo|timeout|no servers available/i.test(status.error ?? '')
   const { data: streams, isLoading, error, refetch } = useNatsStreams()
 
   const toggleStream = (name: string) => {
@@ -308,8 +322,8 @@ export default function NatsPage() {
           )}
         </div>
 
-        {isLoading && <LoadingState label="Connecting to NATS..." />}
-        {error && <ErrorState message={error.message} onRetry={() => refetch()} />}
+        {!isInactive && isLoading && <LoadingState label="Connecting to NATS..." />}
+        {!isInactive && error && <ErrorState message={error.message} onRetry={() => refetch()} />}
 
         {streams && (
           <div className="space-y-3">
