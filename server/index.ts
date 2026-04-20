@@ -100,43 +100,21 @@ router.get('/api/infra/health', async (_req, res) => {
         const ms = Math.round(performance.now() - start)
         const contentType = resp.headers.get('content-type') ?? ''
         const isJson = contentType.includes('application/json')
+        const base = { name: svc.name, slug: svc.slug, responseTimeMs: ms, probedPath: svc.path, httpStatus: resp.status, contentType }
 
         // 404 / non-JSON response usually means the service isn't deployed
         // (Caddy returns a fallback HTML page or 404 for unrouted paths).
         if (resp.status === 404 || (!isJson && resp.status >= 400)) {
-          return {
-            name: svc.name,
-            slug: svc.slug,
-            status: 'inactive',
-            responseTimeMs: ms,
-            error: 'Service not deployed',
-          }
+          return { ...base, status: 'inactive', error: `Not deployed (HTTP ${resp.status}, ${contentType || 'no content-type'})` }
         }
         if (!resp.ok) {
-          return {
-            name: svc.name,
-            slug: svc.slug,
-            status: 'unhealthy',
-            responseTimeMs: ms,
-            error: `HTTP ${resp.status}`,
-          }
+          return { ...base, status: 'unhealthy', error: `HTTP ${resp.status}` }
         }
         // 2xx but not JSON → Caddy fallback page or similar
         if (!isJson) {
-          return {
-            name: svc.name,
-            slug: svc.slug,
-            status: 'inactive',
-            responseTimeMs: ms,
-            error: 'Service not deployed',
-          }
+          return { ...base, status: 'inactive', error: `Not deployed (HTTP ${resp.status} but ${contentType || 'no content-type'} — likely router fallback)` }
         }
-        return {
-          name: svc.name,
-          slug: svc.slug,
-          status: 'healthy',
-          responseTimeMs: ms,
-        }
+        return { ...base, status: 'healthy' }
       } catch (err: unknown) {
         const ms = Math.round(performance.now() - start)
         const msg = err instanceof Error ? err.message : 'Connection failed'
@@ -147,6 +125,7 @@ router.get('/api/infra/health', async (_req, res) => {
           slug: svc.slug,
           status: isInactive ? 'inactive' : 'unhealthy',
           responseTimeMs: ms,
+          probedPath: svc.path,
           error: msg,
         }
       }
@@ -156,7 +135,7 @@ router.get('/api/infra/health', async (_req, res) => {
   const services = results.map((r, i) =>
     r.status === 'fulfilled'
       ? r.value
-      : { name: WIP_SERVICES[i]!.name, slug: WIP_SERVICES[i]!.slug, status: 'unknown', responseTimeMs: null, error: 'Check failed' }
+      : { name: WIP_SERVICES[i]!.name, slug: WIP_SERVICES[i]!.slug, status: 'unknown', responseTimeMs: null, probedPath: WIP_SERVICES[i]!.path, error: 'Check failed' }
   )
 
   res.json({ services })

@@ -7,6 +7,14 @@ export interface ServiceHealth {
   status: 'healthy' | 'unhealthy' | 'inactive' | 'unknown'
   responseTimeMs: number | null
   error?: string
+  /** Upstream HTTP status observed by the health probe. Useful for diagnosing
+   *  "inactive" results — distinguishes 404 (not routed) from 2xx-non-JSON
+   *  (router fallback page) from 5xx-non-JSON. */
+  httpStatus?: number
+  /** Upstream Content-Type header observed by the health probe. */
+  contentType?: string
+  /** Path the probe targeted (helps spot stale/renamed endpoints). */
+  probedPath?: string
 }
 
 async function fetchAllHealth(): Promise<ServiceHealth[]> {
