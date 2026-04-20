@@ -1,0 +1,33 @@
+# Dockerfile.dev — development image for wip-deploy's --app-source override.
+#
+# Built by wip-deploy when invoked with:
+#   wip-deploy install --target dev --app-source rc=/path/to/WIP-ReactConsole
+#
+# Paired with a bind mount of <path>:/app, so the container sees source edits
+# immediately. `npm run dev` runs tsx watch (Express, 3011) and Vite (5174)
+# concurrently — both with file watchers.
+#
+# Node modules note:
+#   Because /app is bind-mounted from the host, /app/node_modules is the
+#   host's node_modules. If the host is macOS (darwin-arm64) and the
+#   container is linux, platform-specific binaries (esbuild, etc.) will be
+#   wrong. First-start auto-installs if node_modules is missing entirely;
+#   for a platform-mismatch, delete node_modules on the host and restart the
+#   container — it will reinstall linux binaries. Host-side `npm run dev` on
+#   Mac will then need a fresh `npm install` before working again.
+#   A permanent fix belongs in wip-deploy (anonymous volume for
+#   /app/node_modules shadowing the bind mount) — filing that separately.
+FROM node:20-alpine
+
+WORKDIR /app
+
+# CHOKIDAR_USEPOLLING: reliable file-change detection on macOS bind mounts
+# PORT: Express dev server port (matches production convention)
+ENV CHOKIDAR_USEPOLLING=1 \
+    NODE_ENV=development \
+    PORT=3011
+
+# 3011 = Express (tsx watch), 5174 = Vite dev server + HMR WebSocket
+EXPOSE 3011 5174
+
+CMD ["sh", "-c", "if [ ! -d node_modules ]; then echo '[dockerfile.dev] node_modules missing — installing' && npm ci; fi; exec npm run dev"]
