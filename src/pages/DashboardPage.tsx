@@ -539,7 +539,7 @@ function RecentItemsGrid() {
           ) : (
             <div className="divide-y divide-gray-50">
               {documents.map(d => (
-                <Link key={d.document_id} to={`/documents/${d.template_value ?? '_'}/${d.document_id}`} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-xs">
+                <Link key={`${d.document_id}-v${d.version}`} to={`/documents/${d.template_value ?? '_'}/${d.document_id}`} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-xs">
                   <FileText size={10} className="text-gray-400 shrink-0" />
                   <span className="text-gray-700 truncate font-mono">{d.document_id.slice(0, 12)}...</span>
                   {d.template_value && <span className="text-indigo-400 ml-auto shrink-0">{d.template_value}</span>}
