@@ -18,7 +18,10 @@ import {
   Trash2,
   AlertTriangle,
   Copy,
+  Network,
+  ArrowRight,
 } from 'lucide-react'
+import { isEdgeType, type TemplateExt } from '@/types/wip-extensions'
 import { useTerminologies, useTemplates, useDeleteTemplate, useWipClient } from '@wip/react'
 import { useQuery } from '@tanstack/react-query'
 import type { FieldDefinition } from '@wip/client'
@@ -206,6 +209,8 @@ export default function TemplateDetailPage() {
   if (!template) return <ErrorState message="Template not found" />
 
   const fields = template.fields ?? []
+  const tExt = template as TemplateExt
+  const edge = isEdgeType(tExt)
   const identityFields = new Set(
     Array.isArray(template.identity_fields) ? template.identity_fields.map(String) : []
   )
@@ -227,11 +232,31 @@ export default function TemplateDetailPage() {
           Back to Templates
         </Link>
         <div className="flex items-center gap-3">
-          <FileCode2 size={24} className="text-indigo-500" />
+          {edge ? (
+            <Network size={24} className="text-purple-500" />
+          ) : (
+            <FileCode2 size={24} className="text-indigo-500" />
+          )}
           <div className="flex-1">
             <h1 className="text-2xl font-semibold text-gray-800">{template.label || template.value}</h1>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-sm font-mono text-gray-400">{template.value}</span>
+              {edge && (
+                <span
+                  className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 text-[10px] font-medium"
+                  title="Edge type — schema for relationships between documents. Same shape as a template, different lifecycle (PoNIF #7)."
+                >
+                  Edge type
+                </span>
+              )}
+              {tExt.versioned === false && (
+                <span
+                  className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px] font-medium"
+                  title="Updates overwrite in place; documents stay at version 1 forever (PoNIF #8)."
+                >
+                  unversioned
+                </span>
+              )}
               <span className="flex items-center gap-1 text-xs text-gray-400">
                 <Layers size={10} /> v{template.version ?? 1}
               </span>
@@ -322,6 +347,29 @@ export default function TemplateDetailPage() {
         )}
         {template.description && (
           <p className="text-sm text-gray-500 mt-2">{template.description}</p>
+        )}
+        {edge && (
+          <div className="mt-3 px-4 py-3 bg-purple-50/60 border border-purple-200 rounded-lg text-xs text-gray-700">
+            <div className="flex items-center gap-2 mb-2">
+              <Network size={14} className="text-purple-600" />
+              <span className="font-semibold text-purple-800">Edge contract</span>
+              <span className="text-gray-500">— validated at write time on every relationship document</span>
+            </div>
+            <div className="grid grid-cols-[80px_1fr_auto_1fr] gap-x-3 gap-y-1.5 items-center">
+              <span className="text-gray-500">Source:</span>
+              <span className="font-mono text-gray-800">
+                {tExt.source_templates?.length
+                  ? tExt.source_templates.join(', ')
+                  : <span className="text-gray-400 italic">any</span>}
+              </span>
+              <ArrowRight size={12} className="text-gray-400" />
+              <span className="font-mono text-gray-800">
+                {tExt.target_templates?.length
+                  ? tExt.target_templates.join(', ')
+                  : <span className="text-gray-400 italic">any</span>}
+              </span>
+            </div>
+          </div>
         )}
       </div>
 

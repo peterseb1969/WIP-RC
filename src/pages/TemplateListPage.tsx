@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FileCode2, ChevronRight, Hash, Layers, RefreshCw, Plus, Archive } from 'lucide-react'
+import { FileCode2, ChevronRight, Hash, Layers, RefreshCw, Plus, Archive, Network } from 'lucide-react'
 import { useTemplates } from '@wip/react'
+import { isEdgeType, type TemplateExt } from '@/types/wip-extensions'
 import SearchInput from '@/components/common/SearchInput'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
@@ -92,29 +93,53 @@ export default function TemplateListPage() {
             {items.length === 0 ? (
               <p className="text-sm text-gray-400 p-6 text-center">No templates found.</p>
             ) : (
-              items.map(t => (
-                <Link
-                  key={t.template_id}
-                  to={`/templates/${t.template_id}`}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
-                >
-                  <FileCode2 size={16} className="text-indigo-500 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-800">{t.label || t.value}</span>
-                      <span className="text-xs font-mono text-gray-400">{t.value}</span>
+              items.map(t => {
+                const tExt = t as TemplateExt
+                const edge = isEdgeType(tExt)
+                return (
+                  <Link
+                    key={t.template_id}
+                    to={`/templates/${t.template_id}`}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                  >
+                    {edge ? (
+                      <Network size={16} className="text-purple-500 shrink-0" />
+                    ) : (
+                      <FileCode2 size={16} className="text-indigo-500 shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-800">{t.label || t.value}</span>
+                        <span className="text-xs font-mono text-gray-400">{t.value}</span>
+                        {edge && (
+                          <span
+                            className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 text-[10px] font-medium"
+                            title="Edge type — same shape as a template, different lifecycle. Source/target validated at write time. See PoNIF #7."
+                          >
+                            Edge type
+                          </span>
+                        )}
+                        {tExt.versioned === false && (
+                          <span
+                            className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px] font-medium"
+                            title="Updates overwrite in place; documents stay at version 1 forever. See PoNIF #8."
+                          >
+                            unversioned
+                          </span>
+                        )}
+                      </div>
+                      {t.description && <p className="text-xs text-gray-400 truncate mt-0.5">{t.description}</p>}
                     </div>
-                    {t.description && <p className="text-xs text-gray-400 truncate mt-0.5">{t.description}</p>}
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0 text-xs text-gray-500">
-                    <span className="flex items-center gap-1"><Layers size={10} />v{t.version ?? 1}</span>
-                    <span className="flex items-center gap-1"><Hash size={10} />{t.fields?.length ?? '—'} fields</span>
-                    {t.namespace && <span className="text-gray-400">{t.namespace}</span>}
-                    <StatusBadge status={t.status === 'active' ? 'active' : 'inactive'} label={t.status} />
-                  </div>
-                  <ChevronRight size={14} className="text-gray-300 shrink-0" />
-                </Link>
-              ))
+                    <div className="flex items-center gap-3 shrink-0 text-xs text-gray-500">
+                      <span className="flex items-center gap-1"><Layers size={10} />v{t.version ?? 1}</span>
+                      <span className="flex items-center gap-1"><Hash size={10} />{t.fields?.length ?? '—'} fields</span>
+                      {t.namespace && <span className="text-gray-400">{t.namespace}</span>}
+                      <StatusBadge status={t.status === 'active' ? 'active' : 'inactive'} label={t.status} />
+                    </div>
+                    <ChevronRight size={14} className="text-gray-300 shrink-0" />
+                  </Link>
+                )
+              })
             )}
           </div>
           <Pagination page={page} totalPages={data.pages ?? 1} onPageChange={setPage} />
