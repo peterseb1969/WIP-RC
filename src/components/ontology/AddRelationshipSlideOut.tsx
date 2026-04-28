@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { X, Plus, ArrowRight, ArrowLeft } from 'lucide-react'
-import { useTerms, useCreateRelationships } from '@wip/react'
-import { useQueryClient } from '@tanstack/react-query'
-import type { Term } from '@wip/client'
+import { useTerms, useWipClient } from '@wip/react'
+import { useQueryClient, useMutation } from '@tanstack/react-query'
+import type { Term, BulkResponse, CreateTermRelationRequest } from '@wip/client'
 import TermSearchPicker, { type PickedTerm } from './TermSearchPicker'
 import { cn } from '@/lib/cn'
 
@@ -66,7 +66,14 @@ export default function AddRelationshipSlideOut({
     return FALLBACK_RELATIONSHIP_TYPES
   }, [typesQuery.data])
 
-  const create = useCreateRelationships({
+  // @wip/react 0.6.0's useCreateRelationships still calls the pre-rename
+  // client.defStore.createRelationships method, which no longer exists in
+  // @wip/client 0.13.0. Inlining a useMutation against the post-rename method
+  // is the localized fix until @wip/react bumps. Same pattern as APP-CT's
+  // CASE-67 workaround.
+  const client = useWipClient()
+  const create = useMutation<BulkResponse, Error, { items: CreateTermRelationRequest[]; namespace: string }>({
+    mutationFn: ({ items, namespace }) => client.defStore.createTermRelations(items, namespace),
     onSuccess: response => {
       // BulkResponse may partially fail — leave the panel open so the user
       // sees the error from `bulkError` below.
@@ -102,7 +109,7 @@ export default function AddRelationshipSlideOut({
         {
           source_term_id: sourceTermId,
           target_term_id: targetTermId,
-          relationship_type: relationshipType,
+          relation_type: relationshipType,
           created_by: 'rc-console',
         },
       ],

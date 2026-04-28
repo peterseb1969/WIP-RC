@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom'
 import { ChevronRight, ChevronDown, Tag, Loader2, ArrowUp, ArrowDown } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useTerms, useWipClient } from '@wip/react'
-import type { Term, Relationship } from '@wip/client'
+import type { Term, TermRelation } from '@wip/client'
 
 interface HydratedRelationship {
-  rel: Relationship
+  rel: TermRelation
   otherTermId: string
   otherValue: string
   otherLabel: string | null
@@ -215,7 +215,7 @@ function TreeNode({
 
   // Filter to the selected relationship type client-side.
   const children = (query.data ?? []).filter(
-    h => h.rel.relationship_type === relationshipType
+    h => h.rel.relation_type === relationshipType
   )
 
   const hasChildren = children.length > 0
@@ -279,7 +279,7 @@ function TreeNode({
           )}
           {children.map(({ rel, otherTermId, otherValue, otherLabel, otherTerminologyId }) => (
             <TreeNode
-              key={`${rel.source_term_id}-${rel.target_term_id}-${rel.relationship_type}`}
+              key={`${rel.source_term_id}-${rel.target_term_id}-${rel.relation_type}`}
               termId={otherTermId}
               namespace={namespace}
               label={otherLabel || otherValue || otherTermId}

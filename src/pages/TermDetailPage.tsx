@@ -22,11 +22,10 @@ import {
   useUpdateTerm,
   useDeprecateTerm,
   useDeleteTerm,
-  useDeleteRelationships,
   useWipClient,
 } from '@wip/react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import type { Term, Relationship } from '@wip/client'
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
+import type { Term, TermRelation, BulkResponse, DeleteTermRelationRequest } from '@wip/client'
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
@@ -77,7 +76,7 @@ export default function TermDetailPage() {
   const relCountQuery = useQuery({
     queryKey: ['rc-console', 'relationships-count', termId],
     queryFn: () =>
-      client.defStore.listRelationships({
+      client.defStore.listTermRelations({
         term_id: termId ?? '',
         direction: 'both',
         page_size: 1,
@@ -665,7 +664,7 @@ function useRelationships(termId: string, direction: 'outgoing' | 'incoming') {
   return useQuery({
     queryKey: ['rc-console', 'relationships', termId, direction],
     queryFn: () =>
-      client.defStore.listRelationships({
+      client.defStore.listTermRelations({
         term_id: termId,
         direction,
         page_size: 1000,
@@ -730,9 +729,9 @@ function RelationshipSection({
   const items = query.data?.items ?? []
   const total = query.data?.total ?? items.length
 
-  // Group by relationship_type
-  const groups = items.reduce<Record<string, Relationship[]>>((acc, rel) => {
-    const key = rel.relationship_type
+  // Group by relation_type
+  const groups = items.reduce<Record<string, TermRelation[]>>((acc, rel) => {
+    const key = rel.relation_type
     if (!acc[key]) acc[key] = []
     acc[key]!.push(rel)
     return acc
@@ -789,7 +788,7 @@ function RelationshipRow({
   currentTerm,
   side,
 }: {
-  rel: Relationship
+  rel: TermRelation
   currentTerm: Term
   side: 'source' | 'target'
 }) {
@@ -812,8 +811,15 @@ function RelationshipRow({
   const linkTerminologyId = otherTerminologyId ?? currentTerm.terminology_id
 
   const queryClient = useQueryClient()
+  const client = useWipClient()
   const [confirming, setConfirming] = useState(false)
-  const remove = useDeleteRelationships({
+  // @wip/react 0.6.0's useDeleteRelationships still calls the pre-rename
+  // client.defStore.deleteRelationships method, which no longer exists in
+  // @wip/client 0.13.0. Inlining a useMutation against the post-rename
+  // method is the localized fix until @wip/react bumps. Same pattern as
+  // APP-CT's CASE-67 workaround.
+  const remove = useMutation<BulkResponse, Error, { items: DeleteTermRelationRequest[]; namespace: string }>({
+    mutationFn: ({ items, namespace }) => client.defStore.deleteTermRelations(items, namespace),
     onSuccess: response => {
       if (response.failed > 0) return
       // Invalidate both directions + counts for both terms.
@@ -844,7 +850,7 @@ function RelationshipRow({
         {
           source_term_id,
           target_term_id,
-          relationship_type: rel.relationship_type,
+          relation_type: rel.relation_type,
         },
       ],
       namespace: currentTerm.namespace,

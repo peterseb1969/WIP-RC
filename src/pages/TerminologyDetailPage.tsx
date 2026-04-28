@@ -685,10 +685,30 @@ function ImportPanel({ terminologyId, namespace, onClose }: { terminologyId: str
       }
       return { terms: created, errors, relationships: 0 }
     } else if (data.terminology && data.terms) {
+      // Accept either the post-rename `relations` key (with `relation_type`
+      // inside each item) or the pre-rename `relationships` key (with
+      // `relationship_type`) so existing user JSON exports keep working.
+      // The renamed @wip/client (CASE-67) only accepts `relations`.
+      type RawRelation = {
+        source_term_value: string
+        target_term_value: string
+        relation_type?: string
+        relationship_type?: string
+        target_terminology_value?: string
+      }
+      const rawRelations = (data.relations ?? data.relationships) as RawRelation[] | undefined
+      const relations = Array.isArray(rawRelations)
+        ? rawRelations.map(r => ({
+            source_term_value: r.source_term_value,
+            target_term_value: r.target_term_value,
+            relation_type: r.relation_type ?? r.relationship_type ?? '',
+            target_terminology_value: r.target_terminology_value,
+          }))
+        : undefined
       const res = await client.defStore.importTerminology({
         terminology: { ...data.terminology, namespace },
         terms: data.terms,
-        relationships: data.relationships,
+        relations,
       })
       const termsOk = (res.terms_result?.results ?? []).filter((r: { status: string }) => r.status === 'ok' || r.status === 'created').length
       const termsErr = (res.terms_result?.results ?? []).filter((r: { status: string }) => r.status !== 'ok' && r.status !== 'created').length
