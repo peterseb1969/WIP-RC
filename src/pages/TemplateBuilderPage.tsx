@@ -622,6 +622,7 @@ export default function TemplateBuilderPage() {
             onClose={() => setSelectedFieldIndex(null)}
             terminologies={terminologyOptions}
             templates={templateOptions}
+            syncEnabled={syncEnabled}
           />
         </div>
       )}

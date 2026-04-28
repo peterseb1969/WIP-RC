@@ -14,6 +14,7 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
+  Settings2,
 } from 'lucide-react'
 import { useWipClient } from '@wip/react'
 import type {
@@ -24,6 +25,35 @@ import type {
 } from '@wip/client'
 import StatusBadge from '@/components/common/StatusBadge'
 import { cn } from '@/lib/cn'
+import type { SearchResultExt, FtsSearchParams } from '@/types/wip-extensions'
+
+// Default-off advanced search options (CASE-150).
+type SearchMode = 'auto' | 'fts' | 'substring'
+interface SearchOptions {
+  mode: SearchMode
+  includeInactive: boolean
+  snippetFormat: 'html' | 'text'
+  template: string
+}
+const DEFAULT_SEARCH_OPTIONS: SearchOptions = {
+  mode: 'auto',
+  includeInactive: false,
+  snippetFormat: 'text',
+  template: '',
+}
+
+// Sanitize ts_headline output: HTML-escape everything, then re-inject only
+// <b>/</b> tags (which Postgres produces around match spans). Rest of the
+// snippet body is user-supplied document content and must stay escaped.
+function sanitizeSnippet(html: string): string {
+  const escaped = html
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+  return escaped.replace(/&lt;b&gt;/g, '<b>').replace(/&lt;\/b&gt;/g, '</b>')
+}
 
 // ---------------------------------------------------------------------------
 // Type icons + entity links
@@ -104,15 +134,99 @@ function SearchBar({ onSearch, loading }: { onSearch: (q: string) => void; loadi
   )
 }
 
+function SearchOptionsPanel({
+  options,
+  onChange,
+}: {
+  options: SearchOptions
+  onChange: (o: SearchOptions) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const dirty =
+    options.mode !== DEFAULT_SEARCH_OPTIONS.mode ||
+    options.includeInactive !== DEFAULT_SEARCH_OPTIONS.includeInactive ||
+    options.snippetFormat !== DEFAULT_SEARCH_OPTIONS.snippetFormat ||
+    options.template !== DEFAULT_SEARCH_OPTIONS.template
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setExpanded(e => !e)}
+        className={cn(
+          'inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded border transition-colors',
+          dirty
+            ? 'border-blue-300 bg-blue-50 text-blue-700'
+            : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+        )}
+      >
+        <Settings2 size={12} />
+        Advanced
+        {dirty && <span className="text-[10px] text-blue-500">●</span>}
+      </button>
+      {expanded && (
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 px-3 py-3 bg-gray-50 border border-gray-200 rounded-md text-xs">
+          <div>
+            <label className="block text-gray-500 mb-1">Mode</label>
+            <select
+              value={options.mode}
+              onChange={e => onChange({ ...options, mode: e.target.value as SearchMode })}
+              className="w-full border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+            >
+              <option value="auto">Auto</option>
+              <option value="fts">FTS only</option>
+              <option value="substring">Substring only</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-gray-500 mb-1">Snippet format</label>
+            <select
+              value={options.snippetFormat}
+              onChange={e =>
+                onChange({ ...options, snippetFormat: e.target.value as 'html' | 'text' })
+              }
+              className="w-full border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+              title="HTML preserves <b>...</b> match highlighting; text strips all tags."
+            >
+              <option value="text">Text</option>
+              <option value="html">HTML (highlighted)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-gray-500 mb-1">Template filter</label>
+            <input
+              type="text"
+              value={options.template}
+              onChange={e => onChange({ ...options, template: e.target.value })}
+              placeholder="(any)"
+              className="w-full border border-gray-200 rounded px-2 py-1 bg-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-400"
+            />
+          </div>
+          <label className="flex items-center gap-2 self-end pb-1 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={options.includeInactive}
+              onChange={e => onChange({ ...options, includeInactive: e.target.checked })}
+            />
+            <span className="text-gray-600">Include inactive</span>
+          </label>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Search results list
 // ---------------------------------------------------------------------------
 
 function SearchResults({
   results,
+  snippetFormat,
   onInspect,
 }: {
   results: SearchResult[]
+  snippetFormat: 'html' | 'text'
   onInspect: (type: string, id: string) => void
 }) {
   if (results.length === 0) return <p className="text-sm text-gray-400 text-center py-6">No results found.</p>
@@ -121,21 +235,45 @@ function SearchResults({
     <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
       {results.map((r, i) => {
         const Icon = TYPE_ICON[r.type] ?? FileText
+        const ext = r as SearchResultExt
+        const hasFts = ext.score != null || ext.snippet != null
         return (
           <button
             key={`${r.id}-${i}`}
             onClick={() => onInspect(r.type, r.id)}
-            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
+            className="w-full flex items-start gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
           >
-            <Icon size={14} className="text-gray-400 shrink-0" />
+            <Icon size={14} className="text-gray-400 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
-              <span className="text-sm text-gray-700">{r.label || r.value || r.id}</span>
-              {r.value && r.label && (
-                <span className="text-xs font-mono text-gray-400 ml-2">{r.value}</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-gray-700">{r.label || r.value || r.id}</span>
+                {r.value && r.label && (
+                  <span className="text-xs font-mono text-gray-400">{r.value}</span>
+                )}
+                {hasFts && ext.score != null && (
+                  <span
+                    className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-mono"
+                    title="ts_rank — relative FTS relevance"
+                  >
+                    {ext.score.toFixed(3)}
+                  </span>
+                )}
+              </div>
+              {ext.snippet && (
+                snippetFormat === 'html' ? (
+                  <p
+                    className="text-xs text-gray-500 mt-0.5 [&>b]:bg-yellow-100 [&>b]:font-semibold [&>b]:px-0.5 [&>b]:rounded-sm"
+                    dangerouslySetInnerHTML={{ __html: sanitizeSnippet(ext.snippet) }}
+                  />
+                ) : (
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {ext.snippet.replace(/<\/?b>/g, '')}
+                  </p>
+                )
               )}
             </div>
             <TypeBadge type={r.type} />
-            <ChevronRight size={14} className="text-gray-300 shrink-0" />
+            <ChevronRight size={14} className="text-gray-300 shrink-0 mt-0.5" />
           </button>
         )
       })}
@@ -278,6 +416,7 @@ export default function AuditExplorerPage() {
   const [incomingRefs, setIncomingRefs] = useState<IncomingReference[]>([])
   const [incomingTotal, setIncomingTotal] = useState(0)
   const [inspecting, setInspecting] = useState(false)
+  const [searchOptions, setSearchOptions] = useState<SearchOptions>(DEFAULT_SEARCH_OPTIONS)
 
   const handleSearch = useCallback(async (query: string) => {
     setSearching(true)
@@ -285,14 +424,27 @@ export default function AuditExplorerPage() {
     setInspectedEntity(null)
     setSearchParams(prev => { prev.set('q', query); prev.delete('type'); prev.delete('id'); return prev }, { replace: true })
     try {
-      const res = await client.reporting.search({ query, limit: 50, namespace: undefined as unknown as string })
+      // CASE-150 added mode/include_inactive/snippet_format/template params on
+      // the reporting.search backend. @wip/client@0.13.0's typed signature
+      // doesn't include them yet — passing through as FtsSearchParams.
+      const params: FtsSearchParams = {
+        query,
+        limit: 50,
+        mode: searchOptions.mode,
+        include_inactive: searchOptions.includeInactive,
+        snippet_format: searchOptions.snippetFormat,
+      }
+      if (searchOptions.template.trim()) params.template = searchOptions.template.trim()
+      const res = await client.reporting.search(
+        params as unknown as Parameters<typeof client.reporting.search>[0]
+      )
       setSearchResults(res.results)
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : 'Search failed')
     } finally {
       setSearching(false)
     }
-  }, [client, setSearchParams])
+  }, [client, setSearchParams, searchOptions])
 
   const handleInspect = useCallback(async (type: string, id: string) => {
     setInspecting(true)
@@ -329,7 +481,10 @@ export default function AuditExplorerPage() {
         <p className="text-sm text-gray-400 mt-1">Search entities and inspect their references (outgoing + incoming).</p>
       </div>
 
-      <SearchBar onSearch={handleSearch} loading={searching} />
+      <div className="space-y-2">
+        <SearchBar onSearch={handleSearch} loading={searching} />
+        <SearchOptionsPanel options={searchOptions} onChange={setSearchOptions} />
+      </div>
 
       {searchError && (
         <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
@@ -346,7 +501,7 @@ export default function AuditExplorerPage() {
               <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 Results ({searchResults.length})
               </h2>
-              <SearchResults results={searchResults} onInspect={handleInspect} />
+              <SearchResults results={searchResults} snippetFormat={searchOptions.snippetFormat} onInspect={handleInspect} />
             </>
           )}
         </div>

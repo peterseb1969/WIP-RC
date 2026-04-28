@@ -182,6 +182,9 @@ export interface FieldSlideOutProps {
   onClose: () => void
   terminologies: Array<{ id: string; label: string; value: string }>
   templates: Array<{ id: string; label: string; value: string }>
+  /** Whether the parent template has reporting.sync_enabled. Required for
+   *  full_text_indexed to take effect; shown as an inline warning if mismatched. */
+  syncEnabled?: boolean
 }
 
 export default function FieldSlideOut({
@@ -190,8 +193,12 @@ export default function FieldSlideOut({
   onClose,
   terminologies,
   templates,
+  syncEnabled,
 }: FieldSlideOutProps) {
   const update = (patch: Partial<FieldDefinition>) => onChange({ ...field, ...patch })
+  // FieldDefinition.full_text_indexed exists on the wire but isn't in
+  // @wip/client@0.13.0's types yet — see src/types/wip-extensions.ts.
+  const fullTextIndexed = (field as { full_text_indexed?: boolean | null }).full_text_indexed === true
 
   const isTermType = field.type === 'term'
   const isRefType = field.type === 'reference'
@@ -228,6 +235,8 @@ export default function FieldSlideOut({
       if (field.validation?.pattern || field.validation?.min_length || field.validation?.max_length) {
         cleaned.validation = undefined
       }
+      // full_text_indexed is only valid on type=string (server rejects with 422)
+      ;(cleaned as { full_text_indexed?: null }).full_text_indexed = null
     }
     onChange({ ...field, ...cleaned })
   }
@@ -301,6 +310,31 @@ export default function FieldSlideOut({
           onChange={(v) => update({ mandatory: v })}
           label="Required field"
         />
+
+        {/* Full-text indexed — only valid on type=string and requires
+            reporting.sync_enabled at the template level (server validates). */}
+        {field.type === 'string' && (
+          <div>
+            <Toggle
+              id="field-fulltext"
+              checked={fullTextIndexed}
+              onChange={(v) =>
+                update({
+                  ...({ full_text_indexed: v ? true : null } as Partial<FieldDefinition>),
+                })
+              }
+              label="Full-text indexed"
+            />
+            <p className="mt-1 text-[11px] text-gray-500">
+              Adds a PostgreSQL full-text index so this field is searchable with ranking and snippets via the reporting search endpoint.
+            </p>
+            {fullTextIndexed && syncEnabled === false && (
+              <p className="mt-1 text-[11px] text-amber-600">
+                full_text_indexed requires reporting.sync_enabled=true on this template.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Default value */}
         <div>
