@@ -21,7 +21,6 @@ import {
   Network,
   ArrowRight,
 } from 'lucide-react'
-import { isEdgeType, type TemplateExt } from '@/types/wip-extensions'
 import { useTerminologies, useTemplates, useDeleteTemplate, useWipClient } from '@wip/react'
 import { useQuery } from '@tanstack/react-query'
 import type { FieldDefinition } from '@wip/client'
@@ -209,8 +208,7 @@ export default function TemplateDetailPage() {
   if (!template) return <ErrorState message="Template not found" />
 
   const fields = template.fields ?? []
-  const tExt = template as TemplateExt
-  const edge = isEdgeType(tExt)
+  const edge = template.usage === 'relationship'
   const identityFields = new Set(
     Array.isArray(template.identity_fields) ? template.identity_fields.map(String) : []
   )
@@ -249,7 +247,7 @@ export default function TemplateDetailPage() {
                   Edge type
                 </span>
               )}
-              {tExt.versioned === false && (
+              {template.versioned === false && (
                 <span
                   className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px] font-medium"
                   title="Updates overwrite in place; documents stay at version 1 forever (PoNIF #8)."
@@ -358,14 +356,14 @@ export default function TemplateDetailPage() {
             <div className="grid grid-cols-[80px_1fr_auto_1fr] gap-x-3 gap-y-1.5 items-center">
               <span className="text-gray-500">Source:</span>
               <span className="font-mono text-gray-800">
-                {tExt.source_templates?.length
-                  ? tExt.source_templates.join(', ')
+                {template.source_templates?.length
+                  ? template.source_templates.join(', ')
                   : <span className="text-gray-400 italic">any</span>}
               </span>
               <ArrowRight size={12} className="text-gray-400" />
               <span className="font-mono text-gray-800">
-                {tExt.target_templates?.length
-                  ? tExt.target_templates.join(', ')
+                {template.target_templates?.length
+                  ? template.target_templates.join(', ')
                   : <span className="text-gray-400 italic">any</span>}
               </span>
             </div>

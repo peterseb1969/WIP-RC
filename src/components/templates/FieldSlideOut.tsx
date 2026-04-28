@@ -196,9 +196,7 @@ export default function FieldSlideOut({
   syncEnabled,
 }: FieldSlideOutProps) {
   const update = (patch: Partial<FieldDefinition>) => onChange({ ...field, ...patch })
-  // FieldDefinition.full_text_indexed exists on the wire but isn't in
-  // @wip/client@0.13.0's types yet — see src/types/wip-extensions.ts.
-  const fullTextIndexed = (field as { full_text_indexed?: boolean | null }).full_text_indexed === true
+  const fullTextIndexed = field.full_text_indexed === true
 
   const isTermType = field.type === 'term'
   const isRefType = field.type === 'reference'
@@ -236,7 +234,7 @@ export default function FieldSlideOut({
         cleaned.validation = undefined
       }
       // full_text_indexed is only valid on type=string (server rejects with 422)
-      ;(cleaned as { full_text_indexed?: null }).full_text_indexed = null
+      cleaned.full_text_indexed = undefined
     }
     onChange({ ...field, ...cleaned })
   }
@@ -318,11 +316,7 @@ export default function FieldSlideOut({
             <Toggle
               id="field-fulltext"
               checked={fullTextIndexed}
-              onChange={(v) =>
-                update({
-                  ...({ full_text_indexed: v ? true : null } as Partial<FieldDefinition>),
-                })
-              }
+              onChange={(v) => update({ full_text_indexed: v ? true : undefined })}
               label="Full-text indexed"
             />
             <p className="mt-1 text-[11px] text-gray-500">

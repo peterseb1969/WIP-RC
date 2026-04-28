@@ -25,7 +25,6 @@ import type {
 } from '@wip/client'
 import StatusBadge from '@/components/common/StatusBadge'
 import { cn } from '@/lib/cn'
-import type { SearchResultExt, FtsSearchParams } from '@/types/wip-extensions'
 
 // Default-off advanced search options (CASE-150).
 type SearchMode = 'auto' | 'fts' | 'substring'
@@ -235,8 +234,7 @@ function SearchResults({
     <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
       {results.map((r, i) => {
         const Icon = TYPE_ICON[r.type] ?? FileText
-        const ext = r as SearchResultExt
-        const hasFts = ext.score != null || ext.snippet != null
+        const hasFts = r.score != null || r.snippet != null
         return (
           <button
             key={`${r.id}-${i}`}
@@ -250,24 +248,24 @@ function SearchResults({
                 {r.value && r.label && (
                   <span className="text-xs font-mono text-gray-400">{r.value}</span>
                 )}
-                {hasFts && ext.score != null && (
+                {hasFts && r.score != null && (
                   <span
                     className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-mono"
                     title="ts_rank — relative FTS relevance"
                   >
-                    {ext.score.toFixed(3)}
+                    {r.score.toFixed(3)}
                   </span>
                 )}
               </div>
-              {ext.snippet && (
+              {r.snippet && (
                 snippetFormat === 'html' ? (
                   <p
                     className="text-xs text-gray-500 mt-0.5 [&>b]:bg-yellow-100 [&>b]:font-semibold [&>b]:px-0.5 [&>b]:rounded-sm"
-                    dangerouslySetInnerHTML={{ __html: sanitizeSnippet(ext.snippet) }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeSnippet(r.snippet) }}
                   />
                 ) : (
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {ext.snippet.replace(/<\/?b>/g, '')}
+                    {r.snippet.replace(/<\/?b>/g, '')}
                   </p>
                 )
               )}
@@ -424,20 +422,14 @@ export default function AuditExplorerPage() {
     setInspectedEntity(null)
     setSearchParams(prev => { prev.set('q', query); prev.delete('type'); prev.delete('id'); return prev }, { replace: true })
     try {
-      // CASE-150 added mode/include_inactive/snippet_format/template params on
-      // the reporting.search backend. @wip/client@0.13.0's typed signature
-      // doesn't include them yet — passing through as FtsSearchParams.
-      const params: FtsSearchParams = {
+      const res = await client.reporting.search({
         query,
         limit: 50,
         mode: searchOptions.mode,
         include_inactive: searchOptions.includeInactive,
         snippet_format: searchOptions.snippetFormat,
-      }
-      if (searchOptions.template.trim()) params.template = searchOptions.template.trim()
-      const res = await client.reporting.search(
-        params as unknown as Parameters<typeof client.reporting.search>[0]
-      )
+        ...(searchOptions.template.trim() ? { template: searchOptions.template.trim() } : {}),
+      })
       setSearchResults(res.results)
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : 'Search failed')

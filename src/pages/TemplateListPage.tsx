@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FileCode2, ChevronRight, Hash, Layers, RefreshCw, Plus, Archive, Network } from 'lucide-react'
 import { useTemplates } from '@wip/react'
-import { isEdgeType, type TemplateExt } from '@/types/wip-extensions'
 import SearchInput from '@/components/common/SearchInput'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
@@ -94,8 +93,7 @@ export default function TemplateListPage() {
               <p className="text-sm text-gray-400 p-6 text-center">No templates found.</p>
             ) : (
               items.map(t => {
-                const tExt = t as TemplateExt
-                const edge = isEdgeType(tExt)
+                const edge = t.usage === 'relationship'
                 return (
                   <Link
                     key={t.template_id}
@@ -119,7 +117,7 @@ export default function TemplateListPage() {
                             Edge type
                           </span>
                         )}
-                        {tExt.versioned === false && (
+                        {t.versioned === false && (
                           <span
                             className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px] font-medium"
                             title="Updates overwrite in place; documents stay at version 1 forever. See PoNIF #8."
