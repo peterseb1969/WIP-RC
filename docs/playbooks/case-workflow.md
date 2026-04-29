@@ -51,26 +51,29 @@ ls yac-discussions/CASE-03-*.md 2>/dev/null
 ### 1. Get the current time
 
 ```bash
-date '+%Y%m%d-%H%M'
+date '+%Y-%m-%d %H:%M'
 ```
 
-### 2. Assign a case number
+### 2. Create a slug
 
-Find the highest existing case number and add 1:
+Infer a short slug from context: `unknown-fields`, `relative-baseurl`, `template-update-missing`. 2-4 words, lowercase kebab-case (matches the regex `^[a-z0-9]+(-[a-z0-9]+)*$`).
+
+### 3. Claim a case number AND filename atomically
 
 ```bash
-ls yac-discussions/CASE-*.md 2>/dev/null | sed 's/.*CASE-\([0-9]*\)-.*/\1/' | sort -n | tail -1
+bash yac-discussions/case-helper.sh claim <slug>
+# Echoes: yac-discussions/CASE-<NN>-open-<slug>.md
 ```
 
-If no cases exist, start at 01. Zero-pad to 2 digits (01–99). If you somehow reach 100+, use 3 digits.
+The script creates the file with a placeholder body (`_(case body in progress — DO NOT FILE NEW CASE WITH THIS NUMBER)_`). **The file existence is the lock.** Two YACs running this concurrently get different numbers — the first to win the file-create takes `<NN>`; the second hits a noclobber error, retries with `<NN>+1`, and gets that.
 
-### 3. Create a slug
+This replaces the older "find highest, add 1, then write 2–4 minutes later" flow that produced the CASE-67 collision on Apr 27 (race window: a YAC chews on the case body for minutes between getting `next` and writing the file).
 
-Infer a short slug from context: `unknown-fields`, `relative-baseurl`, `template-update-missing`. 2-4 words, kebab-case.
+If your slug is invalid (uppercase, spaces, special chars), the script errors with a hint. Pick a different slug and retry.
 
-### 4. Write the case file
+### 4. Fill in the case body
 
-Create `yac-discussions/CASE-<NN>-open-<slug>.md`:
+The file now exists at the path the script echoed, with the placeholder line as its only content. Open it and replace the placeholder with proper frontmatter + body:
 
 ```markdown
 ---
