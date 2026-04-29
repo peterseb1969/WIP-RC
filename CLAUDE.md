@@ -83,18 +83,18 @@ Follow the 4-phase development process. Start with:
 ## Reference Documentation
 
 Read these before starting:
-- `docs/AI-Assisted-Development.md` — 4-phase process, data model design guide, PoNIFs quick reference
-- `docs/WIP_PoNIFs.md` — Full guide to WIP's 6 non-intuitive behaviours
+- `docs/AI-Assisted-Development.md` — 4-phase process, data model design guide, PoNIFs quick reference. (DOC-YAC's CASE-108 has flagged this for update; treat as background, prefer `wip://development-guide` for current truth.)
+- `docs/WIP_PoNIFs.md` — Narrative guide to WIP's PoNIFs. (DOC-YAC's CASE-66 has flagged this for update; covers 6 of 8 PoNIFs. **Prefer `wip://ponifs` for the canonical 8-entry list including #7 Edge Types and #8 `versioned: false`.**)
 - `docs/WIP_DevGuardrails.md` — UI stack, app skeleton, testing conventions
 - `docs/ontology-support.md` — Term relationships, polyhierarchy, typed relationships, traversal queries
 - `docs/dev-delete.md` — Hard-delete entities during development (modes, backends, remote usage)
 
 ## MCP
 
-WIP is accessed exclusively via MCP tools (71 tools, 5 resources). Before starting:
+WIP is accessed exclusively via MCP tools (88 tools, 5 resources — `create_edge_type` and full-text search tools landed during the v2 rollout). Before starting:
 - Read `wip://conventions` — bulk-first API, identity hashing, versioning
 - Read `wip://data-model` — terminologies, templates, documents, fields, relationships
-- Read `wip://ponifs` — 6 behaviours that trip up every new developer
+- Read `wip://ponifs` — 8 behaviours that trip up every new developer (PoNIFs #7 Edge Types and #8 `versioned: false` added Day 42)
 
 `wip://development-guide` provides the full 4-phase workflow reference if needed.
 `wip://query-assistant-prompt` provides a complete system prompt for NL query agents (used by --preset query apps).
