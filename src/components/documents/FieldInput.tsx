@@ -21,10 +21,13 @@ export interface FieldInputProps {
   onChange: (v: unknown) => void
   disabled?: boolean
   error?: string
+  /** Forwarded to file-type widgets so uploads carry the document's namespace
+   *  (CASE-249). Optional for non-file fields and standalone callers. */
+  namespace?: string
 }
 
-export default function FieldInput({ field, value, onChange, disabled, error }: FieldInputProps) {
-  const control = renderControl({ field, value, onChange, disabled })
+export default function FieldInput({ field, value, onChange, disabled, error, namespace }: FieldInputProps) {
+  const control = renderControl({ field, value, onChange, disabled, namespace })
   return (
     <div>
       {control}
@@ -33,7 +36,7 @@ export default function FieldInput({ field, value, onChange, disabled, error }: 
   )
 }
 
-function renderControl({ field, value, onChange, disabled }: FieldInputProps) {
+function renderControl({ field, value, onChange, disabled, namespace }: FieldInputProps) {
   const enumValues = field.validation?.enum as (string | number)[] | undefined
 
   switch (field.type) {
@@ -109,11 +112,11 @@ function renderControl({ field, value, onChange, disabled }: FieldInputProps) {
       )
     case 'file':
       return (
-        <FileFieldInput field={field} value={value} onChange={onChange} disabled={disabled} />
+        <FileFieldInput field={field} value={value} onChange={onChange} disabled={disabled} namespace={namespace} />
       )
     case 'array':
       return (
-        <ArrayFieldInput field={field} value={value} onChange={onChange} disabled={disabled} />
+        <ArrayFieldInput field={field} value={value} onChange={onChange} disabled={disabled} namespace={namespace} />
       )
     case 'object':
       return (

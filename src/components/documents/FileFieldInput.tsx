@@ -18,9 +18,12 @@ export interface FileFieldInputProps {
   value: unknown
   onChange: (v: unknown) => void
   disabled?: boolean
+  /** Namespace the uploaded file should be stored in.
+   *  Required by the backend on the latest stack (CASE-249). */
+  namespace?: string
 }
 
-export default function FileFieldInput({ field, value, onChange, disabled }: FileFieldInputProps) {
+export default function FileFieldInput({ field, value, onChange, disabled, namespace }: FileFieldInputProps) {
   const fileId = typeof value === 'string' ? value : ''
   const { data: existing } = useFile(fileId, { enabled: !!fileId })
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -51,7 +54,7 @@ export default function FileFieldInput({ field, value, onChange, disabled }: Fil
       setUploadError(`File type ${file.type} not allowed`)
       return
     }
-    upload.mutate({ file, filename: file.name })
+    upload.mutate({ file, filename: file.name, namespace })
   }
 
   const handleDrop = (e: React.DragEvent) => {

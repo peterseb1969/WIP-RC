@@ -15,9 +15,11 @@ export interface ArrayFieldInputProps {
   value: unknown
   onChange: (v: unknown) => void
   disabled?: boolean
+  /** Forwarded to file-typed array items so uploads carry the document's namespace (CASE-249). */
+  namespace?: string
 }
 
-export default function ArrayFieldInput({ field, value, onChange, disabled }: ArrayFieldInputProps) {
+export default function ArrayFieldInput({ field, value, onChange, disabled, namespace }: ArrayFieldInputProps) {
   const items = Array.isArray(value) ? value : []
   const itemType = field.array_item_type
 
@@ -91,6 +93,7 @@ export default function ArrayFieldInput({ field, value, onChange, disabled }: Ar
               value={item}
               onChange={(v) => updateItem(i, v)}
               disabled={disabled}
+              namespace={namespace}
             />
           </div>
           {!disabled && (

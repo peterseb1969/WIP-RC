@@ -55,6 +55,7 @@ export default function DocumentForm({
             onChange={(v) => updateField(f.name, v)}
             error={errors[f.name]}
             disabled={mode === 'edit' && identityFieldNames.has(f.name)}
+            namespace={template.namespace}
           />
         ))}
       </Section>
@@ -72,12 +73,14 @@ function FieldRow({
   onChange,
   error,
   disabled,
+  namespace,
 }: {
   field: FieldDefinition
   value: unknown
   onChange: (v: unknown) => void
   error?: string
   disabled?: boolean
+  namespace?: string
 }) {
   const id = `df-${field.name}`
   return (
@@ -100,6 +103,7 @@ function FieldRow({
         onChange={onChange}
         disabled={disabled}
         error={error}
+        namespace={namespace}
       />
     </div>
   )

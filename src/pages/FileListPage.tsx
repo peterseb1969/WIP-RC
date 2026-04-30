@@ -38,7 +38,8 @@ function UploadForm({ defaultNamespace, onClose }: { defaultNamespace?: string; 
     upload.mutate({
       file: selectedFile,
       filename: selectedFile.name,
-      metadata: { ...metadata, namespace: uploadNs } as never,
+      metadata,
+      namespace: uploadNs,
     })
   }
 
