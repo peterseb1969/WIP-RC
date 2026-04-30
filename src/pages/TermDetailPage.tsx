@@ -23,9 +23,10 @@ import {
   useDeprecateTerm,
   useDeleteTerm,
   useWipClient,
+  useDeleteTermRelations,
 } from '@wip/react'
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
-import type { Term, TermRelation, BulkResponse, DeleteTermRelationRequest } from '@wip/client'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import type { Term, TermRelation } from '@wip/client'
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
@@ -811,15 +812,8 @@ function RelationshipRow({
   const linkTerminologyId = otherTerminologyId ?? currentTerm.terminology_id
 
   const queryClient = useQueryClient()
-  const client = useWipClient()
   const [confirming, setConfirming] = useState(false)
-  // @wip/react 0.6.0's useDeleteRelationships still calls the pre-rename
-  // client.defStore.deleteRelationships method, which no longer exists in
-  // @wip/client 0.13.0. Inlining a useMutation against the post-rename
-  // method is the localized fix until @wip/react bumps. Same pattern as
-  // APP-CT's CASE-67 workaround.
-  const remove = useMutation<BulkResponse, Error, { items: DeleteTermRelationRequest[]; namespace: string }>({
-    mutationFn: ({ items, namespace }) => client.defStore.deleteTermRelations(items, namespace),
+  const remove = useDeleteTermRelations({
     onSuccess: response => {
       if (response.failed > 0) return
       // Invalidate both directions + counts for both terms.
