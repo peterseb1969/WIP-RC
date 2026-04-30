@@ -141,7 +141,10 @@ export default function FileListPage() {
   useSyncNamespaceFromUrl()
   const { namespace } = useNamespaceFilter()
   const [page, setPage] = useState(1)
-  const [status, setStatus] = useState<'active' | 'inactive' | ''>('active')
+  // Default to All (not Active) so freshly uploaded files appear — the
+  // backend often marks ref_count=0 files as 'orphan', which the Active
+  // filter would hide. The per-row orphan badge calls them out visually.
+  const [status, setStatus] = useState<'active' | 'inactive' | ''>('')
   const [showUpload, setShowUpload] = useState(false)
   const { data, isLoading, error, refetch } = useFiles({
     namespace: namespace || undefined,

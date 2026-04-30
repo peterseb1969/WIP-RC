@@ -235,12 +235,14 @@ function SearchResults({
       {results.map((r, i) => {
         const Icon = TYPE_ICON[r.type] ?? FileText
         const hasFts = r.score != null || r.snippet != null
-        return (
-          <button
-            key={`${r.id}-${i}`}
-            onClick={() => onInspect(r.type, r.id)}
-            className="w-full flex items-start gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
-          >
+        // Files can't be inspected via reporting-sync's references endpoints
+        // (backend rejects entity_type=file with 400). Render file rows as
+        // <Link> to the file detail page; everything else stays a <button>
+        // that triggers in-page inspection.
+        const rowClass = "w-full flex items-start gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
+        const rowKey = `${r.id}-${i}`
+        const rowInner = (
+          <>
             <Icon size={14} className="text-gray-400 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -272,6 +274,15 @@ function SearchResults({
             </div>
             <TypeBadge type={r.type} />
             <ChevronRight size={14} className="text-gray-300 shrink-0 mt-0.5" />
+          </>
+        )
+        return r.type === 'file' ? (
+          <Link key={rowKey} to={entityLink(r.type, r.id)} className={rowClass}>
+            {rowInner}
+          </Link>
+        ) : (
+          <button key={rowKey} onClick={() => onInspect(r.type, r.id)} className={rowClass}>
+            {rowInner}
           </button>
         )
       })}
