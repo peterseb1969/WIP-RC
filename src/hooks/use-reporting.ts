@@ -26,15 +26,9 @@ export interface QueryResult {
   execution_time_ms?: number
 }
 
-export interface SyncStatus {
-  running: boolean
-  connected_to_nats: boolean
-  connected_to_postgres: boolean
-  last_event_processed?: string
-  events_processed: number
-  events_failed: number
-  tables_managed: number
-}
+// SyncStatus is now exported from @wip/client; re-export for callers that
+// still import it from this module.
+export type { SyncStatus } from '@wip/client'
 
 // ---------------------------------------------------------------------------
 // Fetch helpers
@@ -122,11 +116,6 @@ export function useRunQuery() {
   })
 }
 
-export function useSyncStatus() {
-  return useQuery({
-    queryKey: ['rc-console', 'sync-status'],
-    queryFn: () => fetchJson<SyncStatus>('/status'),
-    staleTime: 30_000,
-    refetchInterval: 60_000,
-  })
-}
+// useSyncStatus is now provided by @wip/react@0.9.0 (CASE-283).
+// Import it directly from there:  import { useSyncStatus } from '@wip/react'
+// Pass `{ refetchInterval: 60_000 }` if you want polling.

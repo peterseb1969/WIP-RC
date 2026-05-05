@@ -12,18 +12,20 @@ import {
   Columns3,
   CheckCircle,
   XCircle,
+  RefreshCw,
 } from 'lucide-react'
 import {
   useReportTables,
   useTableColumns,
   useTablePreview,
   useRunQuery,
-  useSyncStatus,
   type QueryResult,
 } from '@/hooks/use-reporting'
+import { useSyncStatus } from '@wip/react'
 import DataTable from '@/components/common/DataTable'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
+import BatchSyncPanel from '@/components/reporting/BatchSyncPanel'
 import { cn } from '@/lib/cn'
 import { apiUrl } from '@/lib/wip'
 import { useIsServiceInactive } from '@/hooks/use-service-health'
@@ -59,7 +61,7 @@ function saveHistory(entries: HistoryEntry[]) {
 // ---------------------------------------------------------------------------
 
 function SyncStatusBar() {
-  const { data, isLoading } = useSyncStatus()
+  const { data, isLoading } = useSyncStatus({ refetchInterval: 60_000 })
 
   if (isLoading || !data) return null
 
@@ -426,7 +428,7 @@ function QueryPad() {
 
 export default function PostgresPage() {
   const [selectedTable, setSelectedTable] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'browser' | 'query'>('browser')
+  const [activeTab, setActiveTab] = useState<'browser' | 'query' | 'sync'>('browser')
   const isInactive = useIsServiceInactive('reporting-sync')
 
   if (isInactive) {
@@ -489,6 +491,20 @@ export default function PostgresPage() {
             Query Pad
           </span>
         </button>
+        <button
+          onClick={() => setActiveTab('sync')}
+          className={cn(
+            'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+            activeTab === 'sync'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          )}
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <RefreshCw size={14} />
+            Batch Sync
+          </span>
+        </button>
       </div>
 
       {/* Content */}
@@ -513,6 +529,8 @@ export default function PostgresPage() {
       )}
 
       {activeTab === 'query' && <QueryPad />}
+
+      {activeTab === 'sync' && <BatchSyncPanel />}
     </div>
   )
 }

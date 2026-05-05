@@ -19,8 +19,17 @@ import {
   AlertTriangle,
   CheckCircle,
   Layers,
+  Loader2,
+  PlayCircle,
 } from 'lucide-react'
-import { useActivity, useTerminologies, useTemplates, useDocuments } from '@wip/react'
+import {
+  useActivity,
+  useTerminologies,
+  useTemplates,
+  useDocuments,
+  useSyncStatus,
+  useTriggerBatchSyncAll,
+} from '@wip/react'
 import { useServiceHealth, useIsServiceInactive, type ServiceHealth } from '@/hooks/use-service-health'
 import { useNamespaceStats, type NamespaceWithStats } from '@/hooks/use-namespace-stats'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
@@ -598,6 +607,59 @@ function InfraQuickStatus() {
 }
 
 // ---------------------------------------------------------------------------
+// ReportingSyncCTA — banner when the reporting layer is empty but Mongo has
+// documents. Surfaces the CASE-283 first-time-setup affordance: one click
+// triggers a full batch sync and links to the Batch Sync admin tab.
+// ---------------------------------------------------------------------------
+
+function ReportingSyncCTA() {
+  const inactive = useIsServiceInactive('reporting-sync')
+  const { data: status } = useSyncStatus({ refetchInterval: 60_000 })
+  const { data: docs } = useDocuments({ page_size: 1 })
+  const trigger = useTriggerBatchSyncAll()
+
+  if (inactive) return null
+  if (!status) return null
+  if (status.tables_managed > 0) return null
+  const docCount = docs?.total ?? 0
+  if (docCount === 0) return null
+
+  return (
+    <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg">
+      <RefreshCw size={16} className="text-amber-500 shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-amber-900">Reporting layer is empty</div>
+        <div className="text-xs text-amber-700 mt-0.5">
+          {docCount.toLocaleString()} document{docCount === 1 ? '' : 's'} in MongoDB but no `doc_*` tables in PostgreSQL. SQL analytics and the Audit Explorer will be unavailable until a batch sync runs.
+        </div>
+        {trigger.isError && (
+          <div className="text-xs text-red-600 mt-1">{(trigger.error as Error).message}</div>
+        )}
+        {trigger.isSuccess && (
+          <div className="text-xs text-emerald-700 mt-1">Sync triggered. Watch progress on the PostgreSQL → Batch Sync tab.</div>
+        )}
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={() => trigger.mutate({ force: false, page_size: 100 })}
+          disabled={trigger.isPending || trigger.isSuccess}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white text-sm rounded-md hover:bg-amber-700 disabled:opacity-50"
+        >
+          {trigger.isPending ? <Loader2 size={12} className="animate-spin" /> : <PlayCircle size={14} />}
+          {trigger.isPending ? 'Triggering...' : 'Run full batch sync'}
+        </button>
+        <Link
+          to="/postgres"
+          className="text-xs text-amber-700 hover:text-amber-900 underline-offset-2 hover:underline"
+        >
+          Open Sync admin
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Dashboard Page
 // ---------------------------------------------------------------------------
 
@@ -609,6 +671,7 @@ export default function DashboardPage() {
         <p className="text-sm text-gray-400 mt-1">System health and data overview</p>
       </div>
 
+      <ReportingSyncCTA />
       <ServiceHealthGrid />
       <QuickActions />
       <NamespaceSummary />
