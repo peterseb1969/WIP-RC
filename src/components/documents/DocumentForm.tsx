@@ -30,6 +30,18 @@ export default function DocumentForm({
   mode,
 }: DocumentFormProps) {
   const fields = template.fields ?? []
+  const isEdgeType = template.usage === 'relationship'
+
+  // For edge types, surface source_ref / target_ref together at the top in a
+  // dedicated "Endpoints" section. Other fields render in the regular Data
+  // section beneath. Identity behaviour is unchanged — endpoints are
+  // mandatory but not necessarily identity-fields.
+  const endpointFields = isEdgeType
+    ? fields.filter(f => f.name === 'source_ref' || f.name === 'target_ref')
+    : []
+  const dataFields = isEdgeType
+    ? fields.filter(f => f.name !== 'source_ref' && f.name !== 'target_ref')
+    : fields
 
   const updateField = (name: string, v: unknown) => {
     const next = { ...value }
@@ -43,11 +55,43 @@ export default function DocumentForm({
 
   return (
     <div className="space-y-4">
-      <Section title={`Data (${fields.length} field${fields.length === 1 ? '' : 's'})`} defaultOpen>
-        {fields.length === 0 && (
-          <p className="text-sm text-gray-400">This template has no fields.</p>
+      {isEdgeType && endpointFields.length > 0 && (
+        <Section title="Endpoints" defaultOpen>
+          <p className="text-[11px] text-gray-500 mb-2">
+            Source and target documents this relationship connects. Both must live in the same namespace and be active or inactive (not archived).
+          </p>
+          {/* Render source_ref first, then target_ref, regardless of array order */}
+          {['source_ref', 'target_ref'].flatMap(name => {
+            const f = endpointFields.find(x => x.name === name)
+            return f ? [
+              <FieldRow
+                key={f.name}
+                field={f}
+                value={value[f.name]}
+                onChange={(v) => updateField(f.name, v)}
+                error={errors[f.name]}
+                disabled={mode === 'edit' && identityFieldNames.has(f.name)}
+                namespace={template.namespace}
+              />,
+            ] : []
+          })}
+        </Section>
+      )}
+
+      <Section
+        title={
+          isEdgeType
+            ? `Edge properties (${dataFields.length} field${dataFields.length === 1 ? '' : 's'})`
+            : `Data (${fields.length} field${fields.length === 1 ? '' : 's'})`
+        }
+        defaultOpen
+      >
+        {dataFields.length === 0 && (
+          <p className="text-sm text-gray-400">
+            {isEdgeType ? 'This edge type has no extra properties — endpoints only.' : 'This template has no fields.'}
+          </p>
         )}
-        {fields.map((f) => (
+        {dataFields.map((f) => (
           <FieldRow
             key={f.name}
             field={f}

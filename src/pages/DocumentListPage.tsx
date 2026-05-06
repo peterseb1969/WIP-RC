@@ -13,8 +13,10 @@ import {
   Archive,
   Table2,
   Upload,
+  Network,
 } from 'lucide-react'
 import { useTemplates, useDocuments } from '@wip/react'
+import type { TemplateUsage } from '@wip/client'
 import { useNamespaceFilter, useSyncNamespaceFromUrl } from '@/hooks/use-namespace-filter'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
@@ -285,7 +287,7 @@ function TemplateSelector({
 }: {
   selectedId: string | null
   onSelect: (id: string, value: string) => void
-  onTemplatesLoaded?: (templates: Array<{ template_id: string; value: string; label?: string | null }>) => void
+  onTemplatesLoaded?: (templates: Array<{ template_id: string; value: string; label?: string | null; usage?: TemplateUsage }>) => void
   allMode: boolean
   onSelectAll: () => void
 }) {
@@ -329,7 +331,7 @@ function DocumentTable({
 }: {
   templateId: string | null
   templateValue: string | null
-  templateById: Map<string, { value: string; label?: string | null }>
+  templateById: Map<string, { value: string; label?: string | null; usage?: TemplateUsage }>
 }) {
   const [page, setPage] = useState(1)
   const [showArchived, setShowArchived] = useState(false)
@@ -412,6 +414,7 @@ function DocumentTable({
             const previewFields = Object.entries(docData).slice(0, 3)
             const tmpl = doc.template_id ? templateById.get(doc.template_id) : undefined
             const rowTemplateValue = tmpl?.value ?? templateValue ?? ''
+            const isRelationship = tmpl?.usage === 'relationship'
 
             return (
               <Link
@@ -419,14 +422,33 @@ function DocumentTable({
                 to={rowTemplateValue ? `/documents/${rowTemplateValue}/${doc.document_id}` : '#'}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
               >
-                <FileText size={16} className="text-gray-400 shrink-0" />
+                {isRelationship ? (
+                  <Network size={16} className="text-purple-500 shrink-0" />
+                ) : (
+                  <FileText size={16} className="text-gray-400 shrink-0" />
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-mono text-gray-500">{doc.document_id}</span>
                     <span className="text-[10px] text-gray-300">v{doc.version ?? 1}</span>
                     {isAll && tmpl && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-100">
+                      <span
+                        className={cn(
+                          'text-[10px] px-1.5 py-0.5 rounded border',
+                          isRelationship
+                            ? 'bg-purple-50 text-purple-700 border-purple-100'
+                            : 'bg-indigo-50 text-indigo-600 border-indigo-100',
+                        )}
+                      >
                         {tmpl.label || tmpl.value}
+                      </span>
+                    )}
+                    {isRelationship && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-medium"
+                        title="Relationship document — instance of an edge type"
+                      >
+                        edge
                       </span>
                     )}
                   </div>
@@ -492,8 +514,8 @@ export default function DocumentListPage() {
   }
 
   // auto-recall last-used template when templates finish loading
-  const handleTemplatesLoaded = useCallback((templates: Array<{ template_id: string; value: string; label?: string | null }>) => {
-    setTemplateById(new Map(templates.map(t => [t.template_id, { value: t.value, label: t.label }])))
+  const handleTemplatesLoaded = useCallback((templates: Array<{ template_id: string; value: string; label?: string | null; usage?: TemplateUsage }>) => {
+    setTemplateById(new Map(templates.map(t => [t.template_id, { value: t.value, label: t.label, usage: t.usage }])))
     // don't override if already selected or in all mode
     if (selectedTemplateId || allMode) return
 

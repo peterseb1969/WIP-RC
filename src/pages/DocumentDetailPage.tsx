@@ -20,6 +20,8 @@ import {
   ShieldCheck,
   AlertTriangle,
   CheckCircle,
+  Network,
+  ArrowRight,
 } from 'lucide-react'
 import { useDocument, useDocumentVersions, useTemplateByValue, useWipClient, useArchiveDocument } from '@wip/react'
 import { useQueries } from '@tanstack/react-query'
@@ -389,6 +391,83 @@ function ReferenceRow({
 }
 
 // ---------------------------------------------------------------------------
+// Relationship Endpoints Header — shown only when the document's template
+// has usage='relationship'. Resolves source_ref / target_ref from the
+// document's references list and links to the endpoint docs.
+// ---------------------------------------------------------------------------
+
+function RelationshipEndpointsHeader({ refs }: { refs: Reference[] }) {
+  const client = useWipClient()
+  const sourceRef = refs.find(r => r.field_path === 'source_ref' && r.reference_type === 'document')
+  const targetRef = refs.find(r => r.field_path === 'target_ref' && r.reference_type === 'document')
+
+  // Hydrate both endpoint docs (if resolved) for human-readable labels
+  const queries = useQueries({
+    queries: [sourceRef, targetRef].map(ref => ({
+      queryKey: ['rc-console', 'doc-ref', ref?.resolved?.document_id ?? ''],
+      queryFn: () => client.documents.getDocument(ref!.resolved!.document_id!),
+      enabled: !!ref?.resolved?.document_id,
+      staleTime: 60_000,
+    })),
+  })
+  const [sourceQ, targetQ] = queries
+
+  return (
+    <div className="bg-purple-50/60 border border-purple-200 rounded-lg p-3 flex items-center gap-3">
+      <Network size={16} className="text-purple-600 shrink-0" />
+      <EndpointChip label="From" ref_={sourceRef} hydratedDoc={sourceQ?.data} loading={sourceQ?.isLoading ?? false} />
+      <ArrowRight size={14} className="text-purple-400 shrink-0" />
+      <EndpointChip label="To" ref_={targetRef} hydratedDoc={targetQ?.data} loading={targetQ?.isLoading ?? false} />
+    </div>
+  )
+}
+
+function EndpointChip({
+  label,
+  ref_,
+  hydratedDoc,
+  loading,
+}: {
+  label: string
+  ref_?: Reference
+  hydratedDoc?: import('@wip/client').Document
+  loading: boolean
+}) {
+  if (!ref_) {
+    return (
+      <div className="flex-1 min-w-0">
+        <div className="text-[10px] uppercase tracking-wide text-purple-700 font-semibold">{label}</div>
+        <div className="text-xs text-gray-400 italic">missing</div>
+      </div>
+    )
+  }
+  const r = ref_.resolved ?? {}
+  const tv = hydratedDoc?.template_value ?? r.template_value ?? '_'
+  const docId = r.document_id
+  const display = hydratedDoc ? pickDocLabel(hydratedDoc) : (loading ? 'loading…' : (docId ? docId.slice(0, 12) + '…' : ref_.lookup_value))
+  const subLabel = hydratedDoc?.template_value || r.template_value
+  return (
+    <div className="flex-1 min-w-0">
+      <div className="text-[10px] uppercase tracking-wide text-purple-700 font-semibold">{label}</div>
+      <div className="flex items-center gap-2 min-w-0">
+        {docId ? (
+          <Link to={`/documents/${tv}/${docId}`} className="text-sm text-gray-800 hover:text-blue-600 hover:underline truncate">
+            {display}
+          </Link>
+        ) : (
+          <span className="text-sm text-red-600">unresolved</span>
+        )}
+        {subLabel && (
+          <span className="text-[10px] font-mono text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded shrink-0">
+            {subLabel}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Document Detail Page
 // ---------------------------------------------------------------------------
 
@@ -544,6 +623,11 @@ export default function DocumentDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Relationship endpoints — shown only when this document is a relationship instance */}
+      {template?.usage === 'relationship' && doc.references && (
+        <RelationshipEndpointsHeader refs={doc.references} />
+      )}
 
       {/* Validation result */}
       {validationResult && (
