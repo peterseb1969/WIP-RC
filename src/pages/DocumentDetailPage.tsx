@@ -27,6 +27,8 @@ import { useDocument, useDocumentVersions, useTemplateByValue, useWipClient, use
 import { useQueries } from '@tanstack/react-query'
 import type { FieldDefinition, TermReference, Reference, Term } from '@wip/client'
 import JsonViewer from '@/components/common/JsonViewer'
+import RelationshipsPanel from '@/components/documents/RelationshipsPanel'
+import TraversalPanel from '@/components/documents/TraversalPanel'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
@@ -752,6 +754,17 @@ export default function DocumentDetailPage() {
           </CollapsibleSection>
         )
       })()}
+
+      {/* Relationships — incoming + outgoing edges from the doc graph.
+          Available for any document (not just relationship docs). */}
+      <CollapsibleSection title="Relationships" defaultOpen={false}>
+        <RelationshipsPanel documentId={doc.document_id} namespace={doc.namespace} />
+      </CollapsibleSection>
+
+      {/* Traversal — BFS expansion through the relationship graph */}
+      <CollapsibleSection title="Traversal" defaultOpen={false}>
+        <TraversalPanel documentId={doc.document_id} namespace={doc.namespace} />
+      </CollapsibleSection>
 
       {/* Raw JSON — collapsed by default */}
       <CollapsibleSection title="Raw Document" defaultOpen={false}>
