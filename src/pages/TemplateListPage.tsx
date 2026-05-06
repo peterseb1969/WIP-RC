@@ -9,12 +9,15 @@ import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
 import { useNamespaceFilter, useSyncNamespaceFromUrl } from '@/hooks/use-namespace-filter'
 
+type UsageFilter = 'all' | 'entity' | 'relationship'
+
 export default function TemplateListPage() {
   useSyncNamespaceFromUrl()
   const { namespace } = useNamespaceFilter()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [showAll, setShowAll] = useState(false)
+  const [usageFilter, setUsageFilter] = useState<UsageFilter>('all')
 
   const { data, isLoading, error, refetch } = useTemplates({
     status: showAll ? undefined : 'active',
@@ -25,6 +28,11 @@ export default function TemplateListPage() {
   })
 
   const items = data?.items?.filter(t => {
+    if (usageFilter !== 'all') {
+      const u = t.usage ?? 'entity'
+      if (usageFilter === 'entity' && u !== 'entity') return false
+      if (usageFilter === 'relationship' && u !== 'relationship') return false
+    }
     if (!search) return true
     const s = search.toLowerCase()
     return (
@@ -66,7 +74,7 @@ export default function TemplateListPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <SearchInput value={search} onChange={setSearch} placeholder="Search templates..." className="flex-1 max-w-sm" />
         <button
           type="button"
@@ -81,6 +89,12 @@ export default function TemplateListPage() {
           <Archive size={12} />
           {showAll ? 'All' : 'Active'}
         </button>
+        {/* Usage class filter */}
+        <div className="inline-flex rounded-md border border-gray-200 overflow-hidden text-xs">
+          <UsageChip label="All" active={usageFilter === 'all'} onClick={() => { setUsageFilter('all'); setPage(1) }} />
+          <UsageChip label="Entity" icon={<FileCode2 size={11} />} active={usageFilter === 'entity'} onClick={() => { setUsageFilter('entity'); setPage(1) }} />
+          <UsageChip label="Edge type" icon={<Network size={11} />} active={usageFilter === 'relationship'} onClick={() => { setUsageFilter('relationship'); setPage(1) }} />
+        </div>
       </div>
 
       {isLoading && <LoadingState label="Loading templates..." />}
@@ -145,5 +159,30 @@ export default function TemplateListPage() {
         </>
       )}
     </div>
+  )
+}
+
+function UsageChip({
+  label,
+  icon,
+  active,
+  onClick,
+}: {
+  label: string
+  icon?: React.ReactNode
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 px-2.5 py-1.5 transition-colors ${
+        active ? 'bg-gray-100 text-gray-700' : 'bg-white text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   )
 }

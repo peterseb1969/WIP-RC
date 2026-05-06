@@ -5,6 +5,9 @@ import {
   Save,
   CheckCircle,
   AlertTriangle,
+  Network,
+  FileCode2,
+  Lock,
 } from 'lucide-react'
 import {
   useTemplate,
@@ -15,7 +18,7 @@ import {
   useUpdateTemplate,
   useActivateTemplate,
 } from '@wip/react'
-import type { FieldDefinition, ValidationRule, CreateTemplateRequest, UpdateTemplateRequest, TemplateMetadata } from '@wip/client'
+import type { FieldDefinition, ValidationRule, CreateTemplateRequest, UpdateTemplateRequest, TemplateMetadata, TemplateUsage } from '@wip/client'
 import FieldList from '@/components/templates/FieldList'
 import FieldSlideOut from '@/components/templates/FieldSlideOut'
 import FieldQuickAdd from '@/components/templates/FieldQuickAdd'
@@ -31,6 +34,44 @@ import { cn } from '@/lib/cn'
 // ---------------------------------------------------------------------------
 // TemplateBuilderPage
 // ---------------------------------------------------------------------------
+
+/**
+ * Ensure an edge type's mandatory reference field (source_ref / target_ref)
+ * is present with the right shape — mirrors the contract template-store
+ * enforces on every create (api-conventions.md §"Edge-type creation
+ * constraints"). If the field is missing, append it. If a field with the
+ * same name exists, normalise its shape (force type=reference,
+ * reference_type=document, mandatory=true, target_templates=allowed).
+ *
+ * Only invoked at create time — usage and the endpoint lists are immutable
+ * after creation.
+ */
+function ensureEdgeRefField(
+  fields: FieldDefinition[],
+  refName: 'source_ref' | 'target_ref',
+  refLabel: string,
+  allowedTemplates: string[],
+): FieldDefinition[] {
+  const baseShape: Pick<FieldDefinition, 'type' | 'mandatory' | 'reference_type' | 'target_templates'> = {
+    type: 'reference',
+    mandatory: true,
+    reference_type: 'document',
+    target_templates: allowedTemplates,
+  }
+  const idx = fields.findIndex(f => f.name === refName)
+  if (idx >= 0) {
+    return fields.map((f, i) => (i === idx ? { ...f, ...baseShape } : f))
+  }
+  return [
+    ...fields,
+    {
+      name: refName,
+      label: refLabel,
+      ...baseShape,
+      metadata: {},
+    } as FieldDefinition,
+  ]
+}
 
 export default function TemplateBuilderPage() {
   const { id } = useParams()
@@ -65,6 +106,15 @@ export default function TemplateBuilderPage() {
     })),
     [templatesData],
   )
+  // Edge-type endpoints can only point at entity templates in v1
+  // (allowing relationship-as-endpoint is a meta-relationship — out of
+  // scope per glossary §5.1). Filter accordingly.
+  const entityTemplateOptions = useMemo(
+    () => (templatesData?.items ?? [])
+      .filter(t => (t.usage ?? 'entity') === 'entity')
+      .map(t => ({ value: t.value, label: t.label || t.value })),
+    [templatesData],
+  )
 
   // --- Form state ---
   const [initialized, setInitialized] = useState(false)
@@ -77,6 +127,12 @@ export default function TemplateBuilderPage() {
   const [identityFields, setIdentityFields] = useState<string[]>([])
   const [fields, setFields] = useState<FieldDefinition[]>([])
   const [rules, setRules] = useState<ValidationRule[]>([])
+
+  // Usage class + edge-type contract (immutable after creation per PoNIF #7/#8)
+  const [usage, setUsage] = useState<TemplateUsage>('entity')
+  const [versioned, setVersioned] = useState(true)
+  const [sourceTemplates, setSourceTemplates] = useState<string[]>([])
+  const [targetTemplates, setTargetTemplates] = useState<string[]>([])
 
   // Metadata (advanced)
   const [domain, setDomain] = useState('')
@@ -117,6 +173,11 @@ export default function TemplateBuilderPage() {
     setIncludeMetadata(existing.reporting?.include_metadata ?? false)
     setFlattenArrays(existing.reporting?.flatten_arrays ?? false)
     setMaxArrayElements(existing.reporting?.max_array_elements ?? undefined)
+    // Usage class + edge-type endpoints — wire format carries them on Template
+    setUsage(existing.usage ?? 'entity')
+    setVersioned(existing.versioned ?? true)
+    setSourceTemplates(existing.source_templates ?? [])
+    setTargetTemplates(existing.target_templates ?? [])
     setInitialized(true)
   }
   // For create mode (no clone), mark initialized immediately
@@ -210,6 +271,21 @@ export default function TemplateBuilderPage() {
 
     if (!value.trim()) { setError('Template value is required'); return }
     if (!namespace) { setError('Namespace is required'); return }
+    if (usage === 'relationship') {
+      if (sourceTemplates.length === 0) { setError('Edge type requires at least one source template'); return }
+      if (targetTemplates.length === 0) { setError('Edge type requires at least one target template'); return }
+    }
+
+    // For edge types: ensure source_ref / target_ref reference fields are
+    // present with the right shape. Mirrors create_edge_type's contract
+    // (api-conventions.md §"Edge-type creation constraints"). On edit,
+    // usage / source_templates / target_templates are already locked, so
+    // the auto-include only fires on create.
+    let effectiveFields = fields
+    if (!isEdit && usage === 'relationship') {
+      effectiveFields = ensureEdgeRefField(effectiveFields, 'source_ref', 'Source', sourceTemplates)
+      effectiveFields = ensureEdgeRefField(effectiveFields, 'target_ref', 'Target', targetTemplates)
+    }
 
     const metadata: Partial<TemplateMetadata> = {}
     if (domain.trim()) metadata.domain = domain.trim()
@@ -228,13 +304,15 @@ export default function TemplateBuilderPage() {
     }
 
     if (isEdit && id) {
+      // usage / source_templates / target_templates / versioned are
+      // immutable after creation (data-models.md §720) — not sent on update.
       const data: UpdateTemplateRequest = {
         label: label.trim() || value.trim(),
         description: description.trim() || undefined,
         extends: extendsTemplate,
         extends_version: extendsVersion,
         identity_fields: identityFields.length > 0 ? identityFields : undefined,
-        fields: fields.length > 0 ? fields : undefined,
+        fields: effectiveFields.length > 0 ? effectiveFields : undefined,
         rules: rules.length > 0 ? rules : undefined,
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
         reporting: Object.keys(reporting).length > 0 ? reporting as UpdateTemplateRequest['reporting'] : undefined,
@@ -250,12 +328,17 @@ export default function TemplateBuilderPage() {
         extends: extendsTemplate,
         extends_version: extendsVersion,
         identity_fields: identityFields.length > 0 ? identityFields : undefined,
-        fields: fields.length > 0 ? fields : undefined,
+        fields: effectiveFields.length > 0 ? effectiveFields : undefined,
         rules: rules.length > 0 ? rules : undefined,
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
         reporting: Object.keys(reporting).length > 0 ? reporting as CreateTemplateRequest['reporting'] : undefined,
         created_by: 'rc-console',
         status: mode,
+        usage,
+        versioned,
+        ...(usage === 'relationship'
+          ? { source_templates: sourceTemplates, target_templates: targetTemplates }
+          : {}),
       }
       createTemplate.mutate(data)
     }
@@ -366,6 +449,96 @@ export default function TemplateBuilderPage() {
               </select>
             </div>
           </div>
+        </div>
+
+        {/* Usage class — selector at create-time, locked at edit-time
+            (data-models.md §720: usage / versioned / source_templates /
+            target_templates are immutable after creation). */}
+        <div className="bg-white border border-gray-200 rounded-lg px-4 py-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-medium text-gray-600">
+              Usage
+              {isEdit && (
+                <span className="ml-2 text-[10px] text-gray-400 font-normal inline-flex items-center gap-1">
+                  <Lock size={10} /> immutable after creation
+                </span>
+              )}
+            </label>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <UsageOption
+              active={usage === 'entity'}
+              onClick={() => !isEdit && setUsage('entity')}
+              disabled={isEdit}
+              icon={FileCode2}
+              iconColor="text-indigo-500"
+              title="Entity"
+              subtitle="Default. Full document lifecycle."
+            />
+            <UsageOption
+              active={usage === 'reference'}
+              onClick={() => !isEdit && setUsage('reference')}
+              disabled={isEdit}
+              icon={FileCode2}
+              iconColor="text-gray-400"
+              title="Reference"
+              subtitle="Reserved (currently behaves like Entity)."
+            />
+            <UsageOption
+              active={usage === 'relationship'}
+              onClick={() => !isEdit && setUsage('relationship')}
+              disabled={isEdit}
+              icon={Network}
+              iconColor="text-purple-500"
+              title="Edge type"
+              subtitle="Typed edge between two documents."
+            />
+          </div>
+
+          {/* versioned toggle — locked on edit */}
+          <label className="flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={versioned}
+              onChange={(e) => !isEdit && setVersioned(e.target.checked)}
+              disabled={isEdit}
+              className="rounded border-gray-300"
+            />
+            <span className="text-gray-700">Versioned (updates create new versions)</span>
+            <span className="text-gray-400">
+              {versioned ? '— default' : '— overwrite in place (PoNIF #8)'}
+            </span>
+            {isEdit && <Lock size={10} className="text-gray-400" />}
+          </label>
+
+          {/* Edge-type endpoint pickers (only visible when usage='relationship') */}
+          {usage === 'relationship' && (
+            <div className="space-y-3 pt-2 border-t border-gray-100">
+              <div className="flex items-center gap-2 text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded px-3 py-2">
+                <Network size={12} />
+                <span>
+                  Edge type. <code>source_ref</code> and <code>target_ref</code> reference fields are added
+                  automatically on save with the right shape, if not already present.
+                </span>
+              </div>
+              <EndpointPicker
+                label="Source templates *"
+                hint="Allowed template values for the edge's source endpoint"
+                options={entityTemplateOptions}
+                selected={sourceTemplates}
+                onChange={setSourceTemplates}
+                disabled={isEdit}
+              />
+              <EndpointPicker
+                label="Target templates *"
+                hint="Allowed template values for the edge's target endpoint"
+                options={entityTemplateOptions}
+                selected={targetTemplates}
+                onChange={setTargetTemplates}
+                disabled={isEdit}
+              />
+            </div>
+          )}
         </div>
 
         {/* Advanced: Metadata */}
@@ -625,6 +798,114 @@ export default function TemplateBuilderPage() {
             syncEnabled={syncEnabled}
           />
         </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Small UI helpers — kept inline because they only exist for this page
+// ---------------------------------------------------------------------------
+
+function UsageOption({
+  active,
+  disabled,
+  onClick,
+  icon: Icon,
+  iconColor,
+  title,
+  subtitle,
+}: {
+  active: boolean
+  disabled?: boolean
+  onClick: () => void
+  icon: React.ComponentType<{ size?: number; className?: string }>
+  iconColor: string
+  title: string
+  subtitle: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'text-left px-3 py-2 rounded-md border transition-colors',
+        active
+          ? 'border-blue-400 bg-blue-50/50'
+          : 'border-gray-200 hover:bg-gray-50',
+        disabled && !active && 'opacity-50 cursor-not-allowed',
+        disabled && active && 'cursor-default',
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <Icon size={14} className={iconColor} />
+        <span className="text-sm font-medium text-gray-800">{title}</span>
+      </div>
+      <p className="text-[11px] text-gray-500 mt-0.5">{subtitle}</p>
+    </button>
+  )
+}
+
+function EndpointPicker({
+  label,
+  hint,
+  options,
+  selected,
+  onChange,
+  disabled,
+}: {
+  label: string
+  hint: string
+  options: Array<{ value: string; label: string }>
+  selected: string[]
+  onChange: (values: string[]) => void
+  disabled?: boolean
+}) {
+  const toggle = (v: string) => {
+    if (disabled) return
+    const next = selected.includes(v) ? selected.filter(x => x !== v) : [...selected, v]
+    onChange(next)
+  }
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-600 mb-1">
+        {label}
+        {disabled && <span className="ml-2 text-[10px] text-gray-400 font-normal inline-flex items-center gap-1"><Lock size={10} /> locked</span>}
+      </label>
+      <p className="text-[11px] text-gray-400 mb-1.5">{hint}</p>
+      {options.length === 0 ? (
+        <p className="text-xs text-gray-400 italic">No entity templates available in any namespace.</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto border border-gray-100 rounded p-2 bg-gray-50/50">
+          {options.map(o => (
+            <label
+              key={o.value}
+              className={cn(
+                'flex items-center gap-2 px-2 py-1 rounded text-xs',
+                disabled ? 'cursor-default' : 'cursor-pointer hover:bg-white',
+                selected.includes(o.value) && 'bg-white',
+              )}
+            >
+              <input
+                type="checkbox"
+                checked={selected.includes(o.value)}
+                onChange={() => toggle(o.value)}
+                disabled={disabled}
+                className="rounded border-gray-300"
+              />
+              <span className="font-mono text-gray-700 truncate">{o.value}</span>
+              {o.label !== o.value && (
+                <span className="text-gray-400 truncate">— {o.label}</span>
+              )}
+            </label>
+          ))}
+        </div>
+      )}
+      {selected.length > 0 && (
+        <p className="text-[11px] text-gray-500 mt-1">
+          {selected.length} selected
+        </p>
       )}
     </div>
   )
