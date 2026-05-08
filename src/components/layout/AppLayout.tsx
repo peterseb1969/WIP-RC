@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
+import { WipFooter } from '@wip/react'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
 import Breadcrumbs from './Breadcrumbs'
@@ -15,6 +16,7 @@ export default function AppLayout() {
         <Breadcrumbs />
         <main className="flex-1 overflow-auto p-6">
           <Outlet />
+          <WipFooter appName="RC-Console" />
         </main>
       </div>
     </div>
