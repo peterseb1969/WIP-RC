@@ -77,7 +77,7 @@ function IdConfigEditor({
                 if (a === 'uuid7') setEntityConfig(entity, null)
                 else setEntityConfig(entity, { algorithm: a })
               }}
-              className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-blue-400"
+              className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-primary-light"
             >
               <option value="uuid7">UUID7 (default)</option>
               <option value="prefixed">Prefixed Sequential</option>
@@ -89,7 +89,7 @@ function IdConfigEditor({
                 value={cfg?.prefix ?? ''}
                 onChange={e => setEntityConfig(entity, { ...cfg!, prefix: e.target.value || undefined })}
                 placeholder="Prefix"
-                className="border border-gray-200 rounded-md px-2 py-1 text-xs w-24 focus:outline-none focus:border-blue-400"
+                className="border border-gray-200 rounded-md px-2 py-1 text-xs w-24 focus:outline-none focus:border-primary-light"
               />
             )}
             {isCustom && algo === 'nanoid' && (
@@ -98,7 +98,7 @@ function IdConfigEditor({
                 value={cfg?.length ?? ''}
                 onChange={e => setEntityConfig(entity, { ...cfg!, length: e.target.value ? Number(e.target.value) : undefined })}
                 placeholder="Length"
-                className="border border-gray-200 rounded-md px-2 py-1 text-xs w-20 focus:outline-none focus:border-blue-400"
+                className="border border-gray-200 rounded-md px-2 py-1 text-xs w-20 focus:outline-none focus:border-primary-light"
               />
             )}
           </div>
@@ -144,7 +144,7 @@ function CreateNamespaceForm({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="bg-white border border-blue-200 rounded-lg p-4 mb-4">
+    <div className="bg-white border border-primary/20 rounded-lg p-4 mb-4">
       <h3 className="text-sm font-medium text-gray-700 mb-3">Create Namespace</h3>
       <div className="space-y-3">
         <div>
@@ -154,7 +154,7 @@ function CreateNamespaceForm({ onClose }: { onClose: () => void }) {
             value={prefix}
             onChange={e => { setPrefix(e.target.value); setError(null) }}
             placeholder="my-namespace"
-            className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+            className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
             autoFocus
           />
         </div>
@@ -165,7 +165,7 @@ function CreateNamespaceForm({ onClose }: { onClose: () => void }) {
             value={description}
             onChange={e => setDescription(e.target.value)}
             placeholder="Optional description"
-            className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+            className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
           />
         </div>
         <div className="flex items-center gap-3">
@@ -174,7 +174,7 @@ function CreateNamespaceForm({ onClose }: { onClose: () => void }) {
             <select
               value={isolationMode}
               onChange={e => setIsolationMode(e.target.value as 'open' | 'strict')}
-              className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
             >
               <option value="open">open</option>
               <option value="strict">strict</option>
@@ -185,7 +185,7 @@ function CreateNamespaceForm({ onClose }: { onClose: () => void }) {
             <select
               value={deletionMode}
               onChange={e => setDeletionMode(e.target.value as 'retain' | 'full')}
-              className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
             >
               <option value="retain">retain</option>
               <option value="full">full</option>
@@ -204,12 +204,12 @@ function CreateNamespaceForm({ onClose }: { onClose: () => void }) {
             </div>
           )}
         </div>
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error && <p className="text-xs text-danger">{error}</p>}
         <div className="flex items-center gap-2">
           <button
             onClick={handleCreate}
             disabled={create.isPending || !prefix.trim()}
-            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+            className="px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
           >
             {create.isPending ? 'Creating...' : 'Create'}
           </button>
@@ -312,7 +312,7 @@ function NamespaceRow({
           ? <ChevronDown size={14} className="text-gray-400" />
           : <ChevronRight size={14} className="text-gray-400" />
         }
-        <FolderTree size={16} className="text-blue-500 shrink-0" />
+        <FolderTree size={16} className="text-primary shrink-0" />
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium text-gray-800">{ns.prefix}</span>
           {ns.description && (
@@ -450,7 +450,7 @@ function NamespaceRow({
                   type="text"
                   value={editDesc}
                   onChange={e => setEditDesc(e.target.value)}
-                  className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                  className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
                 />
               </div>
               <div className="flex items-center gap-3">
@@ -459,7 +459,7 @@ function NamespaceRow({
                   <select
                     value={editIsolation}
                     onChange={e => setEditIsolation(e.target.value as 'open' | 'strict')}
-                    className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                    className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
                   >
                     <option value="open">open</option>
                     <option value="strict">strict</option>
@@ -470,7 +470,7 @@ function NamespaceRow({
                   <select
                     value={editDeletionMode}
                     onChange={e => setEditDeletionMode(e.target.value as 'retain' | 'full')}
-                    className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                    className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
                   >
                     <option value="retain">retain</option>
                     <option value="full">full</option>
@@ -481,12 +481,12 @@ function NamespaceRow({
                 <label className="block text-xs text-gray-500 mb-1">ID Configuration</label>
                 <IdConfigEditor value={editIdConfig} onChange={setEditIdConfig} />
               </div>
-              {update.error && <p className="text-xs text-red-500">{update.error.message}</p>}
+              {update.error && <p className="text-xs text-danger">{update.error.message}</p>}
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => update.mutate({ prefix: ns.prefix, data: { description: editDesc.trim() || undefined, isolation_mode: editIsolation as 'open' | 'strict', deletion_mode: editDeletionMode as 'retain' | 'full', id_config: Object.keys(editIdConfig).length > 0 ? editIdConfig : undefined } })}
                   disabled={update.isPending}
-                  className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  className="px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
                 >
                   {update.isPending ? 'Saving...' : 'Save'}
                 </button>
@@ -499,16 +499,16 @@ function NamespaceRow({
               </div>
             </div>
           ) : deleteStep === 'confirm' ? (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
-              <p className="text-sm text-red-700">
+            <div className="bg-danger/5 border border-danger/20 rounded-lg p-3 space-y-2">
+              <p className="text-sm text-danger">
                 Delete namespace <strong>{ns.prefix}</strong>? This will remove all terminologies, templates, and documents in this namespace.
               </p>
-              {deleteError && <p className="text-xs text-red-500">{deleteError}</p>}
+              {deleteError && <p className="text-xs text-danger">{deleteError}</p>}
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleDeleteConfirm}
                   disabled={deleting}
-                  className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 disabled:opacity-50"
+                  className="px-3 py-1.5 bg-danger text-white text-sm rounded-md hover:bg-danger disabled:opacity-50"
                 >
                   {deleting ? 'Deleting...' : 'Yes, delete'}
                 </button>
@@ -521,19 +521,19 @@ function NamespaceRow({
               </div>
             </div>
           ) : deleteStep === 'confirm-retain' ? (
-            <div className="bg-red-100 border-2 border-red-300 rounded-lg p-3 space-y-2">
-              <p className="text-sm font-medium text-red-800">
+            <div className="bg-danger/10 border-2 border-danger/30 rounded-lg p-3 space-y-2">
+              <p className="text-sm font-medium text-danger">
                 This namespace is protected (deletion mode: retain).
               </p>
-              <p className="text-sm text-red-700">
+              <p className="text-sm text-danger">
                 Deleting <strong>{ns.prefix}</strong> will permanently remove all its data. This protection exists because the namespace was marked as non-deletable. Are you absolutely sure?
               </p>
-              {deleteError && <p className="text-xs text-red-500">{deleteError}</p>}
+              {deleteError && <p className="text-xs text-danger">{deleteError}</p>}
               <div className="flex items-center gap-2">
                 <button
                   onClick={performDelete}
                   disabled={deleting}
-                  className="px-3 py-1.5 bg-red-700 text-white text-sm font-medium rounded-md hover:bg-red-800 disabled:opacity-50"
+                  className="px-3 py-1.5 bg-danger text-white text-sm font-medium rounded-md hover:bg-danger disabled:opacity-50"
                 >
                   {deleting ? 'Deleting...' : 'Yes, permanently delete'}
                 </button>
@@ -556,7 +556,7 @@ function NamespaceRow({
               </button>
               <button
                 onClick={handleDeleteClick}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-red-400 hover:text-red-600 hover:bg-red-50"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-danger/60 hover:text-danger hover:bg-danger/5"
               >
                 <Trash2 size={12} />
                 Delete
@@ -595,7 +595,7 @@ export default function NamespacesPage() {
           </button>
           <button
             onClick={() => setShowCreate(s => !s)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-dark"
           >
             <Plus size={14} />
             Create

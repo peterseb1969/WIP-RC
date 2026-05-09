@@ -131,7 +131,7 @@ export default function AddRelationshipSlideOut({
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50/50">
           <h3 className="text-sm font-semibold text-gray-700 inline-flex items-center gap-2">
-            <Plus size={14} className="text-blue-500" />
+            <Plus size={14} className="text-primary" />
             Add relationship
           </h3>
           <button
@@ -170,7 +170,7 @@ export default function AddRelationshipSlideOut({
                 className={cn(
                   'px-3 py-2 rounded-md border text-xs inline-flex items-center justify-center gap-1.5',
                   direction === 'outgoing'
-                    ? 'border-blue-400 bg-blue-50 text-blue-700'
+                    ? 'border-primary-light bg-primary/5 text-primary-dark'
                     : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                 )}
               >
@@ -182,7 +182,7 @@ export default function AddRelationshipSlideOut({
                 className={cn(
                   'px-3 py-2 rounded-md border text-xs inline-flex items-center justify-center gap-1.5',
                   direction === 'incoming'
-                    ? 'border-blue-400 bg-blue-50 text-blue-700'
+                    ? 'border-primary-light bg-primary/5 text-primary-dark'
                     : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                 )}
               >
@@ -209,7 +209,7 @@ export default function AddRelationshipSlideOut({
             <select
               value={relationshipType}
               onChange={e => setRelationshipType(e.target.value)}
-              className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+              className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-light focus:border-primary-light"
               disabled={typesQuery.isLoading}
             >
               {relationshipTypes.map(t => (
@@ -242,7 +242,7 @@ export default function AddRelationshipSlideOut({
                       </span>
                     )}
                     {picked.terminology_id !== currentTerm.terminology_id && (
-                      <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-mono text-[10px]">
+                      <span className="px-1.5 py-0.5 rounded bg-primary/5 text-primary font-mono text-[10px]">
                         cross-terminology
                       </span>
                     )}
@@ -275,12 +275,12 @@ export default function AddRelationshipSlideOut({
 
           {/* Error display */}
           {create.error && (
-            <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+            <div className="text-xs text-danger bg-danger/5 border border-danger/20 rounded-md px-3 py-2">
               {create.error.message}
             </div>
           )}
           {bulkError && (
-            <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+            <div className="text-xs text-danger bg-danger/5 border border-danger/20 rounded-md px-3 py-2">
               {bulkError}
             </div>
           )}
@@ -291,7 +291,7 @@ export default function AddRelationshipSlideOut({
           <button
             onClick={handleSave}
             disabled={!picked || create.isPending}
-            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {create.isPending ? 'Adding...' : 'Add relationship'}
           </button>

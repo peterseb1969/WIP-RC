@@ -39,7 +39,7 @@ export default function DateTimeInput({ mode, value, onChange, disabled }: DateT
         }
       }}
       className={cn(
-        'w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400',
+        'w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light focus:border-primary-light',
         disabled && 'bg-gray-50 text-gray-500 cursor-not-allowed',
       )}
     />

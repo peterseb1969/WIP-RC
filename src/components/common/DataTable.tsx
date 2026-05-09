@@ -73,7 +73,7 @@ export default function DataTable({ columns, rows, maxHeight = '500px', onRowCli
             <tr
               key={i}
               className={cn(
-                'hover:bg-blue-50/50',
+                'hover:bg-primary/5/50',
                 onRowClick && 'cursor-pointer'
               )}
               onClick={() => onRowClick?.(row, i)}

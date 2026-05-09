@@ -199,7 +199,7 @@ export default function DocumentFormPage({ mode }: { mode: Mode }) {
             to={mode === 'edit' && documentId
               ? `/documents/${templateValue}/${documentId}`
               : `/documents?template=${templateValue ?? ''}`}
-            className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 mb-2"
+            className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-primary mb-2"
           >
             <ArrowLeft size={12} />
             {mode === 'edit' ? 'Back to document' : 'Back to Documents'}
@@ -228,8 +228,8 @@ export default function DocumentFormPage({ mode }: { mode: Mode }) {
             className={cn(
               'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-white rounded-md',
               isPending || (mode === 'edit' && !isDirty)
-                ? 'bg-blue-300 cursor-not-allowed'
-                : 'bg-blue-500 hover:bg-blue-600',
+                ? 'bg-primary/30 cursor-not-allowed'
+                : 'bg-primary hover:bg-primary',
             )}
           >
             <Save size={14} />
@@ -240,21 +240,21 @@ export default function DocumentFormPage({ mode }: { mode: Mode }) {
 
       {/* Pinned version info */}
       {pinnedInfo && (
-        <div className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
+        <div className="text-xs text-primary-dark bg-primary/5 border border-primary/20 rounded-md px-3 py-2">
           {pinnedInfo}
         </div>
       )}
 
       {/* Error banner */}
       {banner && (
-        <div className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
-          <AlertTriangle size={14} className="text-red-500 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 text-sm text-danger bg-danger/5 border border-danger/20 rounded-md px-3 py-2">
+          <AlertTriangle size={14} className="text-danger shrink-0 mt-0.5" />
           <div className="flex-1">{banner}</div>
           {isConcurrencyConflict && mode === 'edit' && (
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="text-xs text-red-700 underline hover:text-red-900 shrink-0"
+              className="text-xs text-danger underline hover:text-danger shrink-0"
             >
               Reload
             </button>

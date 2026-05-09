@@ -64,7 +64,7 @@ function CreateTerminologyForm({ defaultNamespace, onClose }: { defaultNamespace
   }
 
   return (
-    <div className="bg-white border border-blue-200 rounded-lg p-4 mb-4">
+    <div className="bg-white border border-primary/20 rounded-lg p-4 mb-4">
       <h3 className="text-sm font-medium text-gray-700 mb-3">Create Terminology</h3>
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
@@ -75,7 +75,7 @@ function CreateTerminologyForm({ defaultNamespace, onClose }: { defaultNamespace
               value={value}
               onChange={e => { setValue(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_')); setError(null) }}
               placeholder="DOCUMENT_STATUS"
-              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm font-mono focus:outline-none focus:border-blue-400"
+              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm font-mono focus:outline-none focus:border-primary-light"
               autoFocus
             />
           </div>
@@ -86,7 +86,7 @@ function CreateTerminologyForm({ defaultNamespace, onClose }: { defaultNamespace
               value={label}
               onChange={e => setLabel(e.target.value)}
               placeholder="Document Status"
-              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
             />
           </div>
         </div>
@@ -97,7 +97,7 @@ function CreateTerminologyForm({ defaultNamespace, onClose }: { defaultNamespace
             value={description}
             onChange={e => setDescription(e.target.value)}
             placeholder="Optional description"
-            className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+            className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
           />
         </div>
         <div className="flex items-center gap-4">
@@ -106,7 +106,7 @@ function CreateTerminologyForm({ defaultNamespace, onClose }: { defaultNamespace
             <select
               value={nsOverride}
               onChange={e => setNsOverride(e.target.value)}
-              className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
             >
               <option value="">Select...</option>
               {namespaces?.map(n => (
@@ -171,7 +171,7 @@ function CreateTerminologyForm({ defaultNamespace, onClose }: { defaultNamespace
                   value={metaSource}
                   onChange={e => setMetaSource(e.target.value)}
                   placeholder="e.g. ICD-10, SNOMED CT"
-                  className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                  className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
                 />
               </div>
               <div>
@@ -181,7 +181,7 @@ function CreateTerminologyForm({ defaultNamespace, onClose }: { defaultNamespace
                   value={metaSourceUrl}
                   onChange={e => setMetaSourceUrl(e.target.value)}
                   placeholder="https://..."
-                  className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                  className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
                 />
               </div>
               <div>
@@ -191,7 +191,7 @@ function CreateTerminologyForm({ defaultNamespace, onClose }: { defaultNamespace
                   value={metaVersion}
                   onChange={e => setMetaVersion(e.target.value)}
                   placeholder="e.g. 2024.1"
-                  className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                  className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
                 />
               </div>
               <div>
@@ -201,18 +201,18 @@ function CreateTerminologyForm({ defaultNamespace, onClose }: { defaultNamespace
                   value={metaLanguage}
                   onChange={e => setMetaLanguage(e.target.value)}
                   placeholder="e.g. en, de"
-                  className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                  className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
                 />
               </div>
             </div>
           )}
         </div>
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error && <p className="text-xs text-danger">{error}</p>}
         <div className="flex items-center gap-2">
           <button
             onClick={handleCreate}
             disabled={create.isPending || !value.trim() || !nsOverride}
-            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+            className="px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
           >
             {create.isPending ? 'Creating...' : 'Create'}
           </button>
@@ -275,7 +275,7 @@ export default function TerminologyListPage() {
           </button>
           <button
             onClick={() => setShowCreate(s => !s)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-dark"
           >
             <Plus size={14} />
             Create
@@ -301,7 +301,7 @@ export default function TerminologyListPage() {
         <select
           value={statusFilter}
           onChange={e => { setStatusFilter(e.target.value as typeof statusFilter); setPage(1) }}
-          className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+          className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary-light"
         >
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
@@ -325,7 +325,7 @@ export default function TerminologyListPage() {
                   to={`/terminologies/${t.terminology_id}`}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
                 >
-                  <BookOpen size={16} className="text-blue-500 shrink-0" />
+                  <BookOpen size={16} className="text-primary shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-800">{t.label || t.value}</span>

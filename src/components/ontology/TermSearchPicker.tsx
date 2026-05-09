@@ -197,7 +197,7 @@ export default function TermSearchPicker({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           autoFocus={autoFocus}
-          className="w-full pl-9 pr-8 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:border-blue-400"
+          className="w-full pl-9 pr-8 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:border-primary-light"
         />
         {searchQuery.isFetching && (
           <Loader2 size={14} className="absolute right-8 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" />
@@ -228,7 +228,7 @@ export default function TermSearchPicker({
             </div>
           )}
           {debounced.length > 0 && searchQuery.isError && (
-            <div className="px-3 py-2 text-xs text-red-600">
+            <div className="px-3 py-2 text-xs text-danger">
               Search failed: {(searchQuery.error as Error).message}
             </div>
           )}
@@ -246,7 +246,7 @@ export default function TermSearchPicker({
               }}
               className={cn(
                 'w-full text-left px-3 py-2 border-b border-gray-100 last:border-b-0',
-                i === highlight ? 'bg-blue-50' : 'hover:bg-gray-50'
+                i === highlight ? 'bg-primary/5' : 'hover:bg-gray-50'
               )}
             >
               <div className="flex items-baseline justify-between gap-2">

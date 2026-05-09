@@ -55,15 +55,15 @@ function NatsStatusBar() {
     <div className={cn(
       'flex items-center gap-4 px-4 py-2.5 border rounded-lg text-sm',
       connected
-        ? 'bg-green-50/50 border-green-200'
-        : 'bg-red-50/50 border-red-200'
+        ? 'bg-success/5/50 border-success/20'
+        : 'bg-danger/5/50 border-danger/20'
     )}>
-      {connected ? <Wifi size={16} className="text-green-500" /> : <WifiOff size={16} className="text-red-400" />}
+      {connected ? <Wifi size={16} className="text-success" /> : <WifiOff size={16} className="text-danger/60" />}
       <StatusBadge status={connected ? 'healthy' : 'unhealthy'} label={connected ? 'Connected' : 'Disconnected'} />
       {data?.server && <span className="text-gray-500 text-xs">Server: {data.server}</span>}
       {data?.version && <span className="text-gray-500 text-xs">v{data.version}</span>}
-      {data?.jetstream && <span className="text-xs text-blue-500 font-medium">JetStream</span>}
-      {data?.error && <span className="text-xs text-red-500">{data.error}</span>}
+      {data?.jetstream && <span className="text-xs text-primary font-medium">JetStream</span>}
+      {data?.error && <span className="text-xs text-danger">{data.error}</span>}
     </div>
   )
 }
@@ -238,11 +238,11 @@ function IngestGatewayPanel() {
       <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
         <div className="flex items-center gap-3 text-sm">
           {status.running && status.nats_connected ? (
-            <CheckCircle2 size={16} className="text-green-500" />
+            <CheckCircle2 size={16} className="text-success" />
           ) : status.nats_connected ? (
             <AlertTriangle size={16} className="text-yellow-500" />
           ) : (
-            <XCircle size={16} className="text-red-400" />
+            <XCircle size={16} className="text-danger/60" />
           )}
           <StatusBadge
             status={status.running && status.nats_connected ? 'healthy' : status.nats_connected ? 'warning' : 'unhealthy'}
@@ -265,7 +265,7 @@ function IngestGatewayPanel() {
               <AlertTriangle size={12} />
               Failed
             </div>
-            <div className={cn('text-lg font-semibold mt-0.5', status.messages_failed > 0 ? 'text-red-600' : 'text-gray-800')}>
+            <div className={cn('text-lg font-semibold mt-0.5', status.messages_failed > 0 ? 'text-danger' : 'text-gray-800')}>
               {status.messages_failed.toLocaleString()}
             </div>
           </div>

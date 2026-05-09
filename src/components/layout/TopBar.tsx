@@ -67,7 +67,7 @@ export default function TopBar() {
             )}
             <a
               href={user.method === 'gateway' ? '/auth/logout' : apiUrl('/auth/logout')}
-              className="flex items-center gap-1 text-gray-400 hover:text-red-500 transition-colors"
+              className="flex items-center gap-1 text-gray-400 hover:text-danger transition-colors"
               title="Logout"
             >
               <LogOut size={14} />

@@ -42,7 +42,7 @@ function ReferencePicker({
       <select
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value || undefined)}
-        className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+        className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-light focus:border-primary-light"
       >
         <option value="">(none)</option>
         {options.map(o => (

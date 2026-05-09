@@ -32,10 +32,10 @@ import { apiUrl } from '@/lib/wip'
 function fileTypeIcon(contentType: string, size: number = 24) {
   const cls = "shrink-0"
   if (contentType.startsWith('image/')) return <FileIcon size={size} className={`${cls} text-pink-400`} />
-  if (contentType === 'application/pdf') return <FileIcon size={size} className={`${cls} text-red-400`} />
+  if (contentType === 'application/pdf') return <FileIcon size={size} className={`${cls} text-danger/60`} />
   if (contentType.includes('csv') || contentType.includes('spreadsheet') || contentType.includes('excel'))
-    return <FileIcon size={size} className={`${cls} text-green-500`} />
-  if (contentType.startsWith('text/')) return <FileIcon size={size} className={`${cls} text-blue-400`} />
+    return <FileIcon size={size} className={`${cls} text-success`} />
+  if (contentType.startsWith('text/')) return <FileIcon size={size} className={`${cls} text-primary-light`} />
   if (contentType.includes('json') || contentType.includes('xml'))
     return <FileIcon size={size} className={`${cls} text-amber-400`} />
   return <FileIcon size={size} className={`${cls} text-gray-400`} />
@@ -164,7 +164,7 @@ function CopyButton({ value }: { value: string }) {
       className="inline-flex items-center p-0.5 text-gray-300 hover:text-gray-500 transition-colors"
       title="Copy to clipboard"
     >
-      {copied ? <Check size={11} className="text-green-500" /> : <Copy size={11} />}
+      {copied ? <Check size={11} className="text-success" /> : <Copy size={11} />}
     </button>
   )
 }
@@ -295,7 +295,7 @@ export default function FileDetailPage() {
       <div>
         <Link
           to="/files"
-          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 mb-2"
+          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-primary mb-2"
         >
           <ArrowLeft size={12} />
           Back to Files
@@ -314,7 +314,7 @@ export default function FileDetailPage() {
               {file.namespace && (
                 <Link
                   to={`/?ns=${file.namespace}`}
-                  className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 bg-gray-100 px-1.5 py-0.5 rounded"
+                  className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-primary bg-gray-100 px-1.5 py-0.5 rounded"
                 >
                   <FolderTree size={10} />
                   {file.namespace}
@@ -334,7 +334,7 @@ export default function FileDetailPage() {
               <a
                 href={downloadUrl}
                 download={file.filename}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-primary border border-primary/20 rounded-lg hover:bg-primary/5 transition-colors"
               >
                 <Download size={14} />
                 Download
@@ -351,7 +351,7 @@ export default function FileDetailPage() {
                 </button>
                 <button
                   onClick={() => { setConfirmDelete(true); setEditing(false) }}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-red-400 hover:text-red-600 hover:bg-red-50"
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-danger/60 hover:text-danger hover:bg-danger/5"
                 >
                   <Trash2 size={12} />
                   Delete
@@ -373,7 +373,7 @@ export default function FileDetailPage() {
               value={editDesc}
               onChange={e => setEditDesc(e.target.value)}
               placeholder="File description"
-              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
               autoFocus
             />
           </div>
@@ -385,7 +385,7 @@ export default function FileDetailPage() {
                 value={editCategory}
                 onChange={e => setEditCategory(e.target.value)}
                 placeholder="e.g. receipt, report"
-                className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
               />
             </div>
             <div>
@@ -395,16 +395,16 @@ export default function FileDetailPage() {
                 value={editTags}
                 onChange={e => setEditTags(e.target.value)}
                 placeholder="tag1, tag2"
-                className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
               />
             </div>
           </div>
-          {updateMetadata.error && <p className="text-xs text-red-500">{updateMetadata.error.message}</p>}
+          {updateMetadata.error && <p className="text-xs text-danger">{updateMetadata.error.message}</p>}
           <div className="flex items-center gap-2">
             <button
               onClick={handleSave}
               disabled={updateMetadata.isPending}
-              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+              className="px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
             >
               {updateMetadata.isPending ? 'Saving...' : 'Save'}
             </button>
@@ -420,8 +420,8 @@ export default function FileDetailPage() {
 
       {/* Delete confirmation */}
       {confirmDelete && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-2">
-          <p className="text-sm text-red-700">
+        <div className="bg-danger/5 border border-danger/20 rounded-lg p-4 space-y-2">
+          <p className="text-sm text-danger">
             Delete file <strong>{file.filename}</strong>?
             {file.reference_count > 0 && (
               <span className="block mt-1">
@@ -429,12 +429,12 @@ export default function FileDetailPage() {
               </span>
             )}
           </p>
-          {deleteFile.error && <p className="text-xs text-red-500">{deleteFile.error.message}</p>}
+          {deleteFile.error && <p className="text-xs text-danger">{deleteFile.error.message}</p>}
           <div className="flex items-center gap-2">
             <button
               onClick={() => deleteFile.mutate(file.file_id)}
               disabled={deleteFile.isPending}
-              className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 disabled:opacity-50"
+              className="px-3 py-1.5 bg-danger text-white text-sm rounded-md hover:bg-danger disabled:opacity-50"
             >
               {deleteFile.isPending ? 'Deleting...' : 'Yes, delete'}
             </button>
@@ -525,7 +525,7 @@ export default function FileDetailPage() {
               <MetadataRow label="Tags">
                 <div className="flex flex-wrap gap-1.5">
                   {file.metadata.tags.map(tag => (
-                    <span key={tag} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs">
+                    <span key={tag} className="inline-flex items-center gap-1 bg-primary/5 text-primary-dark px-2 py-0.5 rounded text-xs">
                       <Tag size={10} />
                       {tag}
                     </span>

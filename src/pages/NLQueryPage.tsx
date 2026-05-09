@@ -97,7 +97,7 @@ export default function NLQueryPage() {
         {messages.length > 0 && (
           <button
             onClick={clearHistory}
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-gray-400 hover:text-danger hover:bg-danger/5 rounded-md transition-colors"
             title="Clear conversation"
           >
             <Trash2 size={12} />
@@ -237,7 +237,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           isUser
             ? 'bg-violet-600 text-white'
             : message.error
-              ? 'bg-red-50 border border-red-200'
+              ? 'bg-danger/5 border border-danger/20'
               : 'bg-white border border-gray-200'
         )}
       >
@@ -245,8 +245,8 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           <p className="text-sm whitespace-pre-wrap">{message.content}</p>
         ) : message.error ? (
           <div className="flex items-start gap-2">
-            <AlertCircle size={14} className="text-red-400 mt-0.5 shrink-0" />
-            <p className="text-sm text-red-700">{message.content}</p>
+            <AlertCircle size={14} className="text-danger/60 mt-0.5 shrink-0" />
+            <p className="text-sm text-danger">{message.content}</p>
           </div>
         ) : (
           <div className="prose prose-sm max-w-none prose-gray prose-headings:text-gray-800 prose-p:text-gray-700 prose-td:text-gray-600 prose-th:text-gray-700 prose-code:text-violet-700 prose-code:bg-violet-50 prose-code:px-1 prose-code:rounded prose-pre:bg-gray-900 prose-pre:text-gray-100">

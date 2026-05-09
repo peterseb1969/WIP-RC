@@ -3,10 +3,10 @@ import { cn } from '@/lib/cn'
 type Status = 'healthy' | 'unhealthy' | 'unknown' | 'warning' | 'error' | 'active' | 'inactive'
 
 const statusStyles: Record<Status, string> = {
-  healthy: 'bg-green-100 text-green-700',
-  active: 'bg-green-100 text-green-700',
-  unhealthy: 'bg-red-100 text-red-700',
-  error: 'bg-red-100 text-red-700',
+  healthy: 'bg-success/10 text-success',
+  active: 'bg-success/10 text-success',
+  unhealthy: 'bg-danger/10 text-danger',
+  error: 'bg-danger/10 text-danger',
   inactive: 'bg-gray-100 text-gray-500',
   unknown: 'bg-yellow-100 text-yellow-700',
   warning: 'bg-yellow-100 text-yellow-700',
@@ -30,8 +30,8 @@ export default function StatusBadge({ status, label, className }: StatusBadgePro
       <span
         className={cn(
           'w-1.5 h-1.5 rounded-full',
-          status === 'healthy' || status === 'active' ? 'bg-green-500' :
-          status === 'unhealthy' || status === 'error' ? 'bg-red-500' :
+          status === 'healthy' || status === 'active' ? 'bg-success' :
+          status === 'unhealthy' || status === 'error' ? 'bg-danger' :
           status === 'warning' || status === 'unknown' ? 'bg-yellow-500' :
           'bg-gray-400'
         )}

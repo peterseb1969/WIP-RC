@@ -44,10 +44,10 @@ function DatabaseList({
           onClick={() => onSelectDb(db.name)}
           className={cn(
             'w-full text-left px-3 py-3 flex items-center gap-2 text-sm hover:bg-gray-50 transition-colors',
-            selectedDb === db.name && 'bg-blue-50 text-blue-700'
+            selectedDb === db.name && 'bg-primary/5 text-primary-dark'
           )}
         >
-          <Database size={14} className={db.status === 'ok' ? 'text-green-500' : 'text-red-400'} />
+          <Database size={14} className={db.status === 'ok' ? 'text-success' : 'text-danger/60'} />
           <div className="flex-1 min-w-0">
             <div className="truncate font-medium">{db.name}</div>
             <div className="text-xs text-gray-400">
@@ -92,7 +92,7 @@ function CollectionList({
           onClick={() => onSelectColl(col.name)}
           className={cn(
             'w-full text-left px-3 py-2.5 flex items-center gap-2 text-sm hover:bg-gray-50 transition-colors',
-            selectedColl === col.name && 'bg-blue-50 text-blue-700'
+            selectedColl === col.name && 'bg-primary/5 text-primary-dark'
           )}
         >
           <FolderOpen size={14} className="text-gray-400 shrink-0" />
@@ -154,7 +154,7 @@ function CollectionDetail({ database, collection }: { database: string; collecti
                       {Object.entries(idx.key).map(([k, v]) => `${k}:${v}`).join(', ')}
                     </td>
                     <td className="py-1.5">
-                      {idx.unique ? <span className="text-blue-600">yes</span> : <span className="text-gray-300">no</span>}
+                      {idx.unique ? <span className="text-primary">yes</span> : <span className="text-gray-300">no</span>}
                     </td>
                   </tr>
                 ))}
@@ -253,7 +253,7 @@ export default function MongoPage() {
     <div className="space-y-4 max-w-7xl">
       <div>
         <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
-          <HardDrive size={24} className="text-green-600" />
+          <HardDrive size={24} className="text-success" />
           MongoDB
         </h1>
         <p className="text-sm text-gray-400 mt-1">Direct database inspection (read-only)</p>

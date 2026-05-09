@@ -76,7 +76,7 @@ function ServiceHealthGrid() {
           {collapsed && (
             <span className={cn(
               'text-xs font-medium px-2 py-0.5 rounded-full',
-              allHealthy ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+              allHealthy ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'
             )}>
               {allHealthy ? `${total}/${total} healthy` : `${healthy}/${total} healthy — ${unhealthy.map(s => s.name).join(', ')}`}
             </span>
@@ -108,9 +108,9 @@ function ServiceCard({ service }: { service: ServiceHealth }) {
       className={cn(
         'rounded-lg border p-4 flex flex-col gap-2',
         service.status === 'healthy'
-          ? 'border-green-200 bg-green-50/50'
+          ? 'border-success/20 bg-success/5/50'
           : service.status === 'unhealthy'
-          ? 'border-red-200 bg-red-50/50'
+          ? 'border-danger/20 bg-danger/5/50'
           : service.status === 'inactive'
           ? 'border-gray-200 bg-gray-50/70 opacity-60'
           : 'border-yellow-200 bg-yellow-50/50'
@@ -126,7 +126,7 @@ function ServiceCard({ service }: { service: ServiceHealth }) {
         <span className="ml-1 text-gray-300">{service.slug}</span>
       </div>
       {service.error && service.status !== 'inactive' && (
-        <div className="text-xs text-red-500 truncate" title={service.error}>
+        <div className="text-xs text-danger truncate" title={service.error}>
           {service.error}
         </div>
       )}
@@ -171,7 +171,7 @@ function NamespaceSummary() {
     <section>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Namespaces</h2>
-        <Link to="/namespaces" className="text-xs text-blue-500 hover:text-blue-700">View all</Link>
+        <Link to="/namespaces" className="text-xs text-primary hover:text-primary-dark">View all</Link>
       </div>
 
       {/* Totals bar */}
@@ -201,7 +201,7 @@ function TotalCard({ icon: Icon, label, value, to }: {
   return (
     <Link
       to={to}
-      className="bg-white rounded-lg border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition-all"
+      className="bg-white rounded-lg border border-gray-200 p-4 hover:border-primary/30 hover:shadow-sm transition-all"
     >
       <div className="flex items-center gap-2 mb-1">
         <Icon size={14} className="text-gray-400" />
@@ -225,9 +225,9 @@ function NamespaceRow({ ns }: { ns: NamespaceWithStats }) {
         </div>
       </div>
       <div className="flex items-center gap-6 text-xs text-gray-500">
-        <Link to={`/terminologies?ns=${ns.prefix}`} className="hover:text-blue-600 transition-colors">{ns.terminologies} terms</Link>
-        <Link to={`/templates?ns=${ns.prefix}`} className="hover:text-blue-600 transition-colors">{ns.templates} tpl</Link>
-        <Link to={`/documents?ns=${ns.prefix}`} className="hover:text-blue-600 transition-colors">{ns.documents} docs</Link>
+        <Link to={`/terminologies?ns=${ns.prefix}`} className="hover:text-primary transition-colors">{ns.terminologies} terms</Link>
+        <Link to={`/templates?ns=${ns.prefix}`} className="hover:text-primary transition-colors">{ns.templates} tpl</Link>
+        <Link to={`/documents?ns=${ns.prefix}`} className="hover:text-primary transition-colors">{ns.documents} docs</Link>
       </div>
     </div>
   )
@@ -251,7 +251,7 @@ function RecentActivity() {
   }
 
   if (isLoading) return <LoadingState label="Loading activity..." />
-  if (error) return <p className="text-sm text-red-500">Failed to load activity: {error.message}</p>
+  if (error) return <p className="text-sm text-danger">Failed to load activity: {error.message}</p>
 
   const activities = data?.activities ?? []
 
@@ -259,7 +259,7 @@ function RecentActivity() {
     <section>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Recent Activity</h2>
-        <Link to="/activity" className="text-xs text-blue-500 hover:text-blue-700">View all</Link>
+        <Link to="/activity" className="text-xs text-primary hover:text-primary-dark">View all</Link>
       </div>
       {activities.length === 0 ? (
         <p className="text-sm text-gray-400">No recent activity.</p>
@@ -339,7 +339,7 @@ function QuickActions() {
             <Link
               key={a.label}
               to={a.to}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs bg-white border border-gray-200 text-gray-700 rounded-md hover:border-blue-300 hover:text-blue-600 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs bg-white border border-gray-200 text-gray-700 rounded-md hover:border-primary/30 hover:text-primary transition-colors"
             >
               <Plus size={10} className="text-gray-400" />
               <Icon size={12} />
@@ -404,13 +404,13 @@ function DataQualityCard() {
     <section>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Data Quality</h2>
-        <Link to="/integrity" className="text-xs text-blue-500 hover:text-blue-700">Full report</Link>
+        <Link to="/integrity" className="text-xs text-primary hover:text-primary-dark">Full report</Link>
       </div>
       <div className="bg-white rounded-lg border border-gray-200 p-4">
         {!result && !loading && !error && (
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-400">Run an integrity check to verify data quality.</p>
-            <button onClick={handleCheck} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-500 text-white rounded-md hover:bg-blue-600">
+            <button onClick={handleCheck} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-primary text-white rounded-md hover:bg-primary">
               <ShieldCheck size={12} />
               Run Check
             </button>
@@ -424,8 +424,8 @@ function DataQualityCard() {
         )}
         {error && (
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 text-sm text-red-600"><AlertTriangle size={14} />{error}</span>
-            <button onClick={handleCheck} className="text-xs text-blue-500 hover:text-blue-700">Retry</button>
+            <span className="flex items-center gap-2 text-sm text-danger"><AlertTriangle size={14} />{error}</span>
+            <button onClick={handleCheck} className="text-xs text-primary hover:text-primary-dark">Retry</button>
           </div>
         )}
         {result && (
@@ -433,11 +433,11 @@ function DataQualityCard() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {result.status === 'healthy' || result.status === 'ok' ? (
-                  <CheckCircle size={16} className="text-green-500" />
+                  <CheckCircle size={16} className="text-success" />
                 ) : (
                   <AlertTriangle size={16} className="text-amber-500" />
                 )}
-                <span className={cn('text-sm font-medium', result.status === 'healthy' || result.status === 'ok' ? 'text-green-700' : 'text-amber-700')}>
+                <span className={cn('text-sm font-medium', result.status === 'healthy' || result.status === 'ok' ? 'text-success' : 'text-amber-700')}>
                   {result.status === 'healthy' || result.status === 'ok' ? 'Healthy' : 'Issues found'}
                 </span>
               </div>
@@ -499,7 +499,7 @@ function RecentItemsGrid() {
         <div className="bg-white rounded-lg border border-gray-200">
           <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
             <span className="text-xs font-medium text-gray-500">Terminologies</span>
-            <Link to="/terminologies" className="text-[10px] text-blue-500 hover:text-blue-700">View all</Link>
+            <Link to="/terminologies" className="text-[10px] text-primary hover:text-primary-dark">View all</Link>
           </div>
           {terminologies.length === 0 ? (
             <p className="text-xs text-gray-400 px-3 py-4 text-center">None</p>
@@ -520,7 +520,7 @@ function RecentItemsGrid() {
         <div className="bg-white rounded-lg border border-gray-200">
           <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
             <span className="text-xs font-medium text-gray-500">Templates</span>
-            <Link to="/templates" className="text-[10px] text-blue-500 hover:text-blue-700">View all</Link>
+            <Link to="/templates" className="text-[10px] text-primary hover:text-primary-dark">View all</Link>
           </div>
           {templates.length === 0 ? (
             <p className="text-xs text-gray-400 px-3 py-4 text-center">None</p>
@@ -541,7 +541,7 @@ function RecentItemsGrid() {
         <div className="bg-white rounded-lg border border-gray-200">
           <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
             <span className="text-xs font-medium text-gray-500">Documents</span>
-            <Link to="/documents" className="text-[10px] text-blue-500 hover:text-blue-700">View all</Link>
+            <Link to="/documents" className="text-[10px] text-primary hover:text-primary-dark">View all</Link>
           </div>
           {documents.length === 0 ? (
             <p className="text-xs text-gray-400 px-3 py-4 text-center">None</p>
@@ -573,27 +573,27 @@ function InfraQuickStatus() {
       <div className="grid grid-cols-3 gap-3">
         <Link
           to="/postgres"
-          className="bg-white rounded-lg border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition-all"
+          className="bg-white rounded-lg border border-gray-200 p-4 hover:border-primary/30 hover:shadow-sm transition-all"
         >
           <div className="flex items-center gap-2 mb-2">
-            <Database size={16} className="text-blue-500" />
+            <Database size={16} className="text-primary" />
             <span className="text-sm font-medium text-gray-700">PostgreSQL</span>
           </div>
           <p className="text-xs text-gray-400">Reporting layer, SQL queries</p>
         </Link>
         <Link
           to="/mongodb"
-          className="bg-white rounded-lg border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition-all"
+          className="bg-white rounded-lg border border-gray-200 p-4 hover:border-primary/30 hover:shadow-sm transition-all"
         >
           <div className="flex items-center gap-2 mb-2">
-            <HardDrive size={16} className="text-green-600" />
+            <HardDrive size={16} className="text-success" />
             <span className="text-sm font-medium text-gray-700">MongoDB</span>
           </div>
           <p className="text-xs text-gray-400">Document stores, collections</p>
         </Link>
         <Link
           to="/nats"
-          className="bg-white rounded-lg border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition-all"
+          className="bg-white rounded-lg border border-gray-200 p-4 hover:border-primary/30 hover:shadow-sm transition-all"
         >
           <div className="flex items-center gap-2 mb-2">
             <Radio size={16} className="text-purple-500" />
@@ -633,10 +633,10 @@ function ReportingSyncCTA() {
           {docCount.toLocaleString()} document{docCount === 1 ? '' : 's'} in MongoDB but no `doc_*` tables in PostgreSQL. SQL analytics and the Audit Explorer will be unavailable until a batch sync runs.
         </div>
         {trigger.isError && (
-          <div className="text-xs text-red-600 mt-1">{(trigger.error as Error).message}</div>
+          <div className="text-xs text-danger mt-1">{(trigger.error as Error).message}</div>
         )}
         {trigger.isSuccess && (
-          <div className="text-xs text-emerald-700 mt-1">Sync triggered. Watch progress on the PostgreSQL → Batch Sync tab.</div>
+          <div className="text-xs text-success mt-1">Sync triggered. Watch progress on the PostgreSQL → Batch Sync tab.</div>
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0">

@@ -56,14 +56,14 @@ export default function TemplateListPage() {
           {namespace ? (
             <Link
               to="/templates/new"
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-dark"
             >
               <Plus size={14} />
               Create
             </Link>
           ) : (
             <span
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600/50 text-white/70 text-sm rounded-md cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary/50 text-white/70 text-sm rounded-md cursor-not-allowed"
               title="Select a namespace first"
             >
               <Plus size={14} />

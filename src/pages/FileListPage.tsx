@@ -44,7 +44,7 @@ function UploadForm({ defaultNamespace, onClose }: { defaultNamespace?: string; 
   }
 
   return (
-    <div className="bg-white border border-blue-200 rounded-lg p-4 space-y-3">
+    <div className="bg-white border border-primary/20 rounded-lg p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-gray-700">Upload File</h3>
         <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
@@ -58,7 +58,7 @@ function UploadForm({ defaultNamespace, onClose }: { defaultNamespace?: string; 
         />
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="w-full border-2 border-dashed border-gray-200 rounded-lg py-6 text-sm text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors flex flex-col items-center gap-1"
+          className="w-full border-2 border-dashed border-gray-200 rounded-lg py-6 text-sm text-gray-400 hover:border-primary/30 hover:text-primary transition-colors flex flex-col items-center gap-1"
         >
           <Upload size={20} />
           {selectedFile ? (
@@ -74,7 +74,7 @@ function UploadForm({ defaultNamespace, onClose }: { defaultNamespace?: string; 
           <select
             value={uploadNs}
             onChange={e => setUploadNs(e.target.value)}
-            className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+            className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
           >
             <option value="">Select namespace...</option>
             {(namespacesData ?? []).map(n => (
@@ -89,7 +89,7 @@ function UploadForm({ defaultNamespace, onClose }: { defaultNamespace?: string; 
             value={category}
             onChange={e => setCategory(e.target.value)}
             placeholder="e.g. receipt, report"
-            className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+            className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
           />
         </div>
       </div>
@@ -100,7 +100,7 @@ function UploadForm({ defaultNamespace, onClose }: { defaultNamespace?: string; 
           value={description}
           onChange={e => setDescription(e.target.value)}
           placeholder="Optional description"
-          className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+          className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
         />
       </div>
       <div>
@@ -110,15 +110,15 @@ function UploadForm({ defaultNamespace, onClose }: { defaultNamespace?: string; 
           value={tags}
           onChange={e => setTags(e.target.value)}
           placeholder="tag1, tag2"
-          className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+          className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
         />
       </div>
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
       <div className="flex items-center gap-2">
         <button
           onClick={handleUpload}
           disabled={upload.isPending || !selectedFile}
-          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+          className="px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
         >
           {upload.isPending ? 'Uploading...' : 'Upload'}
         </button>
@@ -165,7 +165,7 @@ export default function FileListPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowUpload(s => !s)}
-            className="inline-flex items-center gap-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+            className="inline-flex items-center gap-1 px-3 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-dark"
           >
             <Plus size={14} />
             Upload
@@ -173,7 +173,7 @@ export default function FileListPage() {
           <select
             value={status}
             onChange={e => { setStatus(e.target.value as typeof status); setPage(1) }}
-            className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+            className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary-light"
           >
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
@@ -212,7 +212,7 @@ export default function FileListPage() {
                         <span className="flex items-center gap-1"><HardDrive size={10} />{formatBytes(f.size_bytes ?? 0)}</span>
                         <span className="flex items-center gap-1"><Hash size={10} />{f.file_id}</span>
                         {!namespace && f.namespace && (
-                          <span className="text-blue-500">{f.namespace}</span>
+                          <span className="text-primary">{f.namespace}</span>
                         )}
                       </div>
                     </div>
@@ -327,24 +327,24 @@ function OrphanScanner() {
               onChange={e => setOlderThanHours(Number(e.target.value))}
               min={0}
               placeholder="0 = all"
-              className="border border-gray-200 rounded-md px-3 py-1.5 text-sm w-24 focus:outline-none focus:border-blue-400"
+              className="border border-gray-200 rounded-md px-3 py-1.5 text-sm w-24 focus:outline-none focus:border-primary-light"
             />
           </div>
           <button
             onClick={handleScan}
             disabled={scanning}
-            className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 disabled:opacity-50"
+            className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary disabled:opacity-50"
           >
             {scanning ? <Loader2 size={12} className="animate-spin" /> : <SearchIcon size={12} />}
             {scanning ? 'Scanning...' : 'Scan'}
           </button>
         </div>
 
-        {scanError && <p className="text-xs text-red-500">{scanError}</p>}
+        {scanError && <p className="text-xs text-danger">{scanError}</p>}
         {deleteResult && (
-          <p className="text-xs text-green-600">
+          <p className="text-xs text-success">
             Deleted {deleteResult.succeeded} file{deleteResult.succeeded !== 1 ? 's' : ''}
-            {deleteResult.failed > 0 && <span className="text-red-500"> ({deleteResult.failed} failed)</span>}
+            {deleteResult.failed > 0 && <span className="text-danger"> ({deleteResult.failed} failed)</span>}
           </p>
         )}
 
@@ -354,14 +354,14 @@ function OrphanScanner() {
               <span>{orphans.length} orphan{orphans.length !== 1 ? 's' : ''} found</span>
               {orphans.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <button onClick={selectAll} className="text-blue-500 hover:text-blue-700">
+                  <button onClick={selectAll} className="text-primary hover:text-primary-dark">
                     {selected.size === orphans.length ? 'Deselect all' : 'Select all'}
                   </button>
                   {selected.size > 0 && (
                     <button
                       onClick={handleDelete}
                       disabled={deleting}
-                      className="inline-flex items-center gap-1 px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs text-danger border border-danger/20 rounded hover:bg-danger/5 disabled:opacity-50"
                     >
                       <Trash2 size={10} />
                       {deleting ? 'Deleting...' : `Delete ${selected.size}`}
@@ -399,10 +399,10 @@ function fileTypeIcon(contentType: string) {
   const size = 16
   const cls = "shrink-0"
   if (contentType.startsWith('image/')) return <FileIcon size={size} className={`${cls} text-pink-400`} />
-  if (contentType === 'application/pdf') return <FileIcon size={size} className={`${cls} text-red-400`} />
+  if (contentType === 'application/pdf') return <FileIcon size={size} className={`${cls} text-danger/60`} />
   if (contentType.includes('csv') || contentType.includes('spreadsheet') || contentType.includes('excel'))
-    return <FileIcon size={size} className={`${cls} text-green-500`} />
-  if (contentType.startsWith('text/')) return <FileIcon size={size} className={`${cls} text-blue-400`} />
+    return <FileIcon size={size} className={`${cls} text-success`} />
+  if (contentType.startsWith('text/')) return <FileIcon size={size} className={`${cls} text-primary-light`} />
   if (contentType.includes('json') || contentType.includes('xml'))
     return <FileIcon size={size} className={`${cls} text-amber-400`} />
   return <FileIcon size={size} className={`${cls} text-gray-400`} />

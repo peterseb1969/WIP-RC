@@ -360,7 +360,7 @@ export default function TemplateBuilderPage() {
       )}>
         {/* Header */}
         <div>
-          <Link to="/templates" className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 mb-2">
+          <Link to="/templates" className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-primary mb-2">
             <ArrowLeft size={12} />
             Back to Templates
           </Link>
@@ -386,7 +386,7 @@ export default function TemplateBuilderPage() {
                 placeholder="TEMPLATE_VALUE"
                 disabled={isEdit}
                 className={cn(
-                  'w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-blue-400',
+                  'w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary-light',
                   isEdit && 'bg-gray-50 text-gray-400'
                 )}
               />
@@ -398,7 +398,7 @@ export default function TemplateBuilderPage() {
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder="Human-readable label"
-                className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light"
               />
             </div>
           </div>
@@ -410,7 +410,7 @@ export default function TemplateBuilderPage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional description"
-              className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light"
             />
           </div>
 
@@ -422,7 +422,7 @@ export default function TemplateBuilderPage() {
                 onChange={(e) => setNamespace(e.target.value)}
                 disabled={isEdit}
                 className={cn(
-                  'w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400',
+                  'w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-light',
                   isEdit && 'bg-gray-50 text-gray-400'
                 )}
               >
@@ -440,7 +440,7 @@ export default function TemplateBuilderPage() {
                   setExtendsTemplate(e.target.value || undefined)
                   if (!e.target.value) setExtendsVersion(undefined)
                 }}
-                className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-light"
               >
                 <option value="">(none)</option>
                 {templateOptions.map(t => (
@@ -551,7 +551,7 @@ export default function TemplateBuilderPage() {
                 value={domain}
                 onChange={(e) => setDomain(e.target.value)}
                 placeholder="e.g. finance, healthcare"
-                className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light"
               />
             </div>
             <div>
@@ -561,7 +561,7 @@ export default function TemplateBuilderPage() {
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 placeholder="e.g. documents, entities"
-                className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light"
               />
             </div>
           </div>
@@ -572,7 +572,7 @@ export default function TemplateBuilderPage() {
               value={tags}
               onChange={(e) => setTags(e.target.value)}
               placeholder="tag1, tag2, tag3"
-              className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light"
             />
           </div>
         </Section>
@@ -584,7 +584,7 @@ export default function TemplateBuilderPage() {
               type="checkbox"
               checked={syncEnabled}
               onChange={(e) => setSyncEnabled(e.target.checked)}
-              className="rounded border-gray-300 text-blue-500 focus:ring-blue-400"
+              className="rounded border-gray-300 text-primary focus:ring-primary-light"
             />
             <span className="text-sm text-gray-700">Enable reporting sync</span>
           </label>
@@ -596,7 +596,7 @@ export default function TemplateBuilderPage() {
                   <select
                     value={syncStrategy}
                     onChange={(e) => setSyncStrategy(e.target.value)}
-                    className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-light"
                   >
                     <option value="">default</option>
                     <option value="full">full</option>
@@ -610,7 +610,7 @@ export default function TemplateBuilderPage() {
                     value={tableName}
                     onChange={(e) => setTableName(e.target.value)}
                     placeholder="auto-generated if empty"
-                    className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary-light"
                   />
                 </div>
               </div>
@@ -619,7 +619,7 @@ export default function TemplateBuilderPage() {
                   type="checkbox"
                   checked={includeMetadata}
                   onChange={(e) => setIncludeMetadata(e.target.checked)}
-                  className="rounded border-gray-300 text-blue-500 focus:ring-blue-400"
+                  className="rounded border-gray-300 text-primary focus:ring-primary-light"
                 />
                 <span className="text-sm text-gray-700">Include document metadata in reporting table</span>
               </label>
@@ -629,7 +629,7 @@ export default function TemplateBuilderPage() {
                     type="checkbox"
                     checked={flattenArrays}
                     onChange={(e) => setFlattenArrays(e.target.checked)}
-                    className="rounded border-gray-300 text-blue-500 focus:ring-blue-400"
+                    className="rounded border-gray-300 text-primary focus:ring-primary-light"
                   />
                   <span className="text-sm text-gray-700">Flatten arrays (multi-row representation)</span>
                 </label>
@@ -645,7 +645,7 @@ export default function TemplateBuilderPage() {
                       onChange={(e) => setMaxArrayElements(e.target.value === '' ? undefined : Number(e.target.value))}
                       placeholder="unlimited"
                       min={1}
-                      className="w-32 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      className="w-32 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light"
                     />
                   </div>
                 )}
@@ -744,7 +744,7 @@ export default function TemplateBuilderPage() {
 
         {/* Error */}
         {error && (
-          <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          <div className="flex items-center gap-2 text-sm text-danger bg-danger/5 border border-danger/20 rounded-md px-3 py-2">
             <AlertTriangle size={14} />
             {error}
           </div>
@@ -771,7 +771,7 @@ export default function TemplateBuilderPage() {
           <button
             onClick={() => handleSave('active')}
             disabled={isPending || hasBlockingWarning || (!isEdit && !namespace)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
             title={!namespace && !isEdit ? 'Select a namespace first' : hasBlockingWarning ? 'Resolve blocking warnings before saving' : undefined}
           >
             <CheckCircle size={14} />
@@ -832,7 +832,7 @@ function UsageOption({
       className={cn(
         'text-left px-3 py-2 rounded-md border transition-colors',
         active
-          ? 'border-blue-400 bg-blue-50/50'
+          ? 'border-primary-light bg-primary/5/50'
           : 'border-gray-200 hover:bg-gray-50',
         disabled && !active && 'opacity-50 cursor-not-allowed',
         disabled && active && 'cursor-default',

@@ -129,14 +129,14 @@ function BackupTab() {
       <button
         onClick={handleStart}
         disabled={starting || !namespace || (activeJob?.status === 'running')}
-        className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
       >
         {starting ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
         {starting ? 'Starting...' : `Backup ${namespace || '...'}`}
       </button>
 
       {error && (
-        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+        <div className="flex items-center gap-2 text-sm text-danger bg-danger/5 border border-danger/20 rounded-lg px-3 py-2">
           <AlertTriangle size={14} /> {error}
         </div>
       )}
@@ -250,14 +250,14 @@ function RestoreTab() {
       <button
         onClick={handleRestore}
         disabled={restoring || !file || (activeJob?.status === 'running')}
-        className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
       >
         {restoring ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
         {restoring ? 'Starting...' : 'Restore'}
       </button>
 
       {error && (
-        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+        <div className="flex items-center gap-2 text-sm text-danger bg-danger/5 border border-danger/20 rounded-lg px-3 py-2">
           <AlertTriangle size={14} /> {error}
         </div>
       )}
@@ -272,7 +272,7 @@ function RestoreTab() {
 // ---------------------------------------------------------------------------
 
 function JobProgress({ job, onDownload }: { job: BackupJob; onDownload?: () => void }) {
-  const statusColor = job.status === 'complete' ? 'text-green-600' : job.status === 'failed' ? 'text-red-600' : 'text-blue-600'
+  const statusColor = job.status === 'complete' ? 'text-success' : job.status === 'failed' ? 'text-danger' : 'text-primary'
   const StatusIcon = job.status === 'complete' ? CheckCircle : job.status === 'failed' ? XCircle : Loader2
 
   return (
@@ -290,7 +290,7 @@ function JobProgress({ job, onDownload }: { job: BackupJob; onDownload?: () => v
 
       {job.status === 'running' && job.percent != null && (
         <div className="w-full bg-gray-100 rounded-full h-2">
-          <div className="bg-blue-500 rounded-full h-2 transition-all" style={{ width: `${job.percent}%` }} />
+          <div className="bg-primary rounded-full h-2 transition-all" style={{ width: `${job.percent}%` }} />
         </div>
       )}
 
@@ -308,7 +308,7 @@ function JobProgress({ job, onDownload }: { job: BackupJob; onDownload?: () => v
       {job.status === 'complete' && onDownload && (
         <button
           onClick={onDownload}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 border border-blue-200 rounded-md hover:bg-blue-50"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-primary border border-primary/20 rounded-md hover:bg-primary/5"
         >
           <Download size={12} />
           Download Archive
@@ -363,7 +363,7 @@ function JobsList() {
         </button>
       </div>
 
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
 
       {jobs.length === 0 ? (
         <p className="text-xs text-gray-400 text-center py-4">No backup or restore jobs found.</p>
@@ -372,7 +372,7 @@ function JobsList() {
           {jobs.map(job => (
             <div key={job.job_id} className="flex items-center gap-3 px-4 py-2.5 text-xs">
               <div className="flex-1 min-w-0">
-                <span className={cn('font-medium', (job.kind ?? job.type) === 'backup' ? 'text-blue-600' : 'text-green-600')}>{job.kind ?? job.type ?? 'job'}</span>
+                <span className={cn('font-medium', (job.kind ?? job.type) === 'backup' ? 'text-primary' : 'text-success')}>{job.kind ?? job.type ?? 'job'}</span>
                 <span className="text-gray-400 ml-2">{job.namespace}</span>
                 {job.message && <span className="text-gray-400 ml-2 truncate">{job.message}</span>}
               </div>
@@ -388,14 +388,14 @@ function JobsList() {
                 <a
                   href={apiUrl(`/api/backup-download/${job.job_id}`)}
                   download={`${job.namespace}_backup.zip`}
-                  className="text-blue-400 hover:text-blue-600"
+                  className="text-primary-light hover:text-primary"
                   title="Download archive"
                 >
                   <Download size={12} />
                 </a>
               )}
               {(job.status === 'complete' || job.status === 'failed') && (
-                <button onClick={() => handleDelete(job.job_id)} className="text-gray-300 hover:text-red-500" title="Delete job">
+                <button onClick={() => handleDelete(job.job_id)} className="text-gray-300 hover:text-danger" title="Delete job">
                   <Trash2 size={12} />
                 </button>
               )}
@@ -427,7 +427,7 @@ export default function BackupRestorePage() {
           onClick={() => setTab('backup')}
           className={cn(
             'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
-            tab === 'backup' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+            tab === 'backup' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'
           )}
         >
           <span className="flex items-center gap-1.5"><Download size={14} /> Backup</span>
@@ -436,7 +436,7 @@ export default function BackupRestorePage() {
           onClick={() => setTab('restore')}
           className={cn(
             'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
-            tab === 'restore' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+            tab === 'restore' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'
           )}
         >
           <span className="flex items-center gap-1.5"><Upload size={14} /> Restore</span>

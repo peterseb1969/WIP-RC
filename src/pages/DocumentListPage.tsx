@@ -70,7 +70,7 @@ function TemplateCards({
         className={cn(
           'text-left p-3 rounded-lg border transition-all',
           allMode
-            ? 'border-blue-300 bg-blue-50 shadow-sm'
+            ? 'border-primary/30 bg-primary/5 shadow-sm'
             : 'border-dashed border-gray-300 bg-white hover:border-gray-400 hover:shadow-sm'
         )}
       >
@@ -88,7 +88,7 @@ function TemplateCards({
           className={cn(
             'text-left p-3 rounded-lg border transition-all',
             selectedId === t.template_id
-              ? 'border-blue-300 bg-blue-50 shadow-sm'
+              ? 'border-primary/30 bg-primary/5 shadow-sm'
               : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
           )}
         >
@@ -176,7 +176,7 @@ function TemplateCombobox({
         onClick={() => setOpen(!open)}
         className={cn(
           'w-full flex items-center justify-between gap-2 px-3 py-2 border rounded-lg text-sm transition-colors',
-          open ? 'border-blue-300 ring-1 ring-blue-200' : 'border-gray-200 hover:border-gray-300',
+          open ? 'border-primary/30 ring-1 ring-primary/20' : 'border-gray-200 hover:border-gray-300',
           'bg-white'
         )}
       >
@@ -226,10 +226,10 @@ function TemplateCombobox({
                 onClick={() => { onSelectAll(); setOpen(false); setSearch('') }}
                 className={cn(
                   'w-full flex items-center gap-3 px-3 py-2 text-left text-sm transition-colors border-b border-gray-100',
-                  allMode ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50 text-gray-700'
+                  allMode ? 'bg-primary/5 text-primary-dark' : 'hover:bg-gray-50 text-gray-700'
                 )}
               >
-                <Layers size={12} className={allMode ? 'text-blue-400' : 'text-gray-400'} />
+                <Layers size={12} className={allMode ? 'text-primary-light' : 'text-gray-400'} />
                 <div className="flex-1 min-w-0">
                   <span className="font-medium truncate">All templates</span>
                   <span className="text-xs text-gray-400 ml-2">every document in this namespace</span>
@@ -246,11 +246,11 @@ function TemplateCombobox({
                   className={cn(
                     'w-full flex items-center gap-3 px-3 py-2 text-left text-sm transition-colors',
                     t.template_id === selectedId
-                      ? 'bg-blue-50 text-blue-700'
+                      ? 'bg-primary/5 text-primary-dark'
                       : 'hover:bg-gray-50 text-gray-700'
                   )}
                 >
-                  <Layers size={12} className={t.template_id === selectedId ? 'text-blue-400' : 'text-indigo-400'} />
+                  <Layers size={12} className={t.template_id === selectedId ? 'text-primary-light' : 'text-indigo-400'} />
                   <div className="flex-1 min-w-0">
                     <span className="font-medium truncate">{t.label || t.value}</span>
                     <span className="text-xs font-mono text-gray-400 ml-2">{t.value}</span>
@@ -391,7 +391,7 @@ function DocumentTable({
               </Link>
               <Link
                 to={`/documents/${templateValue}/new`}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-white bg-blue-500 hover:bg-blue-600 rounded-md"
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-white bg-primary hover:bg-primary rounded-md"
                 title="Create a new document from this template"
               >
                 <Plus size={12} />

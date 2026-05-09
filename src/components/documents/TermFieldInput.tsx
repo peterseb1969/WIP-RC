@@ -115,7 +115,7 @@ export default function TermFieldInput({ field, value, onChange, disabled }: Ter
         disabled={disabled}
         className={cn(
           'w-full flex items-center justify-between gap-2 px-2.5 py-1.5 border rounded-md text-sm transition-colors bg-white',
-          open ? 'border-blue-300 ring-1 ring-blue-200' : 'border-gray-200 hover:border-gray-300',
+          open ? 'border-primary/30 ring-1 ring-primary/20' : 'border-gray-200 hover:border-gray-300',
           disabled && 'bg-gray-50 cursor-not-allowed opacity-70',
         )}
       >
@@ -178,7 +178,7 @@ export default function TermFieldInput({ field, value, onChange, disabled }: Ter
                   onClick={() => handleSelect(t.value)}
                   className={cn(
                     'w-full flex items-center gap-2 px-2.5 py-1.5 text-left text-sm transition-colors',
-                    t.value === valueStr ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50 text-gray-700',
+                    t.value === valueStr ? 'bg-primary/5 text-primary-dark' : 'hover:bg-gray-50 text-gray-700',
                   )}
                 >
                   <Tag size={11} className="text-orange-400 shrink-0" />

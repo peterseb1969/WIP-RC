@@ -64,7 +64,7 @@ export default function IntegrityPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
-            <ShieldCheck size={24} className="text-blue-500" />
+            <ShieldCheck size={24} className="text-primary" />
             Integrity
           </h1>
           <p className="text-sm text-gray-400 mt-1">Cross-service referential integrity checks</p>
@@ -72,7 +72,7 @@ export default function IntegrityPage() {
         <button
           onClick={handleRun}
           disabled={isLoading}
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
         >
           {isLoading ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} />}
           {isLoading ? 'Running...' : 'Run Check'}
@@ -95,16 +95,16 @@ export default function IntegrityPage() {
           {/* Status banner */}
           <div className={cn(
             'flex items-center gap-3 p-4 rounded-lg border',
-            statusColor(result.status) === 'healthy' ? 'bg-green-50 border-green-200' :
+            statusColor(result.status) === 'healthy' ? 'bg-success/5 border-success/20' :
             statusColor(result.status) === 'warning' ? 'bg-yellow-50 border-yellow-200' :
-            'bg-red-50 border-red-200'
+            'bg-danger/5 border-danger/20'
           )}>
             {statusColor(result.status) === 'healthy' ? (
-              <CheckCircle size={20} className="text-green-500" />
+              <CheckCircle size={20} className="text-success" />
             ) : statusColor(result.status) === 'warning' ? (
               <AlertTriangle size={20} className="text-yellow-500" />
             ) : (
-              <XCircle size={20} className="text-red-500" />
+              <XCircle size={20} className="text-danger" />
             )}
             <div>
               <span className="text-sm font-medium text-gray-800 capitalize">{result.status}</span>
@@ -172,7 +172,7 @@ export default function IntegrityPage() {
           )}
 
           {result.issues.length === 0 && (
-            <p className="text-sm text-green-600 flex items-center gap-1.5">
+            <p className="text-sm text-success flex items-center gap-1.5">
               <CheckCircle size={14} />
               No integrity issues found.
             </p>

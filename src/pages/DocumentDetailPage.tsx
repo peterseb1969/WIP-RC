@@ -52,7 +52,7 @@ function CopyButton({ value }: { value: string }) {
       className="inline-flex items-center p-0.5 text-gray-300 hover:text-gray-500 transition-colors"
       title="Copy to clipboard"
     >
-      {copied ? <Check size={11} className="text-green-500" /> : <Copy size={11} />}
+      {copied ? <Check size={11} className="text-success" /> : <Copy size={11} />}
     </button>
   )
 }
@@ -131,7 +131,7 @@ function FieldRow({
       <div className="flex items-start gap-3 px-4 py-2.5">
         <span className="text-sm text-gray-500 shrink-0 min-w-[140px]">
           {label}
-          {fieldDef.mandatory && <span className="text-red-400 ml-0.5">*</span>}
+          {fieldDef.mandatory && <span className="text-danger/60 ml-0.5">*</span>}
         </span>
         <div className="flex items-center gap-1.5">
           <TermFieldValue terminologyRef={fieldDef.terminology_ref} value={value} />
@@ -147,7 +147,7 @@ function FieldRow({
       <div className="flex items-start gap-3 px-4 py-2.5">
         <span className="text-sm text-gray-500 shrink-0 min-w-[140px]">
           {label}
-          {fieldDef?.mandatory && <span className="text-red-400 ml-0.5">*</span>}
+          {fieldDef?.mandatory && <span className="text-danger/60 ml-0.5">*</span>}
         </span>
         <ArrayPills items={value as (string | number)[]} />
       </div>
@@ -160,7 +160,7 @@ function FieldRow({
       <div className="flex items-start gap-3 px-4 py-2.5">
         <span className="text-sm text-gray-500 shrink-0 min-w-[140px]">
           {label}
-          {fieldDef?.mandatory && <span className="text-red-400 ml-0.5">*</span>}
+          {fieldDef?.mandatory && <span className="text-danger/60 ml-0.5">*</span>}
         </span>
         <div className="flex-1 min-w-0">
           <JsonViewer data={value} maxHeight="200px" collapsed />
@@ -177,7 +177,7 @@ function FieldRow({
     <div className="flex items-start gap-3 px-4 py-2.5">
       <span className="text-sm text-gray-500 shrink-0 min-w-[140px]">
         {label}
-        {fieldDef?.mandatory && <span className="text-red-400 ml-0.5">*</span>}
+        {fieldDef?.mandatory && <span className="text-danger/60 ml-0.5">*</span>}
       </span>
       <div className="flex items-center gap-1.5 text-sm text-gray-800 break-all">
         <span>{display}</span>
@@ -243,7 +243,7 @@ function TermReferencesList({ refs }: { refs: TermReference[] }) {
             {term ? (
               <Link
                 to={`/terminologies/${term.terminology_id}/terms/${term.term_id}`}
-                className="inline-flex items-center gap-1.5 text-sm text-gray-800 hover:text-blue-600 hover:underline"
+                className="inline-flex items-center gap-1.5 text-sm text-gray-800 hover:text-primary hover:underline"
               >
                 <span>{term.label || term.value}</span>
                 <span className="text-xs font-mono text-gray-400">{term.value}</span>
@@ -369,7 +369,7 @@ function ReferenceRow({
         <Link
           to={to}
           className={cn(
-            'text-sm text-gray-800 hover:text-blue-600 hover:underline truncate',
+            'text-sm text-gray-800 hover:text-primary hover:underline truncate',
             mono && 'font-mono text-xs'
           )}
         >
@@ -453,11 +453,11 @@ function EndpointChip({
       <div className="text-[10px] uppercase tracking-wide text-purple-700 font-semibold">{label}</div>
       <div className="flex items-center gap-2 min-w-0">
         {docId ? (
-          <Link to={`/documents/${tv}/${docId}`} className="text-sm text-gray-800 hover:text-blue-600 hover:underline truncate">
+          <Link to={`/documents/${tv}/${docId}`} className="text-sm text-gray-800 hover:text-primary hover:underline truncate">
             {display}
           </Link>
         ) : (
-          <span className="text-sm text-red-600">unresolved</span>
+          <span className="text-sm text-danger">unresolved</span>
         )}
         {subLabel && (
           <span className="text-[10px] font-mono text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded shrink-0">
@@ -509,7 +509,7 @@ export default function DocumentDetailPage() {
       <div>
         <Link
           to={`/documents?template=${templateValue}`}
-          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 mb-2"
+          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-primary mb-2"
         >
           <ArrowLeft size={12} />
           Back to Documents
@@ -536,7 +536,7 @@ export default function DocumentDetailPage() {
               {doc.namespace && (
                 <Link
                   to={`/?ns=${doc.namespace}`}
-                  className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 bg-gray-100 px-1.5 py-0.5 rounded"
+                  className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-primary bg-gray-100 px-1.5 py-0.5 rounded"
                 >
                   <FolderTree size={10} />
                   {doc.namespace}
@@ -620,7 +620,7 @@ export default function DocumentDetailPage() {
           </div>
         </div>
         {archiveError && (
-          <div className="mt-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-2.5 py-1.5">
+          <div className="mt-2 text-xs text-danger bg-danger/5 border border-danger/20 rounded-md px-2.5 py-1.5">
             Archive failed: {archiveError}
           </div>
         )}
@@ -636,8 +636,8 @@ export default function DocumentDetailPage() {
         <div className={cn(
           'flex items-start gap-2 text-xs rounded-lg px-3 py-2 border',
           validationResult.valid
-            ? 'bg-green-50 border-green-200 text-green-700'
-            : 'bg-red-50 border-red-200 text-red-700'
+            ? 'bg-success/5 border-success/20 text-success'
+            : 'bg-danger/5 border-danger/20 text-danger'
         )}>
           {validationResult.valid ? <CheckCircle size={14} className="shrink-0 mt-0.5" /> : <AlertTriangle size={14} className="shrink-0 mt-0.5" />}
           <div>
@@ -780,13 +780,13 @@ export default function DocumentDetailPage() {
                 key={v.version}
                 className={cn(
                   'flex items-center gap-3 px-4 py-2.5',
-                  v.version === doc.version && 'bg-blue-50/50'
+                  v.version === doc.version && 'bg-primary/5/50'
                 )}
               >
                 <Layers size={14} className="text-gray-300" />
                 <span className="text-sm font-medium text-gray-700">Version {v.version}</span>
                 {v.version === doc.version && (
-                  <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">current</span>
+                  <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">current</span>
                 )}
                 {v.created_at && (
                   <span className="text-xs text-gray-400 ml-auto">

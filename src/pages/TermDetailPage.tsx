@@ -134,7 +134,7 @@ export default function TermDetailPage() {
             className={cn(
               'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
               activeTab === key
-                ? 'border-blue-500 text-blue-600'
+                ? 'border-primary text-primary'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             )}
           >
@@ -145,7 +145,7 @@ export default function TermDetailPage() {
                 <span
                   className={cn(
                     'ml-0.5 px-1.5 py-0.5 rounded text-[10px]',
-                    activeTab === key ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                    activeTab === key ? 'bg-primary/10 text-primary-dark' : 'bg-gray-100 text-gray-500'
                   )}
                 >
                   {relCount}
@@ -214,7 +214,7 @@ function TermHeader({
     <div className="space-y-2">
       <div className="flex items-start gap-3">
         <div className="mt-0.5">
-          <Tag size={22} className="text-blue-400" />
+          <Tag size={22} className="text-primary-light" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -239,7 +239,7 @@ function TermHeader({
               className="text-gray-300 hover:text-gray-500"
               title="Copy value"
             >
-              {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
+              {copied ? <Check size={12} className="text-success" /> : <Copy size={12} />}
             </button>
           </div>
           {term.description && (
@@ -272,7 +272,7 @@ function TermHeader({
                 setConfirmDelete(true)
                 setShowDeprecate(false)
               }}
-              className="px-2.5 py-1 border border-gray-200 text-xs rounded-md text-red-600 hover:bg-red-50 inline-flex items-center gap-1"
+              className="px-2.5 py-1 border border-gray-200 text-xs rounded-md text-danger hover:bg-danger/5 inline-flex items-center gap-1"
             >
               <Trash2 size={12} /> Delete
             </button>
@@ -295,7 +295,7 @@ function TermHeader({
             className="w-full max-w-md border border-amber-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-amber-400"
             autoFocus
           />
-          {deprecate.error && <p className="text-xs text-red-600">{deprecate.error.message}</p>}
+          {deprecate.error && <p className="text-xs text-danger">{deprecate.error.message}</p>}
           <div className="flex items-center gap-2">
             <button
               onClick={() =>
@@ -324,19 +324,19 @@ function TermHeader({
 
       {/* Delete confirmation */}
       {confirmDelete && (
-        <div className="ml-9 bg-red-50 border border-red-200 rounded-md p-3 space-y-2">
+        <div className="ml-9 bg-danger/5 border border-danger/20 rounded-md p-3 space-y-2">
           <div className="flex items-center gap-2">
-            <Trash2 size={14} className="text-red-500" />
-            <span className="text-sm text-red-800 font-medium">
+            <Trash2 size={14} className="text-danger" />
+            <span className="text-sm text-danger font-medium">
               Permanently delete this term? This cannot be undone.
             </span>
           </div>
-          {remove.error && <p className="text-xs text-red-600">{remove.error.message}</p>}
+          {remove.error && <p className="text-xs text-danger">{remove.error.message}</p>}
           <div className="flex items-center gap-2">
             <button
               onClick={() => remove.mutate(term.term_id)}
               disabled={remove.isPending}
-              className="px-2.5 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 disabled:opacity-50"
+              className="px-2.5 py-1 bg-danger text-white text-xs rounded-md hover:bg-danger disabled:opacity-50"
             >
               {remove.isPending ? 'Deleting...' : 'Yes, delete'}
             </button>
@@ -420,7 +420,7 @@ function OverviewEdit({ term, onClose }: { term: Term; onClose: () => void }) {
           type="text"
           value={label}
           onChange={e => setLabel(e.target.value)}
-          className="w-full max-w-md border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-blue-400"
+          className="w-full max-w-md border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-primary-light"
           autoFocus
         />
       </div>
@@ -431,7 +431,7 @@ function OverviewEdit({ term, onClose }: { term: Term; onClose: () => void }) {
           value={description}
           onChange={e => setDescription(e.target.value)}
           rows={2}
-          className="w-full max-w-2xl border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-blue-400"
+          className="w-full max-w-2xl border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-primary-light"
         />
       </div>
 
@@ -441,7 +441,7 @@ function OverviewEdit({ term, onClose }: { term: Term; onClose: () => void }) {
           type="text"
           value={aliases}
           onChange={e => setAliases(e.target.value)}
-          className="w-full max-w-2xl border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-blue-400"
+          className="w-full max-w-2xl border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-primary-light"
         />
       </div>
 
@@ -453,7 +453,7 @@ function OverviewEdit({ term, onClose }: { term: Term; onClose: () => void }) {
             value={sortOrder}
             onChange={e => setSortOrder(e.target.value)}
             placeholder="0"
-            className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-blue-400"
+            className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-primary-light"
           />
         </div>
         <div>
@@ -461,7 +461,7 @@ function OverviewEdit({ term, onClose }: { term: Term; onClose: () => void }) {
           <select
             value={parentTermId}
             onChange={e => setParentTermId(e.target.value)}
-            className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-blue-400"
+            className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-primary-light"
             disabled={siblingsQuery.isLoading}
           >
             <option value="">None</option>
@@ -474,13 +474,13 @@ function OverviewEdit({ term, onClose }: { term: Term; onClose: () => void }) {
         </div>
       </div>
 
-      {update.error && <p className="text-xs text-red-500">{update.error.message}</p>}
+      {update.error && <p className="text-xs text-danger">{update.error.message}</p>}
 
       <div className="flex items-center gap-2 pt-1">
         <button
           onClick={handleSave}
           disabled={update.isPending}
-          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+          className="px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
         >
           {update.isPending ? 'Saving...' : 'Save'}
         </button>
@@ -550,7 +550,7 @@ function OverviewTab({ term }: { term: Term }) {
           {term.parent_term_id ? (
             <Link
               to={`/terminologies/${term.terminology_id}/terms/${term.parent_term_id}`}
-              className="text-blue-600 hover:underline font-mono text-xs"
+              className="text-primary hover:underline font-mono text-xs"
             >
               {term.parent_term_id}
             </Link>
@@ -571,7 +571,7 @@ function OverviewTab({ term }: { term: Term }) {
             {term.replaced_by_term_id ? (
               <Link
                 to={`/terminologies/${term.terminology_id}/terms/${term.replaced_by_term_id}`}
-                className="text-blue-600 hover:underline font-mono text-xs"
+                className="text-primary hover:underline font-mono text-xs"
               >
                 {term.replaced_by_term_id}
               </Link>
@@ -685,7 +685,7 @@ function RelationshipsTab({ term }: { term: Term }) {
       <div className="flex items-center justify-end">
         <button
           onClick={() => setShowAdd(true)}
-          className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 inline-flex items-center gap-1.5"
+          className="px-3 py-1.5 bg-primary text-white text-xs rounded-md hover:bg-primary-dark inline-flex items-center gap-1.5"
         >
           <Plus size={12} /> Add relationship
         </button>
@@ -754,7 +754,7 @@ function RelationshipSection({
         <div className="px-4 py-3 text-xs text-gray-400">Loading...</div>
       )}
       {query.isError && (
-        <div className="px-4 py-3 text-xs text-red-600">
+        <div className="px-4 py-3 text-xs text-danger">
           {(query.error as Error).message}
         </div>
       )}
@@ -856,7 +856,7 @@ function RelationshipRow({
       <Tag size={12} className="text-gray-300 shrink-0" />
       <Link
         to={`/terminologies/${linkTerminologyId}/terms/${otherTermId}`}
-        className="text-sm text-gray-800 hover:text-blue-600 hover:underline truncate"
+        className="text-sm text-gray-800 hover:text-primary hover:underline truncate"
       >
         {otherLabel || otherValue || otherTermId}
       </Link>
@@ -865,7 +865,7 @@ function RelationshipRow({
       )}
       {crossTerminology && (
         <span
-          className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-mono"
+          className="px-1.5 py-0.5 rounded bg-primary/5 text-primary text-[10px] font-mono"
           title={otherTerminologyId}
         >
           cross-terminology
@@ -885,7 +885,7 @@ function RelationshipRow({
         <div className="flex items-center gap-1.5 shrink-0">
           {(remove.error || bulkError) && (
             <span
-              className="text-[11px] text-red-600 truncate max-w-[200px]"
+              className="text-[11px] text-danger truncate max-w-[200px]"
               title={remove.error?.message || bulkError}
             >
               {remove.error?.message || bulkError}
@@ -894,7 +894,7 @@ function RelationshipRow({
           <button
             onClick={handleDelete}
             disabled={remove.isPending}
-            className="px-2 py-0.5 bg-red-600 text-white text-[11px] rounded hover:bg-red-700 disabled:opacity-50"
+            className="px-2 py-0.5 bg-danger text-white text-[11px] rounded hover:bg-danger disabled:opacity-50"
           >
             {remove.isPending ? 'Deleting...' : 'Confirm'}
           </button>
@@ -909,7 +909,7 @@ function RelationshipRow({
       ) : (
         <button
           onClick={() => setConfirming(true)}
-          className="p-1 text-gray-400 hover:text-red-600 shrink-0"
+          className="p-1 text-gray-400 hover:text-danger shrink-0"
           title="Delete relationship"
         >
           <Trash2 size={12} />

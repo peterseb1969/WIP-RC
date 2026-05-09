@@ -70,14 +70,14 @@ function SyncStatusBar() {
   return (
     <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-500">
       <span className="font-medium">Reporting-Sync</span>
-      <span className={cn('inline-flex items-center gap-1', isHealthy ? 'text-green-600' : 'text-amber-600')}>
+      <span className={cn('inline-flex items-center gap-1', isHealthy ? 'text-success' : 'text-amber-600')}>
         {isHealthy ? <CheckCircle size={12} /> : <XCircle size={12} />}
         {data.running ? 'Running' : 'Stopped'}
       </span>
-      <span className={cn(data.connected_to_nats ? 'text-green-600' : 'text-red-500')}>
+      <span className={cn(data.connected_to_nats ? 'text-success' : 'text-danger')}>
         NATS: {data.connected_to_nats ? 'connected' : 'disconnected'}
       </span>
-      <span className={cn(data.connected_to_postgres ? 'text-green-600' : 'text-red-500')}>
+      <span className={cn(data.connected_to_postgres ? 'text-success' : 'text-danger')}>
         PG: {data.connected_to_postgres ? 'connected' : 'disconnected'}
       </span>
       <span>Events: {data.events_processed.toLocaleString()}</span>
@@ -125,7 +125,7 @@ function TableBrowser({
           onClick={() => onSelectTable(table.name)}
           className={cn(
             'w-full text-left px-3 py-2.5 flex items-center gap-2 text-sm hover:bg-gray-50 transition-colors group',
-            selectedTable === table.name && 'bg-blue-50 text-blue-700'
+            selectedTable === table.name && 'bg-primary/5 text-primary-dark'
           )}
         >
           <Table2 size={14} className="text-gray-400 shrink-0" />
@@ -137,7 +137,7 @@ function TableBrowser({
           </div>
           <Download
             size={14}
-            className="text-gray-300 shrink-0 opacity-0 group-hover:opacity-100 hover:text-blue-500 transition-all"
+            className="text-gray-300 shrink-0 opacity-0 group-hover:opacity-100 hover:text-primary transition-all"
             onClick={(e) => handleDownloadCsv(e as unknown as MouseEvent, table.name)}
             aria-label={`Download ${table.name} as CSV`}
           />
@@ -170,7 +170,7 @@ function TableDetail({ tableName }: { tableName: string }) {
           </div>
           <button
             onClick={() => window.open(`/wip/api/reporting-sync/export/csv?table=${encodeURIComponent(tableName)}`, '_blank')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:bg-gray-50 hover:text-blue-600 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:bg-gray-50 hover:text-primary transition-colors"
             title={`Download ${tableName} as CSV`}
           >
             <Download size={12} />
@@ -316,7 +316,7 @@ function QueryPad() {
           value={sql}
           onChange={e => setSql(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="w-full font-mono text-sm bg-gray-900 text-green-400 rounded-lg border border-gray-700 p-4 resize-none focus:outline-none focus:border-blue-500 placeholder-gray-600"
+          className="w-full font-mono text-sm bg-gray-900 text-success/60 rounded-lg border border-gray-700 p-4 resize-none focus:outline-none focus:border-primary placeholder-gray-600"
           placeholder="SELECT * FROM doc_..."
           spellCheck={false}
         />
@@ -330,7 +330,7 @@ function QueryPad() {
         <button
           onClick={handleExecute}
           disabled={runQuery.isPending || !sql.trim()}
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Play size={14} />
           {runQuery.isPending ? 'Running...' : 'Execute'}
@@ -368,7 +368,7 @@ function QueryPad() {
 
       {/* Error */}
       {runQuery.error && (
-        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        <div className="flex items-start gap-2 p-3 bg-danger/5 border border-danger/20 rounded-lg text-sm text-danger">
           <AlertCircle size={16} className="shrink-0 mt-0.5" />
           <div className="font-mono text-xs whitespace-pre-wrap">{runQuery.error.message}</div>
         </div>
@@ -385,7 +385,7 @@ function QueryPad() {
                 <span className="text-xs font-medium text-gray-500">Query History</span>
                 <button
                   onClick={handleClearHistory}
-                  className="text-xs text-red-400 hover:text-red-600 inline-flex items-center gap-1"
+                  className="text-xs text-danger/60 hover:text-danger inline-flex items-center gap-1"
                 >
                   <Trash2 size={10} />
                   Clear
@@ -453,7 +453,7 @@ export default function PostgresPage() {
     <div className="space-y-4 max-w-7xl">
       <div>
         <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
-          <Database size={24} className="text-blue-500" />
+          <Database size={24} className="text-primary" />
           PostgreSQL
         </h1>
         <p className="text-sm text-gray-400 mt-1">Reporting layer inspection and ad-hoc queries</p>
@@ -468,7 +468,7 @@ export default function PostgresPage() {
           className={cn(
             'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
             activeTab === 'browser'
-              ? 'border-blue-500 text-blue-600'
+              ? 'border-primary text-primary'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           )}
         >
@@ -482,7 +482,7 @@ export default function PostgresPage() {
           className={cn(
             'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
             activeTab === 'query'
-              ? 'border-blue-500 text-blue-600'
+              ? 'border-primary text-primary'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           )}
         >
@@ -496,7 +496,7 @@ export default function PostgresPage() {
           className={cn(
             'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
             activeTab === 'sync'
-              ? 'border-blue-500 text-blue-600'
+              ? 'border-primary text-primary'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           )}
         >

@@ -31,7 +31,7 @@ export default function FieldInput({ field, value, onChange, disabled, error, na
   return (
     <div>
       {control}
-      {error && <div className="text-xs text-red-500 mt-1">{error}</div>}
+      {error && <div className="text-xs text-danger mt-1">{error}</div>}
     </div>
   )
 }

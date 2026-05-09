@@ -38,7 +38,7 @@ export default function RuleList({ rules, fieldNames, onChange }: RuleListProps)
         <button
           type="button"
           onClick={addRule}
-          className="inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-200 rounded-md hover:bg-blue-50"
+          className="inline-flex items-center gap-1 px-2 py-1 text-xs text-primary hover:text-primary-dark border border-primary/20 rounded-md hover:bg-primary/5"
         >
           <Plus size={12} />
           Add Rule

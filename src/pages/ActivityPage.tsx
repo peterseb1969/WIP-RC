@@ -25,10 +25,10 @@ import { cn } from '@/lib/cn'
 
 function entityIcon(type: string) {
   switch (type) {
-    case 'terminology': return <BookOpen size={12} className="text-blue-400" />
+    case 'terminology': return <BookOpen size={12} className="text-primary-light" />
     case 'term': return <Tag size={12} className="text-orange-400" />
     case 'template': return <FileCode2 size={12} className="text-indigo-400" />
-    case 'document': return <FileText size={12} className="text-green-400" />
+    case 'document': return <FileText size={12} className="text-success/60" />
     case 'file': return <Files size={12} className="text-pink-400" />
     default: return <ActivityIcon size={12} className="text-gray-400" />
   }
@@ -36,9 +36,9 @@ function entityIcon(type: string) {
 
 function actionBadge(action: string) {
   const colors: Record<string, string> = {
-    created: 'bg-green-100 text-green-700',
-    updated: 'bg-blue-100 text-blue-700',
-    deleted: 'bg-red-100 text-red-700',
+    created: 'bg-success/10 text-success',
+    updated: 'bg-primary/10 text-primary-dark',
+    deleted: 'bg-danger/10 text-danger',
     deprecated: 'bg-amber-100 text-amber-700',
   }
   return (
@@ -69,7 +69,7 @@ function ActivityFeed() {
         <select
           value={typeFilter}
           onChange={e => setTypeFilter(e.target.value)}
-          className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+          className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
         >
           <option value="">All types</option>
           <option value="terminology">Terminologies</option>
@@ -160,7 +160,7 @@ function AuditLogTab() {
         <select
           value={selectedTerminology}
           onChange={e => { setSelectedTerminology(e.target.value); setPage(1) }}
-          className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+          className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
         >
           <option value="">All terminologies</option>
           {(terminologies?.items ?? []).map(t => (
@@ -170,7 +170,7 @@ function AuditLogTab() {
         <select
           value={actionFilter}
           onChange={e => { setActionFilter(e.target.value); setPage(1) }}
-          className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+          className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
         >
           <option value="">All actions</option>
           <option value="created">Created</option>
@@ -201,7 +201,7 @@ function AuditLogTab() {
                       {actionBadge(entry.action)}
                       <Link
                         to={`/terminologies/${entry.terminology_id}`}
-                        className="text-xs text-blue-500 hover:text-blue-700 font-mono truncate"
+                        className="text-xs text-primary hover:text-primary-dark font-mono truncate"
                       >
                         {entry.terminology_id.slice(0, 8)}...
                       </Link>
@@ -257,7 +257,7 @@ export default function ActivityPage() {
           className={cn(
             'px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px',
             tab === 'activity'
-              ? 'border-blue-500 text-blue-600'
+              ? 'border-primary text-primary'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           )}
         >
@@ -268,7 +268,7 @@ export default function ActivityPage() {
           className={cn(
             'px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px',
             tab === 'audit'
-              ? 'border-blue-500 text-blue-600'
+              ? 'border-primary text-primary'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           )}
         >

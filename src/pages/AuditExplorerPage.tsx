@@ -82,7 +82,7 @@ function TypeBadge({ type }: { type: string }) {
     terminology: 'bg-orange-100 text-orange-700',
     term: 'bg-amber-100 text-amber-700',
     template: 'bg-indigo-100 text-indigo-700',
-    document: 'bg-blue-100 text-blue-700',
+    document: 'bg-primary/10 text-primary-dark',
     file: 'bg-gray-100 text-gray-700',
   }
   return (
@@ -93,8 +93,8 @@ function TypeBadge({ type }: { type: string }) {
 }
 
 function RefStatusIcon({ status }: { status: string }) {
-  if (status === 'valid') return <CheckCircle size={12} className="text-green-500" />
-  if (status === 'broken') return <XCircle size={12} className="text-red-500" />
+  if (status === 'valid') return <CheckCircle size={12} className="text-success" />
+  if (status === 'broken') return <XCircle size={12} className="text-danger" />
   return <AlertTriangle size={12} className="text-amber-500" />
 }
 
@@ -119,13 +119,13 @@ function SearchBar({ onSearch, loading }: { onSearch: (q: string) => void; loadi
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder="Search by name, value, or ID..."
-          className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+          className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary-light focus:border-primary-light"
         />
       </div>
       <button
         type="submit"
         disabled={loading || !query.trim()}
-        className="px-4 py-2 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
+        className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary disabled:opacity-50"
       >
         {loading ? <Loader2 size={14} className="animate-spin" /> : 'Search'}
       </button>
@@ -155,13 +155,13 @@ function SearchOptionsPanel({
         className={cn(
           'inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded border transition-colors',
           dirty
-            ? 'border-blue-300 bg-blue-50 text-blue-700'
+            ? 'border-primary/30 bg-primary/5 text-primary-dark'
             : 'border-gray-200 text-gray-500 hover:bg-gray-50'
         )}
       >
         <Settings2 size={12} />
         Advanced
-        {dirty && <span className="text-[10px] text-blue-500">●</span>}
+        {dirty && <span className="text-[10px] text-primary">●</span>}
       </button>
       {expanded && (
         <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 px-3 py-3 bg-gray-50 border border-gray-200 rounded-md text-xs">
@@ -170,7 +170,7 @@ function SearchOptionsPanel({
             <select
               value={options.mode}
               onChange={e => onChange({ ...options, mode: e.target.value as SearchMode })}
-              className="w-full border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-primary-light"
             >
               <option value="auto">Auto</option>
               <option value="fts">FTS only</option>
@@ -184,7 +184,7 @@ function SearchOptionsPanel({
               onChange={e =>
                 onChange({ ...options, snippetFormat: e.target.value as 'html' | 'text' })
               }
-              className="w-full border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-primary-light"
               title="HTML preserves <b>...</b> match highlighting; text strips all tags."
             >
               <option value="text">Text</option>
@@ -198,7 +198,7 @@ function SearchOptionsPanel({
               value={options.template}
               onChange={e => onChange({ ...options, template: e.target.value })}
               placeholder="(any)"
-              className="w-full border border-gray-200 rounded px-2 py-1 bg-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded px-2 py-1 bg-white font-mono focus:outline-none focus:ring-1 focus:ring-primary-light"
             />
           </div>
           <label className="flex items-center gap-2 self-end pb-1 cursor-pointer">
@@ -252,7 +252,7 @@ function SearchResults({
                 )}
                 {hasFts && r.score != null && (
                   <span
-                    className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-mono"
+                    className="px-1.5 py-0.5 rounded bg-success/5 text-success text-[10px] font-mono"
                     title="ts_rank — relative FTS relevance"
                   >
                     {r.score.toFixed(3)}
@@ -327,7 +327,7 @@ function EntityInspector({
           )}
           <Link
             to={entityLink(entity.entity_type, entity.entity_id)}
-            className="text-xs text-blue-500 hover:text-blue-700"
+            className="text-xs text-primary hover:text-primary-dark"
           >
             Open
           </Link>
@@ -344,7 +344,7 @@ function EntityInspector({
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
           <ArrowUpRight size={12} />
           Outgoing References ({entity.references.length})
-          {entity.broken_refs > 0 && <span className="text-red-500">({entity.broken_refs} broken)</span>}
+          {entity.broken_refs > 0 && <span className="text-danger">({entity.broken_refs} broken)</span>}
         </h3>
         {entity.references.length === 0 ? (
           <p className="text-xs text-gray-400">No outgoing references.</p>
@@ -385,11 +385,11 @@ function OutgoingRefRow({ ref_, onInspect }: { ref_: EntityReference; onInspect:
     >
       <RefStatusIcon status={ref_.status} />
       <TypeBadge type={ref_.ref_type} />
-      <span className="text-blue-500 hover:text-blue-700 truncate">
+      <span className="text-primary hover:text-primary-dark truncate">
         {ref_.ref_label || ref_.ref_value || ref_.ref_id}
       </span>
       {ref_.field_path && <span className="text-gray-400 font-mono">{ref_.field_path}</span>}
-      {ref_.error && <span className="text-red-500">{ref_.error}</span>}
+      {ref_.error && <span className="text-danger">{ref_.error}</span>}
     </button>
   )
 }
@@ -401,7 +401,7 @@ function IncomingRefRow({ ref_, onInspect }: { ref_: IncomingReference; onInspec
       className="w-full flex items-center gap-3 px-4 py-2 text-xs hover:bg-gray-50 transition-colors text-left"
     >
       <TypeBadge type={ref_.entity_type} />
-      <span className="text-blue-500 hover:text-blue-700 truncate">
+      <span className="text-primary hover:text-primary-dark truncate">
         {ref_.entity_label || ref_.entity_value || ref_.entity_id}
       </span>
       <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{ref_.reference_type}</span>
@@ -490,7 +490,7 @@ export default function AuditExplorerPage() {
       </div>
 
       {searchError && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        <div className="flex items-center gap-2 px-4 py-2 bg-danger/5 border border-danger/20 rounded-lg text-sm text-danger">
           <AlertTriangle size={14} className="shrink-0" />
           {searchError}
         </div>

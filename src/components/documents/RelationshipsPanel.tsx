@@ -88,7 +88,7 @@ export default function RelationshipsPanel({ documentId, namespace }: Relationsh
         </div>
       )}
       {error && (
-        <div className="flex items-start gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+        <div className="flex items-start gap-2 text-xs text-danger bg-danger/5 border border-danger/20 rounded px-3 py-2">
           <AlertTriangle size={14} className="shrink-0 mt-0.5" />
           <span>{(error as Error).message}</span>
         </div>
@@ -138,7 +138,7 @@ function RelationshipRow({ rel, seedDocumentId }: { rel: Document; seedDocumentI
     <div className="px-4 py-2 flex items-start gap-3 text-xs">
       <span className={cn(
         'shrink-0 mt-0.5',
-        otherDirection === 'outgoing' ? 'text-blue-500' : 'text-amber-500',
+        otherDirection === 'outgoing' ? 'text-primary' : 'text-amber-500',
       )}>
         {otherDirection === 'outgoing' ? <ArrowUpRight size={12} /> : <ArrowDownLeft size={12} />}
       </span>
@@ -147,12 +147,12 @@ function RelationshipRow({ rel, seedDocumentId }: { rel: Document; seedDocumentI
           {otherRefId ? (
             <Link
               to={`/documents/${otherTemplateValue}/${otherRefId}`}
-              className="text-sm text-gray-800 hover:text-blue-600 hover:underline truncate"
+              className="text-sm text-gray-800 hover:text-primary hover:underline truncate"
             >
               {otherLabel}
             </Link>
           ) : (
-            <span className="text-sm text-red-600">unresolved</span>
+            <span className="text-sm text-danger">unresolved</span>
           )}
           <span className="text-[10px] text-gray-400 font-mono">
             ({otherRef?.resolved?.template_value || 'unknown template'})
@@ -173,7 +173,7 @@ function RelationshipRow({ rel, seedDocumentId }: { rel: Document; seedDocumentI
       </div>
       <Link
         to={`/documents/${relTemplateValue}/${rel.document_id}`}
-        className="text-[10px] text-gray-400 hover:text-blue-500 shrink-0 mt-0.5"
+        className="text-[10px] text-gray-400 hover:text-primary shrink-0 mt-0.5"
         title="Open the relationship document"
       >
         edge ↗

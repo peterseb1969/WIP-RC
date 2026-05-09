@@ -114,7 +114,7 @@ export default function TraversalPanel({ documentId, namespace }: TraversalPanel
         </div>
       )}
       {error && (
-        <div className="flex items-start gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+        <div className="flex items-start gap-2 text-xs text-danger bg-danger/5 border border-danger/20 rounded px-3 py-2">
           <AlertTriangle size={14} className="shrink-0 mt-0.5" />
           <span>{(error as Error).message}</span>
         </div>
@@ -169,7 +169,7 @@ function TraversalNodeRow({ node }: { node: DocumentTraverseNode }) {
       <FileText size={12} className="text-gray-400 shrink-0" />
       <Link
         to={`/documents/${tv}/${node.document_id}`}
-        className="text-gray-800 hover:text-blue-600 hover:underline font-mono truncate"
+        className="text-gray-800 hover:text-primary hover:underline font-mono truncate"
       >
         {node.document_id.slice(0, 12)}…
       </Link>

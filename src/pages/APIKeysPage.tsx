@@ -146,7 +146,7 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
   }
 
   return (
-    <div className="bg-white border border-blue-200 rounded-lg p-4 mb-4">
+    <div className="bg-white border border-primary/20 rounded-lg p-4 mb-4">
       <h3 className="text-sm font-medium text-gray-700 mb-3">Create API Key</h3>
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
@@ -157,7 +157,7 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
               value={name}
               onChange={e => { setName(e.target.value); setError(null) }}
               placeholder="my-app-key"
-              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
               autoFocus
             />
           </div>
@@ -168,7 +168,7 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
               value={owner}
               onChange={e => setOwner(e.target.value)}
               placeholder="user@example.com"
-              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
             />
           </div>
         </div>
@@ -179,7 +179,7 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
             value={description}
             onChange={e => setDescription(e.target.value)}
             placeholder="What this key is used for"
-            className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+            className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -192,7 +192,7 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
               value={namespacesInput}
               onChange={e => setNamespacesInput(e.target.value)}
               placeholder="ns-one, ns-two"
-              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
             />
             <p className="text-[10px] text-gray-400 mt-0.5">
               Leave empty for no namespace restriction (privileged)
@@ -207,7 +207,7 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
               value={groupsInput}
               onChange={e => setGroupsInput(e.target.value)}
               placeholder="admin, readers"
-              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
             />
           </div>
         </div>
@@ -217,15 +217,15 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
             type="datetime-local"
             value={expiresAt}
             onChange={e => setExpiresAt(e.target.value)}
-            className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+            className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
           />
         </div>
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error && <p className="text-xs text-danger">{error}</p>}
         <div className="flex items-center gap-2">
           <button
             onClick={handleCreate}
             disabled={create.isPending || !name.trim()}
-            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+            className="px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
           >
             {create.isPending ? 'Creating...' : 'Create'}
           </button>
@@ -274,7 +274,7 @@ function PlaintextKeyBanner({ name, plaintextKey, onDismiss }: {
           className={cn(
             'shrink-0 p-2 rounded-md border transition-colors',
             copied
-              ? 'bg-green-50 border-green-300 text-green-600'
+              ? 'bg-success/5 border-success/30 text-success'
               : 'bg-white border-amber-200 text-amber-600 hover:bg-amber-100',
           )}
           title="Copy to clipboard"
@@ -377,7 +377,7 @@ function APIKeyRow({
         }
         <Key size={16} className={cn(
           'shrink-0',
-          isConfig ? 'text-amber-500' : 'text-blue-500',
+          isConfig ? 'text-amber-500' : 'text-primary',
         )} />
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium text-gray-800">{apiKey.name}</span>
@@ -392,7 +392,7 @@ function APIKeyRow({
             </span>
           )}
           {apiKey.namespaces === null ? (
-            <span className="text-[10px] bg-red-50 text-red-500 px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5">
+            <span className="text-[10px] bg-danger/5 text-danger px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5">
               <Shield size={8} /> privileged
             </span>
           ) : (
@@ -428,7 +428,7 @@ function APIKeyRow({
             {apiKey.expires_at && (
               <span className={cn(
                 'flex items-center gap-1',
-                isExpired && 'text-red-500',
+                isExpired && 'text-danger',
               )}>
                 <Clock size={10} />
                 Expires: {new Date(apiKey.expires_at).toLocaleString()}
@@ -447,7 +447,7 @@ function APIKeyRow({
                   type="text"
                   value={editDesc}
                   onChange={e => setEditDesc(e.target.value)}
-                  className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                  className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -458,7 +458,7 @@ function APIKeyRow({
                     value={editNamespaces}
                     onChange={e => setEditNamespaces(e.target.value)}
                     placeholder="Leave empty for privileged access"
-                    className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                    className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
                   />
                 </div>
                 <div>
@@ -467,7 +467,7 @@ function APIKeyRow({
                     type="text"
                     value={editGroups}
                     onChange={e => setEditGroups(e.target.value)}
-                    className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                    className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
                   />
                 </div>
               </div>
@@ -478,7 +478,7 @@ function APIKeyRow({
                     type="datetime-local"
                     value={editExpiresAt}
                     onChange={e => setEditExpiresAt(e.target.value)}
-                    className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                    className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
                   />
                 </div>
                 <div className="pt-4">
@@ -493,12 +493,12 @@ function APIKeyRow({
                   </label>
                 </div>
               </div>
-              {update.error && <p className="text-xs text-red-500">{update.error.message}</p>}
+              {update.error && <p className="text-xs text-danger">{update.error.message}</p>}
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleSave}
                   disabled={update.isPending}
-                  className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  className="px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
                 >
                   {update.isPending ? 'Saving...' : 'Save'}
                 </button>
@@ -511,19 +511,19 @@ function APIKeyRow({
               </div>
             </div>
           ) : revokeConfirm ? (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
-              <p className="text-sm text-red-700">
+            <div className="bg-danger/5 border border-danger/20 rounded-lg p-3 space-y-2">
+              <p className="text-sm text-danger">
                 Revoke API key <strong>{apiKey.name}</strong>? This cannot be undone.
               </p>
-              <p className="text-xs text-red-500">
+              <p className="text-xs text-danger">
                 Any applications using this key will lose access within 30 seconds.
               </p>
-              {revokeError && <p className="text-xs text-red-500">{revokeError}</p>}
+              {revokeError && <p className="text-xs text-danger">{revokeError}</p>}
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => revoke.mutate(apiKey.name)}
                   disabled={revoke.isPending}
-                  className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 disabled:opacity-50"
+                  className="px-3 py-1.5 bg-danger text-white text-sm rounded-md hover:bg-danger disabled:opacity-50"
                 >
                   {revoke.isPending ? 'Revoking...' : 'Yes, revoke'}
                 </button>
@@ -548,7 +548,7 @@ function APIKeyRow({
                   </button>
                   <button
                     onClick={() => { setRevokeConfirm(true); setRevokeError(null) }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-red-400 hover:text-red-600 hover:bg-red-50"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-danger/60 hover:text-danger hover:bg-danger/5"
                   >
                     <Trash2 size={12} />
                     Revoke
@@ -607,7 +607,7 @@ export default function APIKeysPage() {
           </button>
           <button
             onClick={() => setShowCreate(s => !s)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-dark"
           >
             <Plus size={14} />
             Create

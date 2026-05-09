@@ -111,7 +111,7 @@ export default function DocumentTablePage() {
       <div>
         <Link
           to={`/documents?template=${templateValue}${namespace ? `&ns=${namespace}` : ''}`}
-          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 mb-2"
+          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-primary mb-2"
         >
           <ArrowLeft size={12} />
           Back to Documents
@@ -214,7 +214,7 @@ export default function DocumentTablePage() {
                         title={typeof val === 'string' ? val : undefined}
                       >
                         {isDocId && typeof val === 'string' ? (
-                          <Link to={`/documents/${templateValue}/${val}`} className="text-blue-500 hover:text-blue-700 font-mono">
+                          <Link to={`/documents/${templateValue}/${val}`} className="text-primary hover:text-primary-dark font-mono">
                             {val.slice(0, 12)}...
                           </Link>
                         ) : (

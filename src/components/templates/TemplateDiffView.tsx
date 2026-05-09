@@ -173,12 +173,12 @@ export default function TemplateDiffView({
       {/* Summary line */}
       <div className="flex items-center gap-3 text-xs text-gray-500">
         {added.length > 0 && (
-          <span className="flex items-center gap-1 text-green-600">
+          <span className="flex items-center gap-1 text-success">
             <Plus size={10} /> {added.length} added
           </span>
         )}
         {removed.length > 0 && (
-          <span className="flex items-center gap-1 text-red-600">
+          <span className="flex items-center gap-1 text-danger">
             <Minus size={10} /> {removed.length} removed
           </span>
         )}
@@ -204,19 +204,19 @@ export default function TemplateDiffView({
         <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 text-sm">
           {/* Added fields */}
           {added.map(d => (
-            <div key={d.name} className="flex items-center gap-2 px-3 py-2 bg-green-50">
-              <Plus size={12} className="text-green-600 shrink-0" />
-              <span className="font-mono text-green-800">{d.name}</span>
+            <div key={d.name} className="flex items-center gap-2 px-3 py-2 bg-success/5">
+              <Plus size={12} className="text-success shrink-0" />
+              <span className="font-mono text-success">{d.name}</span>
               <TypeBadge type={d.new!.type} />
-              {d.new!.mandatory && <span className="text-red-400 text-xs font-bold">*</span>}
+              {d.new!.mandatory && <span className="text-danger/60 text-xs font-bold">*</span>}
             </div>
           ))}
 
           {/* Removed fields */}
           {removed.map(d => (
-            <div key={d.name} className="flex items-center gap-2 px-3 py-2 bg-red-50">
-              <Minus size={12} className="text-red-600 shrink-0" />
-              <span className="font-mono text-red-800 line-through">{d.name}</span>
+            <div key={d.name} className="flex items-center gap-2 px-3 py-2 bg-danger/5">
+              <Minus size={12} className="text-danger shrink-0" />
+              <span className="font-mono text-danger line-through">{d.name}</span>
               <TypeBadge type={d.old!.type} />
             </div>
           ))}
@@ -233,9 +233,9 @@ export default function TemplateDiffView({
                 {d.changes!.map((c, i) => (
                   <div key={i} className="text-xs text-gray-600">
                     <span className="text-gray-400">{c.property}:</span>{' '}
-                    <span className="text-red-500 line-through">{c.oldValue}</span>{' '}
+                    <span className="text-danger line-through">{c.oldValue}</span>{' '}
                     <ArrowRight size={8} className="inline text-gray-400" />{' '}
-                    <span className="text-green-600">{c.newValue}</span>
+                    <span className="text-success">{c.newValue}</span>
                   </div>
                 ))}
               </div>
@@ -256,13 +256,13 @@ export default function TemplateDiffView({
           </div>
           <div className="flex flex-wrap gap-1.5 text-xs">
             {identityDiff.removed.map(f => (
-              <span key={f} className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded line-through">{f}</span>
+              <span key={f} className="px-1.5 py-0.5 bg-danger/10 text-danger rounded line-through">{f}</span>
             ))}
             {identityDiff.unchanged.map(f => (
               <span key={f} className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">{f}</span>
             ))}
             {identityDiff.added.map(f => (
-              <span key={f} className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded">{f}</span>
+              <span key={f} className="px-1.5 py-0.5 bg-success/10 text-success rounded">{f}</span>
             ))}
           </div>
         </div>

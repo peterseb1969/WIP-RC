@@ -51,8 +51,8 @@ function StepIndicator({ current }: { current: Step }) {
           {i > 0 && <ChevronRight size={10} className="text-gray-300" />}
           <span className={cn(
             'px-2 py-0.5 rounded-full',
-            i === idx ? 'bg-blue-100 text-blue-700 font-medium' :
-            i < idx ? 'bg-green-100 text-green-700' : 'text-gray-400'
+            i === idx ? 'bg-primary/10 text-primary-dark font-medium' :
+            i < idx ? 'bg-success/10 text-success' : 'text-gray-400'
           )}>
             {i < idx ? <Check size={10} className="inline -mt-0.5" /> : null}
             {' '}{s.label}
@@ -94,7 +94,7 @@ function TemplateStep({
             className={cn(
               'text-left p-3 rounded-lg border transition-all',
               selectedValue === t.value
-                ? 'border-blue-300 bg-blue-50 shadow-sm'
+                ? 'border-primary/30 bg-primary/5 shadow-sm'
                 : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
             )}
           >
@@ -111,7 +111,7 @@ function TemplateStep({
         <button
           onClick={onNext}
           disabled={!selectedValue}
-          className="px-4 py-2 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
+          className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary disabled:opacity-50"
         >
           Next
         </button>
@@ -183,7 +183,7 @@ function UploadStep({
         onClick={() => inputRef.current?.click()}
         className={cn(
           'border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors',
-          dragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+          dragOver ? 'border-primary-light bg-primary/5' : 'border-gray-200 hover:border-gray-300'
         )}
       >
         <Upload size={32} className="mx-auto text-gray-400 mb-2" />
@@ -199,7 +199,7 @@ function UploadStep({
       </div>
 
       {parseError && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        <div className="flex items-center gap-2 px-4 py-2 bg-danger/5 border border-danger/20 rounded-lg text-sm text-danger">
           <AlertTriangle size={14} className="shrink-0" />
           {parseError}
         </div>
@@ -208,7 +208,7 @@ function UploadStep({
       {/* Preview */}
       {parsed && (
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm text-green-700">
+          <div className="flex items-center gap-2 text-sm text-success">
             <FileSpreadsheet size={14} />
             <span className="font-medium">{parsed.file.name}</span>
             <span className="text-gray-400">({parsed.headers.length} columns, preview of first {parsed.preview.length} rows)</span>
@@ -243,7 +243,7 @@ function UploadStep({
         <button
           onClick={onNext}
           disabled={!parsed}
-          className="px-4 py-2 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
+          className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary disabled:opacity-50"
         >
           Next
         </button>
@@ -298,7 +298,7 @@ function MappingStep({
             <select
               value={mapping[h] ?? ''}
               onChange={e => onChangeMapping({ ...mapping, [h]: e.target.value })}
-              className="flex-1 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+              className="flex-1 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-light focus:border-primary-light"
             >
               <option value="">— Skip —</option>
               {fields.map(f => (
@@ -318,7 +318,7 @@ function MappingStep({
         <button
           onClick={onNext}
           disabled={!hasMappings}
-          className="px-4 py-2 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
+          className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary disabled:opacity-50"
         >
           Start Import
         </button>
@@ -334,7 +334,7 @@ function MappingStep({
 function ImportingStep() {
   return (
     <div className="flex flex-col items-center justify-center py-16">
-      <Loader2 size={32} className="text-blue-500 animate-spin mb-4" />
+      <Loader2 size={32} className="text-primary animate-spin mb-4" />
       <p className="text-sm text-gray-600">Importing documents...</p>
       <p className="text-xs text-gray-400 mt-1">This may take a moment for large files.</p>
     </div>
@@ -362,13 +362,13 @@ function ResultsStep({
           <div className="text-2xl font-semibold text-gray-800">{result.total_rows}</div>
           <div className="text-xs text-gray-500">Total Rows</div>
         </div>
-        <div className="bg-green-50 rounded-lg p-4 text-center">
-          <div className="text-2xl font-semibold text-green-700">{result.succeeded}</div>
-          <div className="text-xs text-green-600">Succeeded</div>
+        <div className="bg-success/5 rounded-lg p-4 text-center">
+          <div className="text-2xl font-semibold text-success">{result.succeeded}</div>
+          <div className="text-xs text-success">Succeeded</div>
         </div>
-        <div className={cn('rounded-lg p-4 text-center', result.failed > 0 ? 'bg-red-50' : 'bg-gray-50')}>
-          <div className={cn('text-2xl font-semibold', result.failed > 0 ? 'text-red-700' : 'text-gray-400')}>{result.failed}</div>
-          <div className={cn('text-xs', result.failed > 0 ? 'text-red-600' : 'text-gray-500')}>Failed</div>
+        <div className={cn('rounded-lg p-4 text-center', result.failed > 0 ? 'bg-danger/5' : 'bg-gray-50')}>
+          <div className={cn('text-2xl font-semibold', result.failed > 0 ? 'text-danger' : 'text-gray-400')}>{result.failed}</div>
+          <div className={cn('text-xs', result.failed > 0 ? 'text-danger' : 'text-gray-500')}>Failed</div>
         </div>
         <div className="bg-gray-50 rounded-lg p-4 text-center">
           <div className="text-2xl font-semibold text-gray-400">{result.skipped}</div>
@@ -397,7 +397,7 @@ function ResultsStep({
                   <tr key={r.row}>
                     <td className="px-3 py-1.5 text-gray-500">{r.row}</td>
                     <td className="px-3 py-1.5">
-                      <Link to={`/documents/${templateValue}/${r.document_id}`} className="text-blue-500 hover:text-blue-700 font-mono">
+                      <Link to={`/documents/${templateValue}/${r.document_id}`} className="text-primary hover:text-primary-dark font-mono">
                         {r.document_id}
                       </Link>
                     </td>
@@ -421,23 +421,23 @@ function ResultsStep({
       {/* Errors */}
       {result.errors.length > 0 && (
         <details open>
-          <summary className="text-sm font-medium text-red-600 cursor-pointer">
+          <summary className="text-sm font-medium text-danger cursor-pointer">
             Errors ({result.errors.length})
           </summary>
-          <div className="mt-2 bg-white border border-red-200 rounded-lg overflow-hidden">
+          <div className="mt-2 bg-white border border-danger/20 rounded-lg overflow-hidden">
             <table className="text-xs w-full">
               <thead>
-                <tr className="bg-red-50 border-b border-red-200">
-                  <th className="px-3 py-1.5 text-left font-medium text-red-700">Row</th>
-                  <th className="px-3 py-1.5 text-left font-medium text-red-700">Error</th>
-                  <th className="px-3 py-1.5 text-left font-medium text-red-700">Data</th>
+                <tr className="bg-danger/5 border-b border-danger/20">
+                  <th className="px-3 py-1.5 text-left font-medium text-danger">Row</th>
+                  <th className="px-3 py-1.5 text-left font-medium text-danger">Error</th>
+                  <th className="px-3 py-1.5 text-left font-medium text-danger">Data</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-red-100">
                 {result.errors.slice(0, 50).map((err, i) => (
                   <tr key={i}>
                     <td className="px-3 py-1.5 text-gray-500">{err.row}</td>
-                    <td className="px-3 py-1.5 text-red-700">{err.error}</td>
+                    <td className="px-3 py-1.5 text-danger">{err.error}</td>
                     <td className="px-3 py-1.5 text-gray-500 font-mono truncate max-w-[300px]" title={JSON.stringify(err.data)}>
                       {JSON.stringify(err.data).slice(0, 80)}
                     </td>
@@ -456,7 +456,7 @@ function ResultsStep({
         </button>
         <Link
           to={`/documents?template=${templateValue}`}
-          className="px-4 py-2 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary"
         >
           View Documents
         </Link>
@@ -564,7 +564,7 @@ export default function DocumentImportPage() {
     <div className="space-y-4 max-w-4xl">
       {/* Header */}
       <div>
-        <Link to="/documents" className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 mb-2">
+        <Link to="/documents" className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-primary mb-2">
           <ArrowLeft size={12} />
           Back to Documents
         </Link>
@@ -600,7 +600,7 @@ export default function DocumentImportPage() {
 
       {/* Import error */}
       {importError && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        <div className="flex items-center gap-2 px-4 py-2 bg-danger/5 border border-danger/20 rounded-lg text-sm text-danger">
           <AlertTriangle size={14} className="shrink-0" />
           {importError}
         </div>

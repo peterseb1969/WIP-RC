@@ -58,15 +58,15 @@ export default function FieldQuickAdd({ onAdd, existingNames }: FieldQuickAddPro
         onChange={(e) => { setName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_')); setError(null) }}
         placeholder="field_name"
         className={cn(
-          'flex-1 min-w-0 border rounded-md px-2 py-1 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-blue-400',
-          error ? 'border-red-300' : 'border-gray-200'
+          'flex-1 min-w-0 border rounded-md px-2 py-1 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary-light',
+          error ? 'border-danger/30' : 'border-gray-200'
         )}
         onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(e) }}
       />
       <select
         value={type}
         onChange={(e) => setType(e.target.value as FieldType)}
-        className="border border-gray-200 rounded-md px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+        className="border border-gray-200 rounded-md px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-light"
       >
         {QUICK_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
       </select>
@@ -75,17 +75,17 @@ export default function FieldQuickAdd({ onAdd, existingNames }: FieldQuickAddPro
           type="checkbox"
           checked={mandatory}
           onChange={(e) => setMandatory(e.target.checked)}
-          className="rounded border-gray-300 text-blue-500"
+          className="rounded border-gray-300 text-primary"
         />
         Required
       </label>
       <button
         type="submit"
-        className="px-2 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 shrink-0"
+        className="px-2 py-1 bg-primary text-white text-xs rounded-md hover:bg-primary-dark shrink-0"
       >
         Add
       </button>
-      {error && <span className="text-xs text-red-500 shrink-0">{error}</span>}
+      {error && <span className="text-xs text-danger shrink-0">{error}</span>}
     </form>
   )
 }

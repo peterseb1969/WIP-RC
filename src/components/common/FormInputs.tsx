@@ -38,7 +38,7 @@ export function TextInput({
       placeholder={placeholder}
       disabled={disabled}
       className={cn(
-        'w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400',
+        'w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light focus:border-primary-light',
         mono && 'font-mono',
         disabled && 'bg-gray-50 text-gray-500 cursor-not-allowed',
       )}
@@ -68,7 +68,7 @@ export function NumberInput({
       placeholder={placeholder}
       disabled={disabled}
       className={cn(
-        'w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400',
+        'w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light focus:border-primary-light',
         disabled && 'bg-gray-50 text-gray-500 cursor-not-allowed',
       )}
     />
@@ -99,7 +99,7 @@ export function SelectInput<T extends string>({
       onChange={(e) => onChange((e.target.value || undefined) as T | undefined)}
       disabled={disabled}
       className={cn(
-        'w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400',
+        'w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-light focus:border-primary-light',
         disabled && 'bg-gray-50 text-gray-500 cursor-not-allowed',
       )}
     >
@@ -130,7 +130,7 @@ export function Toggle({
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
         disabled={disabled}
-        className="rounded border-gray-300 text-blue-500 focus:ring-blue-400"
+        className="rounded border-gray-300 text-primary focus:ring-primary-light"
       />
       <span className="text-sm text-gray-700">{label}</span>
     </label>

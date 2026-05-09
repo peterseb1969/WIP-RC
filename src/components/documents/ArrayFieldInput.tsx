@@ -100,7 +100,7 @@ export default function ArrayFieldInput({ field, value, onChange, disabled, name
             <button
               type="button"
               onClick={() => removeItem(i)}
-              className="shrink-0 mt-1 p-1 text-gray-300 hover:text-red-500"
+              className="shrink-0 mt-1 p-1 text-gray-300 hover:text-danger"
               title="Remove item"
             >
               <Trash2 size={14} />
@@ -112,7 +112,7 @@ export default function ArrayFieldInput({ field, value, onChange, disabled, name
         <button
           type="button"
           onClick={addItem}
-          className="inline-flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700"
+          className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary-dark"
         >
           <Plus size={12} /> Add item
         </button>

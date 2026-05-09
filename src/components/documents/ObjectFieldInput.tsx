@@ -58,13 +58,13 @@ export default function ObjectFieldInput({ value, onChange, disabled }: ObjectFi
         className={cn(
           'w-full border rounded-md px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:ring-1',
           parseError
-            ? 'border-red-300 focus:ring-red-300 focus:border-red-300'
-            : 'border-gray-200 focus:ring-blue-400 focus:border-blue-400',
+            ? 'border-danger/30 focus:ring-danger/30 focus:border-danger/30'
+            : 'border-gray-200 focus:ring-primary-light focus:border-primary-light',
           disabled && 'bg-gray-50 text-gray-500 cursor-not-allowed',
         )}
       />
       {parseError && (
-        <div className="text-xs text-red-500 mt-1">Invalid JSON: {parseError}</div>
+        <div className="text-xs text-danger mt-1">Invalid JSON: {parseError}</div>
       )}
       <div className="text-[10px] text-gray-400 mt-0.5">
         JSON parsed on blur. Object fields aren't validated against a schema in v1.

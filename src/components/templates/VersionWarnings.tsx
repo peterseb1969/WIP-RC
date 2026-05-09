@@ -22,10 +22,10 @@ interface VersionWarning {
 }
 
 const LEVEL_CONFIG: Record<WarningLevel, { icon: typeof Info; color: string; bg: string; border: string }> = {
-  info: { icon: Info, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
+  info: { icon: Info, color: 'text-primary', bg: 'bg-primary/5', border: 'border-primary/20' },
   warning: { icon: AlertTriangle, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' },
-  blocking: { icon: XOctagon, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
-  error: { icon: XOctagon, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
+  blocking: { icon: XOctagon, color: 'text-danger', bg: 'bg-danger/5', border: 'border-danger/20' },
+  error: { icon: XOctagon, color: 'text-danger', bg: 'bg-danger/5', border: 'border-danger/20' },
 }
 
 // ---------------------------------------------------------------------------
@@ -229,7 +229,7 @@ export default function VersionWarnings({
 
   if (warnings.length === 0) {
     return (
-      <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+      <div className="flex items-center gap-2 text-sm text-success bg-success/5 border border-success/20 rounded-md px-3 py-2">
         <CheckCircle size={14} />
         No issues detected. Safe to save.
       </div>

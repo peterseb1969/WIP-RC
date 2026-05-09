@@ -44,13 +44,13 @@ function JsonNode({ value, defaultCollapsed, depth = 0 }: {
   if (value === null) return <span className="text-gray-500">null</span>
   if (value === undefined) return <span className="text-gray-500">undefined</span>
   if (typeof value === 'boolean') return <span className="text-yellow-400">{String(value)}</span>
-  if (typeof value === 'number') return <span className="text-blue-400">{value}</span>
+  if (typeof value === 'number') return <span className="text-primary-light">{value}</span>
   if (typeof value === 'string') {
     // Truncate very long strings
     if (value.length > 200) {
-      return <span className="text-green-400">"{value.slice(0, 200)}..."</span>
+      return <span className="text-success/60">"{value.slice(0, 200)}..."</span>
     }
-    return <span className="text-green-400">"{value}"</span>
+    return <span className="text-success/60">"{value}"</span>
   }
 
   if (Array.isArray(value)) {

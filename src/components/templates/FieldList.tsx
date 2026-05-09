@@ -8,9 +8,9 @@ import { cn } from '@/lib/cn'
 // ---------------------------------------------------------------------------
 
 const TYPE_COLORS: Record<string, string> = {
-  string: 'bg-green-100 text-green-700',
-  number: 'bg-blue-100 text-blue-700',
-  integer: 'bg-blue-100 text-blue-700',
+  string: 'bg-success/10 text-success',
+  number: 'bg-primary/10 text-primary-dark',
+  integer: 'bg-primary/10 text-primary-dark',
   boolean: 'bg-yellow-100 text-yellow-700',
   date: 'bg-purple-100 text-purple-700',
   datetime: 'bg-purple-100 text-purple-700',
@@ -67,7 +67,7 @@ function FieldRow({
     <div
       className={cn(
         'flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors group',
-        isSelected && 'bg-blue-50 border-l-2 border-l-blue-500',
+        isSelected && 'bg-primary/5 border-l-2 border-l-blue-500',
         !isSelected && 'hover:bg-gray-50 border-l-2 border-l-transparent',
         isIdentity && !isSelected && 'bg-amber-50/50',
         isInherited && 'opacity-60',
@@ -103,7 +103,7 @@ function FieldRow({
             {field.name}
           </span>
           {isIdentity && <Key size={12} className="text-amber-500" />}
-          {field.mandatory && <span className="text-red-400 text-xs font-bold">*</span>}
+          {field.mandatory && <span className="text-danger/60 text-xs font-bold">*</span>}
           {isInherited && (
             <span className="text-[10px] text-gray-400 bg-gray-100 px-1 py-0.5 rounded">
               inherited
@@ -122,14 +122,14 @@ function FieldRow({
           <>
             <button
               onClick={(e) => { e.stopPropagation(); onSelect(index) }}
-              className="p-1 text-gray-300 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="p-1 text-gray-300 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
               title="Edit field"
             >
               <Pencil size={12} />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); onRemove(index) }}
-              className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="p-1 text-gray-300 hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity"
               title="Remove field"
             >
               <Trash2 size={12} />

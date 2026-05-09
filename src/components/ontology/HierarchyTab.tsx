@@ -63,7 +63,7 @@ export default function HierarchyTab({ term }: HierarchyTabProps) {
         <select
           value={relationshipType}
           onChange={e => setRelationshipType(e.target.value)}
-          className="border border-gray-200 rounded-md px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+          className="border border-gray-200 rounded-md px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-light focus:border-primary-light"
           disabled={typesQuery.isLoading}
         >
           {relationshipTypes.map(t => (
@@ -226,7 +226,7 @@ function TreeNode({
       <div
         className={cn(
           'px-3 py-1.5 flex items-center gap-1.5 hover:bg-gray-50',
-          isRoot && 'bg-blue-50/30'
+          isRoot && 'bg-primary/5/30'
         )}
         style={{ paddingLeft: `${12 + indent}px` }}
       >
@@ -238,13 +238,13 @@ function TreeNode({
         >
           {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         </button>
-        <Tag size={12} className={cn('shrink-0', isRoot ? 'text-blue-400' : 'text-gray-300')} />
+        <Tag size={12} className={cn('shrink-0', isRoot ? 'text-primary-light' : 'text-gray-300')} />
         {isRoot ? (
           <span className="text-sm font-medium text-gray-800 truncate">{label}</span>
         ) : (
           <Link
             to={`/terminologies/${terminologyId}/terms/${termId}`}
-            className="text-sm text-gray-800 hover:text-blue-600 hover:underline truncate"
+            className="text-sm text-gray-800 hover:text-primary hover:underline truncate"
           >
             {label}
           </Link>
@@ -262,7 +262,7 @@ function TreeNode({
         <>
           {query.isError && (
             <div
-              className="px-3 py-1.5 text-xs text-red-600"
+              className="px-3 py-1.5 text-xs text-danger"
               style={{ paddingLeft: `${32 + indent}px` }}
             >
               {(query.error as Error).message}

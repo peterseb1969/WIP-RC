@@ -90,7 +90,7 @@ export default function FileFieldInput({ field, value, onChange, disabled, names
             <button
               type="button"
               onClick={handleRemove}
-              className="p-1 text-gray-400 hover:text-red-500"
+              className="p-1 text-gray-400 hover:text-danger"
               title="Remove file (doesn't delete)"
             >
               <X size={14} />
@@ -104,7 +104,7 @@ export default function FileFieldInput({ field, value, onChange, disabled, names
           onDrop={handleDrop}
           className={cn(
             'border-2 border-dashed rounded-md px-3 py-4 text-center transition-colors',
-            dragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white',
+            dragOver ? 'border-primary-light bg-primary/5' : 'border-gray-200 bg-white',
             disabled && 'opacity-60 cursor-not-allowed',
           )}
         >
@@ -122,7 +122,7 @@ export default function FileFieldInput({ field, value, onChange, disabled, names
                   type="button"
                   onClick={() => inputRef.current?.click()}
                   disabled={disabled}
-                  className="text-blue-500 hover:text-blue-700 underline"
+                  className="text-primary hover:text-primary-dark underline"
                 >
                   choose a file
                 </button>
@@ -148,7 +148,7 @@ export default function FileFieldInput({ field, value, onChange, disabled, names
         </div>
       )}
       {uploadError && (
-        <div className="text-xs text-red-500 mt-1">{uploadError}</div>
+        <div className="text-xs text-danger mt-1">{uploadError}</div>
       )}
     </div>
   )

@@ -39,7 +39,7 @@ const ENTITY_ICONS: Record<string, React.ReactNode> = {
   terminology: <BookOpen size={12} className="text-purple-500" />,
   term: <Hash size={12} className="text-purple-400" />,
   template: <FileCode2 size={12} className="text-indigo-500" />,
-  document: <FileText size={12} className="text-blue-500" />,
+  document: <FileText size={12} className="text-primary" />,
   file: <FileIcon size={12} className="text-pink-400" />,
 }
 
@@ -47,7 +47,7 @@ const ENTITY_COLORS: Record<string, string> = {
   terminology: 'bg-purple-50 text-purple-700 border-purple-200',
   term: 'bg-purple-50 text-purple-600 border-purple-200',
   template: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-  document: 'bg-blue-50 text-blue-700 border-blue-200',
+  document: 'bg-primary/5 text-primary-dark border-primary/20',
   file: 'bg-pink-50 text-pink-700 border-pink-200',
 }
 
@@ -63,7 +63,7 @@ function CopyButton({ value }: { value: string }) {
       className="inline-flex items-center p-0.5 text-gray-300 hover:text-gray-500 transition-colors"
       title="Copy"
     >
-      {copied ? <Check size={11} className="text-green-500" /> : <Copy size={11} />}
+      {copied ? <Check size={11} className="text-success" /> : <Copy size={11} />}
     </button>
   )
 }
@@ -203,7 +203,7 @@ function ResultRow({
       onClick={onClick}
       className={cn(
         'w-full text-left px-3 py-2.5 transition-colors',
-        isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+        isSelected ? 'bg-primary/5' : 'hover:bg-gray-50'
       )}
     >
       <div className="flex items-center gap-2">
@@ -295,7 +295,7 @@ function EntryDetail({ entryId }: { entryId: string }) {
           {link && (
             <Link
               to={link}
-              className="inline-flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 font-medium"
+              className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary-dark font-medium"
             >
               <ExternalLink size={10} />
               View
@@ -318,7 +318,7 @@ function EntryDetail({ entryId }: { entryId: string }) {
           {entry.status === 'active' && (
             <button
               onClick={() => { setConfirmDeactivate(s => !s); setShowAddSynonym(false); setShowMerge(false); setActionError(null) }}
-              className="inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-600 px-2 py-1 border border-gray-200 rounded"
+              className="inline-flex items-center gap-1 text-xs text-danger/60 hover:text-danger px-2 py-1 border border-gray-200 rounded"
             >
               <XCircle size={10} />
               Deactivate
@@ -328,7 +328,7 @@ function EntryDetail({ entryId }: { entryId: string }) {
       </div>
 
       {/* Action panels */}
-      {actionError && <p className="text-xs text-red-500">{actionError}</p>}
+      {actionError && <p className="text-xs text-danger">{actionError}</p>}
 
       {showAddSynonym && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
@@ -339,7 +339,7 @@ function EntryDetail({ entryId }: { entryId: string }) {
               <select
                 value={synNs}
                 onChange={e => setSynNs(e.target.value)}
-                className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-400"
+                className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-primary-light"
               >
                 <option value="">Select...</option>
                 {(namespaces ?? []).map(n => <option key={n.prefix} value={n.prefix}>{n.prefix}</option>)}
@@ -350,7 +350,7 @@ function EntryDetail({ entryId }: { entryId: string }) {
               <select
                 value={synType}
                 onChange={e => setSynType(e.target.value)}
-                className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-400"
+                className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-primary-light"
               >
                 <option value="">Select...</option>
                 {ENTITY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -363,7 +363,7 @@ function EntryDetail({ entryId }: { entryId: string }) {
                 value={synKey}
                 onChange={e => setSynKey(e.target.value)}
                 placeholder='{"value":"..."}'
-                className="w-full border border-gray-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-blue-400"
+                className="w-full border border-gray-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-primary-light"
               />
             </div>
           </div>
@@ -383,7 +383,7 @@ function EntryDetail({ entryId }: { entryId: string }) {
                 }
               }}
               disabled={addSynonym.isPending || !synNs || !synType || !synKey}
-              className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+              className="px-2 py-1 bg-primary text-white text-xs rounded hover:bg-primary-dark disabled:opacity-50"
             >
               {addSynonym.isPending ? '...' : 'Add'}
             </button>
@@ -403,7 +403,7 @@ function EntryDetail({ entryId }: { entryId: string }) {
               value={mergeTargetId}
               onChange={e => setMergeTargetId(e.target.value)}
               placeholder="Entry ID to deprecate..."
-              className="w-full border border-gray-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-blue-400"
+              className="w-full border border-gray-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-primary-light"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -420,13 +420,13 @@ function EntryDetail({ entryId }: { entryId: string }) {
       )}
 
       {confirmDeactivate && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
-          <p className="text-xs text-red-700">Deactivate this entry? It will no longer resolve in lookups.</p>
+        <div className="bg-danger/5 border border-danger/20 rounded-lg p-3 space-y-2">
+          <p className="text-xs text-danger">Deactivate this entry? It will no longer resolve in lookups.</p>
           <div className="flex items-center gap-2">
             <button
               onClick={() => deactivate.mutate({ entryId, updatedBy: 'rc-console' })}
               disabled={deactivate.isPending}
-              className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:opacity-50"
+              className="px-2 py-1 bg-danger text-white text-xs rounded hover:bg-danger disabled:opacity-50"
             >
               {deactivate.isPending ? '...' : 'Yes, deactivate'}
             </button>
@@ -453,7 +453,7 @@ function EntryDetail({ entryId }: { entryId: string }) {
         </div>
         <div className="flex items-start gap-3 px-4 py-2.5">
           <span className="text-sm text-gray-500 shrink-0 min-w-[110px]">Namespace</span>
-          <Link to={`/?ns=${entry.namespace}`} className="text-sm text-blue-500 hover:text-blue-700 flex items-center gap-1">
+          <Link to={`/?ns=${entry.namespace}`} className="text-sm text-primary hover:text-primary-dark flex items-center gap-1">
             <FolderTree size={10} />
             {entry.namespace}
           </Link>
@@ -528,7 +528,7 @@ function EntryDetail({ entryId }: { entryId: string }) {
                     synonym_composite_key: syn.composite_key,
                   })}
                   disabled={removeSynonym.isPending}
-                  className="p-1 text-gray-300 hover:text-red-500 transition-colors shrink-0"
+                  className="p-1 text-gray-300 hover:text-danger transition-colors shrink-0"
                   title="Remove synonym"
                 >
                   <Trash2 size={12} />
@@ -602,7 +602,7 @@ function BrowseEntries({
                       onClick={() => setSelectedEntryId(entry.entry_id)}
                       className={cn(
                         'w-full text-left px-3 py-2.5 transition-colors',
-                        selectedEntryId === entry.entry_id ? 'bg-blue-50' : 'hover:bg-gray-50'
+                        selectedEntryId === entry.entry_id ? 'bg-primary/5' : 'hover:bg-gray-50'
                       )}
                     >
                       <div className="flex items-center gap-2">
@@ -743,14 +743,14 @@ export default function RegistryPage() {
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search by ID, value, label, or composite key..."
-              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400"
+              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-primary-light"
               autoFocus
             />
           </div>
           <select
             value={nsOverride}
             onChange={e => setNsOverride(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary-light"
           >
             <option value="">{namespace ? `${namespace} (global)` : 'All namespaces'}</option>
             {namespaces?.sort((a, b) => a.prefix.localeCompare(b.prefix)).map(ns => (

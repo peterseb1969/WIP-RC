@@ -131,7 +131,7 @@ function FieldRow({
     <div>
       <Label htmlFor={id}>
         {field.label || field.name}
-        {field.mandatory && <span className="text-red-400 ml-0.5">*</span>}
+        {field.mandatory && <span className="text-danger/60 ml-0.5">*</span>}
         {disabled && (
           <span
             className="ml-2 text-[10px] text-gray-400 font-normal"

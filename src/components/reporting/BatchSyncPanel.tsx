@@ -101,7 +101,7 @@ export default function BatchSyncPanel() {
             <button
               onClick={handleSyncAll}
               disabled={anyTriggerPending}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
             >
               {triggerAll.isPending ? <Loader2 size={12} className="animate-spin" /> : <PlayCircle size={14} />}
               Sync all templates
@@ -110,7 +110,7 @@ export default function BatchSyncPanel() {
             <select
               value={singleTemplate}
               onChange={e => setSingleTemplate(e.target.value)}
-              className="border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+              className="border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light focus:border-primary-light"
             >
               <option value="">Single template…</option>
               {(templates?.items ?? []).map(t => (
@@ -135,7 +135,7 @@ export default function BatchSyncPanel() {
             <select
               value={entityNs}
               onChange={e => setEntityNs(e.target.value)}
-              className="border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+              className="border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light focus:border-primary-light"
             >
               <option value="">Namespace…</option>
               {(namespaces ?? []).map(n => (
@@ -192,7 +192,7 @@ export default function BatchSyncPanel() {
                   onChange={e => setPageSize(Math.max(1, Number(e.target.value) || 100))}
                   min={1}
                   max={1000}
-                  className="w-20 border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  className="w-20 border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary-light"
                 />
               </label>
             </div>
@@ -200,7 +200,7 @@ export default function BatchSyncPanel() {
         </div>
 
         {error && (
-          <div className="flex items-start gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          <div className="flex items-start gap-2 text-xs text-danger bg-danger/5 border border-danger/20 rounded-md px-3 py-2">
             <AlertTriangle size={14} className="shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -274,13 +274,13 @@ function JobRow({ job }: { job: BatchSyncJob }) {
         {pct !== null && isActive && (
           <div className="mt-1 h-1 bg-gray-100 rounded overflow-hidden">
             <div
-              className={cn('h-full transition-all', job.status === 'failed' ? 'bg-red-400' : 'bg-blue-400')}
+              className={cn('h-full transition-all', job.status === 'failed' ? 'bg-danger/60' : 'bg-primary-light')}
               style={{ width: `${pct}%` }}
             />
           </div>
         )}
         {job.error_message && (
-          <div className="mt-1 text-red-600 break-words">{job.error_message}</div>
+          <div className="mt-1 text-danger break-words">{job.error_message}</div>
         )}
         <div className="mt-0.5 text-[10px] text-gray-400 flex items-center gap-2">
           <span className="font-mono">{job.job_id.slice(0, 8)}</span>
@@ -302,7 +302,7 @@ function JobRow({ job }: { job: BatchSyncJob }) {
         <button
           onClick={() => cancel.mutate(job.job_id)}
           disabled={cancel.isPending}
-          className="p-1 text-gray-400 hover:text-red-500 disabled:opacity-50"
+          className="p-1 text-gray-400 hover:text-danger disabled:opacity-50"
           title="Cancel job"
         >
           <X size={12} />
@@ -314,10 +314,10 @@ function JobRow({ job }: { job: BatchSyncJob }) {
 
 function StatusIcon({ status }: { status: BatchSyncStatus }) {
   switch (status) {
-    case 'completed': return <CheckCircle size={14} className="text-green-500 shrink-0" />
-    case 'failed':    return <XCircle size={14} className="text-red-500 shrink-0" />
+    case 'completed': return <CheckCircle size={14} className="text-success shrink-0" />
+    case 'failed':    return <XCircle size={14} className="text-danger shrink-0" />
     case 'cancelled': return <X size={14} className="text-gray-400 shrink-0" />
-    case 'running':   return <Loader2 size={14} className="text-blue-500 shrink-0 animate-spin" />
+    case 'running':   return <Loader2 size={14} className="text-primary shrink-0 animate-spin" />
     case 'pending':   return <Clock size={14} className="text-amber-500 shrink-0" />
   }
 }

@@ -85,7 +85,7 @@ function CreateTermForm({
   const activeTerms = existingTerms.filter(t => t.status === 'active')
 
   return (
-    <div className="bg-white border border-blue-200 rounded-lg p-4 mb-3">
+    <div className="bg-white border border-primary/20 rounded-lg p-4 mb-3">
       <h3 className="text-sm font-medium text-gray-700 mb-3">Add Term</h3>
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
@@ -96,7 +96,7 @@ function CreateTermForm({
               value={value}
               onChange={e => { setValue(e.target.value); setError(null) }}
               placeholder="term_value"
-              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm font-mono focus:outline-none focus:border-blue-400"
+              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm font-mono focus:outline-none focus:border-primary-light"
               autoFocus
             />
           </div>
@@ -107,7 +107,7 @@ function CreateTermForm({
               value={label}
               onChange={e => setLabel(e.target.value)}
               placeholder="Display label"
-              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
             />
           </div>
         </div>
@@ -118,7 +118,7 @@ function CreateTermForm({
             value={description}
             onChange={e => setDescription(e.target.value)}
             placeholder="Optional description"
-            className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+            className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
           />
         </div>
         <div>
@@ -128,7 +128,7 @@ function CreateTermForm({
             value={aliases}
             onChange={e => setAliases(e.target.value)}
             placeholder="alias1, alias2"
-            className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+            className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -139,7 +139,7 @@ function CreateTermForm({
               value={sortOrder}
               onChange={e => setSortOrder(e.target.value)}
               placeholder="0"
-              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
             />
           </div>
           <div>
@@ -147,7 +147,7 @@ function CreateTermForm({
             <select
               value={parentTermId}
               onChange={e => setParentTermId(e.target.value)}
-              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
             >
               <option value="">None</option>
               {activeTerms.map(t => (
@@ -156,12 +156,12 @@ function CreateTermForm({
             </select>
           </div>
         </div>
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error && <p className="text-xs text-danger">{error}</p>}
         <div className="flex items-center gap-2">
           <button
             onClick={handleCreate}
             disabled={create.isPending || !value.trim()}
-            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+            className="px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
           >
             {create.isPending ? 'Adding...' : 'Add Term'}
           </button>
@@ -258,7 +258,7 @@ function TermRow({
               type="text"
               value={editValue}
               onChange={e => setEditValue(e.target.value)}
-              className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm font-mono focus:outline-none focus:border-blue-400"
+              className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm font-mono focus:outline-none focus:border-primary-light"
               autoFocus
             />
           </div>
@@ -268,7 +268,7 @@ function TermRow({
               type="text"
               value={editLabel}
               onChange={e => setEditLabel(e.target.value)}
-              className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-blue-400"
+              className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-primary-light"
             />
           </div>
         </div>
@@ -278,7 +278,7 @@ function TermRow({
             type="text"
             value={editDesc}
             onChange={e => setEditDesc(e.target.value)}
-            className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-blue-400"
+            className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-primary-light"
           />
         </div>
         <div>
@@ -287,7 +287,7 @@ function TermRow({
             type="text"
             value={editAliases}
             onChange={e => setEditAliases(e.target.value)}
-            className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-blue-400"
+            className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-primary-light"
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -298,7 +298,7 @@ function TermRow({
               value={editSortOrder}
               onChange={e => setEditSortOrder(e.target.value)}
               placeholder="0"
-              className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-blue-400"
+              className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-primary-light"
             />
           </div>
           <div>
@@ -306,7 +306,7 @@ function TermRow({
             <select
               value={editParentTermId}
               onChange={e => setEditParentTermId(e.target.value)}
-              className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-blue-400"
+              className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-primary-light"
             >
               <option value="">None</option>
               {allTerms.filter(t => t.term_id !== term.term_id && t.status === 'active').map(t => (
@@ -315,12 +315,12 @@ function TermRow({
             </select>
           </div>
         </div>
-        {update.error && <p className="text-xs text-red-500">{update.error.message}</p>}
+        {update.error && <p className="text-xs text-danger">{update.error.message}</p>}
         <div className="flex items-center gap-2">
           <button
             onClick={handleSave}
             disabled={update.isPending}
-            className="px-2.5 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 disabled:opacity-50"
+            className="px-2.5 py-1 bg-primary text-white text-xs rounded-md hover:bg-primary-dark disabled:opacity-50"
           >
             {update.isPending ? 'Saving...' : 'Save'}
           </button>
@@ -343,7 +343,7 @@ function TermRow({
           <div className="flex items-center gap-2">
             <Link
               to={`/terminologies/${terminologyId}/terms/${term.term_id}`}
-              className="text-sm font-medium text-gray-800 hover:text-blue-600 hover:underline"
+              className="text-sm font-medium text-gray-800 hover:text-primary hover:underline"
             >
               {term.label ?? term.value}
             </Link>
@@ -352,7 +352,7 @@ function TermRow({
               className="text-gray-300 hover:text-gray-500"
               title="Copy value"
             >
-              {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
+              {copied ? <Check size={12} className="text-success" /> : <Copy size={12} />}
             </button>
           </div>
           <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
@@ -399,13 +399,13 @@ function TermRow({
                   value={deprecateReason}
                   onChange={e => setDeprecateReason(e.target.value)}
                   placeholder="Deprecation reason"
-                  className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-blue-400 flex-1 max-w-xs"
+                  className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-primary-light flex-1 max-w-xs"
                   autoFocus
                 />
                 <select
                   value={deprecateReplacedBy}
                   onChange={e => setDeprecateReplacedBy(e.target.value)}
-                  className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-blue-400 max-w-xs"
+                  className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-primary-light max-w-xs"
                 >
                   <option value="">Replaced by... (optional)</option>
                   {allTerms.filter(t => t.term_id !== term.term_id && t.status === 'active').map(t => (
@@ -433,11 +433,11 @@ function TermRow({
           {/* Inline delete confirmation */}
           {confirmDelete && (
             <div className="mt-2 flex items-center gap-2">
-              <span className="text-xs text-red-600">Delete this term?</span>
+              <span className="text-xs text-danger">Delete this term?</span>
               <button
                 onClick={() => remove.mutate(term.term_id)}
                 disabled={remove.isPending}
-                className="px-2 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 disabled:opacity-50"
+                className="px-2 py-1 bg-danger text-white text-xs rounded-md hover:bg-danger disabled:opacity-50"
               >
                 {remove.isPending ? '...' : 'Yes, delete'}
               </button>
@@ -457,10 +457,10 @@ function TermRow({
           />
           {/* Action buttons — visible on hover */}
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={() => setShowJson(s => !s)} className={`p-1 ${showJson ? 'text-blue-500' : 'text-gray-300 hover:text-blue-500'}`} title="Raw JSON">
+            <button onClick={() => setShowJson(s => !s)} className={`p-1 ${showJson ? 'text-primary' : 'text-gray-300 hover:text-primary'}`} title="Raw JSON">
               <Code size={12} />
             </button>
-            <button onClick={startEdit} className="p-1 text-gray-300 hover:text-blue-500" title="Edit">
+            <button onClick={startEdit} className="p-1 text-gray-300 hover:text-primary" title="Edit">
               <Pencil size={12} />
             </button>
             {term.status === 'active' && (
@@ -468,7 +468,7 @@ function TermRow({
                 <AlertTriangle size={12} />
               </button>
             )}
-            <button onClick={() => { setConfirmDelete(true); setShowDeprecate(false) }} className="p-1 text-gray-300 hover:text-red-500" title="Delete">
+            <button onClick={() => { setConfirmDelete(true); setShowDeprecate(false) }} className="p-1 text-gray-300 hover:text-danger" title="Delete">
               <Trash2 size={12} />
             </button>
           </div>
@@ -535,15 +535,15 @@ function ValidatePanel({ terminologyId, terminologyValue }: { terminologyId: str
           onChange={e => setInput(e.target.value)}
           placeholder={"value1\nvalue2\nvalue3"}
           rows={4}
-          className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm font-mono focus:outline-none focus:border-blue-400"
+          className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm font-mono focus:outline-none focus:border-primary-light"
           autoFocus
         />
       </div>
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
       <button
         onClick={handleValidate}
         disabled={loading || !input.trim()}
-        className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+        className="px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
       >
         {loading ? 'Validating...' : 'Validate'}
       </button>
@@ -552,8 +552,8 @@ function ValidatePanel({ terminologyId, terminologyValue }: { terminologyId: str
           {results.map((r, i) => (
             <div key={i} className="flex items-center gap-3 px-4 py-2">
               {r.valid
-                ? <CheckCircle size={14} className="text-green-500 shrink-0" />
-                : <XCircle size={14} className="text-red-500 shrink-0" />
+                ? <CheckCircle size={14} className="text-success shrink-0" />
+                : <XCircle size={14} className="text-danger shrink-0" />
               }
               <span className="text-sm font-mono text-gray-700">{r.value}</span>
               {r.valid && r.matched_value && r.matched_value !== r.value && (
@@ -766,7 +766,7 @@ function ImportPanel({ terminologyId, namespace, onClose }: { terminologyId: str
         />
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="w-full border-2 border-dashed border-gray-200 rounded-lg py-4 text-sm text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors flex flex-col items-center gap-1"
+          className="w-full border-2 border-dashed border-gray-200 rounded-lg py-4 text-sm text-gray-400 hover:border-primary/30 hover:text-primary transition-colors flex flex-col items-center gap-1"
         >
           <Upload size={18} />
           {selectedFile ? (
@@ -776,19 +776,19 @@ function ImportPanel({ terminologyId, namespace, onClose }: { terminologyId: str
           )}
         </button>
       </div>
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
       {result && (
-        <div className="text-sm text-gray-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2">
+        <div className="text-sm text-gray-700 bg-success/5 border border-success/20 rounded-lg px-4 py-2">
           Imported {result.terms} term{result.terms !== 1 ? 's' : ''}
           {result.relationships > 0 && `, ${result.relationships} relationship${result.relationships !== 1 ? 's' : ''}`}
-          {result.errors > 0 && <span className="text-red-600"> ({result.errors} error{result.errors !== 1 ? 's' : ''})</span>}
+          {result.errors > 0 && <span className="text-danger"> ({result.errors} error{result.errors !== 1 ? 's' : ''})</span>}
         </div>
       )}
       <div className="flex items-center gap-2">
         <button
           onClick={handleImport}
           disabled={importing || !selectedFile}
-          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+          className="px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
         >
           {importing ? 'Importing...' : 'Import'}
         </button>
@@ -990,13 +990,13 @@ export default function TerminologyDetailPage() {
       <div>
         <Link
           to="/terminologies"
-          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 mb-2"
+          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-primary mb-2"
         >
           <ArrowLeft size={12} />
           Back to Terminologies
         </Link>
         <div className="flex items-center gap-3">
-          <BookOpen size={24} className="text-blue-500" />
+          <BookOpen size={24} className="text-primary" />
           <div className="flex-1">
             <h1 className="text-2xl font-semibold text-gray-800">
               {terminology.label || terminology.value}
@@ -1046,7 +1046,7 @@ export default function TerminologyDetailPage() {
               </button>
               <button
                 onClick={() => { setConfirmDelete(true); setEditing(false) }}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-red-400 hover:text-red-600 hover:bg-red-50"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-danger/60 hover:text-danger hover:bg-danger/5"
               >
                 <Trash2 size={12} />
                 Delete
@@ -1070,7 +1070,7 @@ export default function TerminologyDetailPage() {
                 type="text"
                 value={editLabel}
                 onChange={e => setEditLabel(e.target.value)}
-                className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
                 autoFocus
               />
             </div>
@@ -1119,7 +1119,7 @@ export default function TerminologyDetailPage() {
               type="text"
               value={editDesc}
               onChange={e => setEditDesc(e.target.value)}
-              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
             />
           </div>
           {/* Metadata (collapsible) */}
@@ -1140,7 +1140,7 @@ export default function TerminologyDetailPage() {
                     value={editMetaSource}
                     onChange={e => setEditMetaSource(e.target.value)}
                     placeholder="e.g. ICD-10, SNOMED CT"
-                    className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                    className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
                   />
                 </div>
                 <div>
@@ -1150,7 +1150,7 @@ export default function TerminologyDetailPage() {
                     value={editMetaSourceUrl}
                     onChange={e => setEditMetaSourceUrl(e.target.value)}
                     placeholder="https://..."
-                    className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                    className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
                   />
                 </div>
                 <div>
@@ -1160,7 +1160,7 @@ export default function TerminologyDetailPage() {
                     value={editMetaVersion}
                     onChange={e => setEditMetaVersion(e.target.value)}
                     placeholder="e.g. 2024.1"
-                    className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                    className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
                   />
                 </div>
                 <div>
@@ -1170,18 +1170,18 @@ export default function TerminologyDetailPage() {
                     value={editMetaLanguage}
                     onChange={e => setEditMetaLanguage(e.target.value)}
                     placeholder="e.g. en, de"
-                    className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                    className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
                   />
                 </div>
               </div>
             )}
           </div>
-          {updateTerminology.error && <p className="text-xs text-red-500">{updateTerminology.error.message}</p>}
+          {updateTerminology.error && <p className="text-xs text-danger">{updateTerminology.error.message}</p>}
           <div className="flex items-center gap-2">
             <button
               onClick={handleSave}
               disabled={updateTerminology.isPending}
-              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+              className="px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
             >
               {updateTerminology.isPending ? 'Saving...' : 'Save'}
             </button>
@@ -1197,8 +1197,8 @@ export default function TerminologyDetailPage() {
 
       {/* Delete confirmation */}
       {confirmDelete && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-2">
-          <p className="text-sm text-red-700">
+        <div className="bg-danger/5 border border-danger/20 rounded-lg p-4 space-y-2">
+          <p className="text-sm text-danger">
             Delete terminology <strong>{terminology.label || terminology.value}</strong>?
             {(terminology.term_count ?? 0) > 0 && (
               <span className="block mt-1">
@@ -1206,12 +1206,12 @@ export default function TerminologyDetailPage() {
               </span>
             )}
           </p>
-          {deleteTerminology.error && <p className="text-xs text-red-500">{deleteTerminology.error.message}</p>}
+          {deleteTerminology.error && <p className="text-xs text-danger">{deleteTerminology.error.message}</p>}
           <div className="flex items-center gap-2">
             <button
               onClick={() => deleteTerminology.mutate(terminology.terminology_id)}
               disabled={deleteTerminology.isPending}
-              className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 disabled:opacity-50"
+              className="px-3 py-1.5 bg-danger text-white text-sm rounded-md hover:bg-danger disabled:opacity-50"
             >
               {deleteTerminology.isPending ? 'Deleting...' : 'Yes, delete'}
             </button>
@@ -1267,7 +1267,7 @@ export default function TerminologyDetailPage() {
           <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
             {meta.source && <span>Source: {meta.source}</span>}
             {meta.source_url && (
-              <a href={meta.source_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-600 underline">
+              <a href={meta.source_url} target="_blank" rel="noopener noreferrer" className="text-primary-light hover:text-primary underline">
                 {meta.source_url}
               </a>
             )}
@@ -1291,7 +1291,7 @@ export default function TerminologyDetailPage() {
             </button>
             <button
               onClick={() => setShowCreateTerm(s => !s)}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-primary text-white text-xs rounded-md hover:bg-primary-dark"
             >
               <Plus size={12} />
               Add Term
@@ -1319,7 +1319,7 @@ export default function TerminologyDetailPage() {
           <select
             value={statusFilter}
             onChange={e => { setStatusFilter(e.target.value as typeof statusFilter); setPage(1) }}
-            className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+            className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary-light"
           >
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>

@@ -37,9 +37,9 @@ import { cn } from '@/lib/cn'
 
 function TypeBadge({ type }: { type: string }) {
   const colors: Record<string, string> = {
-    string: 'bg-green-100 text-green-700',
-    number: 'bg-blue-100 text-blue-700',
-    integer: 'bg-blue-100 text-blue-700',
+    string: 'bg-success/10 text-success',
+    number: 'bg-primary/10 text-primary-dark',
+    integer: 'bg-primary/10 text-primary-dark',
     boolean: 'bg-yellow-100 text-yellow-700',
     date: 'bg-purple-100 text-purple-700',
     datetime: 'bg-purple-100 text-purple-700',
@@ -114,7 +114,7 @@ function FieldRow({ field, isIdentity, terminologyMap, templateMap }: {
           <div className="flex items-center gap-2">
             <span className="text-sm font-mono text-gray-800">{name}</span>
             {isIdentity && <Key size={12} className="text-amber-500" aria-label="Identity field" />}
-            {mandatory && <span className="text-red-400 text-xs">*</span>}
+            {mandatory && <span className="text-danger/60 text-xs">*</span>}
           </div>
           {label && label !== name && (
             <p className="text-xs text-gray-400 mt-0.5">{label}</p>
@@ -225,7 +225,7 @@ export default function TemplateDetailPage() {
     <div className="space-y-4 max-w-5xl">
       {/* Header */}
       <div>
-        <Link to="/templates" className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 mb-2">
+        <Link to="/templates" className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-primary mb-2">
           <ArrowLeft size={12} />
           Back to Templates
         </Link>
@@ -269,7 +269,7 @@ export default function TemplateDetailPage() {
                         className={cn(
                           'px-1.5 py-0.5 rounded border text-[10px]',
                           v.version === template.version
-                            ? 'bg-blue-100 border-blue-300 text-blue-700 font-medium'
+                            ? 'bg-primary/10 border-primary/30 text-primary-dark font-medium'
                             : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
                         )}
                       >
@@ -290,14 +290,14 @@ export default function TemplateDetailPage() {
           <div className="flex items-center gap-2 shrink-0">
             <Link
               to={`/templates/${template.template_id}/edit`}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm rounded-md text-gray-600 hover:bg-gray-50 hover:text-blue-600"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm rounded-md text-gray-600 hover:bg-gray-50 hover:text-primary"
             >
               <Pencil size={12} />
               Edit
             </Link>
             <Link
               to={`/templates/new?from=${template.template_id}`}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm rounded-md text-gray-600 hover:bg-gray-50 hover:text-blue-600"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm rounded-md text-gray-600 hover:bg-gray-50 hover:text-primary"
               title="Create a new template pre-filled from this one"
             >
               <Copy size={12} />
@@ -306,7 +306,7 @@ export default function TemplateDetailPage() {
             {template.status === 'active' && !confirmDeactivate && (
               <button
                 onClick={() => setConfirmDeactivate(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-sm rounded-md text-red-500 hover:bg-red-50 hover:text-red-700"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-danger/20 text-sm rounded-md text-danger hover:bg-danger/5 hover:text-danger"
               >
                 <Trash2 size={12} />
                 Deactivate
@@ -315,9 +315,9 @@ export default function TemplateDetailPage() {
           </div>
         </div>
         {confirmDeactivate && (
-          <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm">
-            <AlertTriangle size={16} className="text-red-500 shrink-0" />
-            <span className="text-red-700">
+          <div className="flex items-center gap-3 px-4 py-3 bg-danger/5 border border-danger/20 rounded-lg text-sm">
+            <AlertTriangle size={16} className="text-danger shrink-0" />
+            <span className="text-danger">
               Deactivate <strong>{template.label || template.value}</strong>? Documents using this template will remain but the template will no longer appear in active lists.
             </span>
             <div className="flex items-center gap-2 ml-auto shrink-0">
@@ -330,7 +330,7 @@ export default function TemplateDetailPage() {
               <button
                 onClick={() => deactivate.mutate({ id: template.template_id, force: true })}
                 disabled={deactivate.isPending}
-                className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-xs disabled:opacity-50"
+                className="px-3 py-1 bg-danger text-white rounded hover:bg-danger text-xs disabled:opacity-50"
               >
                 {deactivate.isPending ? 'Deactivating...' : 'Confirm Deactivate'}
               </button>
@@ -338,7 +338,7 @@ export default function TemplateDetailPage() {
           </div>
         )}
         {deactivateError && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          <div className="flex items-center gap-2 px-4 py-2 bg-danger/5 border border-danger/20 rounded-lg text-sm text-danger">
             <AlertTriangle size={14} className="shrink-0" />
             {deactivateError}
           </div>
@@ -433,7 +433,7 @@ export default function TemplateDetailPage() {
               <div className="flex items-center gap-1">
                 <span className="text-gray-500">Tags:</span>
                 {meta.tags.map(tag => (
-                  <span key={tag} className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-[10px]">{tag}</span>
+                  <span key={tag} className="bg-primary/5 text-primary-dark px-1.5 py-0.5 rounded text-[10px]">{tag}</span>
                 ))}
               </div>
             )}
@@ -514,7 +514,7 @@ export default function TemplateDetailPage() {
       {/* Quick link to documents */}
       <Link
         to={`/documents?template=${template.value}${template.namespace ? `&ns=${template.namespace}` : ''}`}
-        className="inline-flex items-center gap-1.5 text-sm text-blue-500 hover:text-blue-700"
+        className="inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary-dark"
       >
         <FileText size={14} />
         View documents using this template

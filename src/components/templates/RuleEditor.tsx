@@ -51,7 +51,7 @@ function ConditionRow({
       <select
         value={condition.field}
         onChange={(e) => onChange({ ...condition, field: e.target.value })}
-        className="border border-gray-200 rounded-md px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+        className="border border-gray-200 rounded-md px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-light"
       >
         <option value="">field...</option>
         {fieldNames.map(f => <option key={f} value={f}>{f}</option>)}
@@ -59,7 +59,7 @@ function ConditionRow({
       <select
         value={condition.operator}
         onChange={(e) => onChange({ ...condition, operator: e.target.value as ConditionOperator })}
-        className="border border-gray-200 rounded-md px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+        className="border border-gray-200 rounded-md px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-light"
       >
         {OPERATORS.map(op => <option key={op.value} value={op.value}>{op.label}</option>)}
       </select>
@@ -79,13 +79,13 @@ function ConditionRow({
             onChange({ ...condition, value: val || undefined })
           }}
           placeholder={isArrayOp ? 'val1, val2' : 'value'}
-          className="flex-1 border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+          className="flex-1 border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light"
         />
       )}
       <button
         type="button"
         onClick={onRemove}
-        className="p-1 text-gray-300 hover:text-red-500"
+        className="p-1 text-gray-300 hover:text-danger"
       >
         <Trash2 size={12} />
       </button>
@@ -164,7 +164,7 @@ export default function RuleEditor({
         <select
           value={rule.type}
           onChange={(e) => handleTypeChange(e.target.value as RuleType)}
-          className="border border-gray-200 rounded-md px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+          className="border border-gray-200 rounded-md px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-light"
         >
           {RULE_TYPES.map(t => (
             <option key={t.value} value={t.value}>{t.label}</option>
@@ -174,7 +174,7 @@ export default function RuleEditor({
         <button
           type="button"
           onClick={onRemove}
-          className="p-1 text-gray-300 hover:text-red-500"
+          className="p-1 text-gray-300 hover:text-danger"
           title="Remove rule"
         >
           <Trash2 size={14} />
@@ -192,7 +192,7 @@ export default function RuleEditor({
               value={rule.description ?? ''}
               onChange={(e) => update({ description: e.target.value || undefined })}
               placeholder="What this rule enforces"
-              className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light"
             />
           </div>
 
@@ -204,7 +204,7 @@ export default function RuleEditor({
                 <button
                   type="button"
                   onClick={addCondition}
-                  className="inline-flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary-dark"
                 >
                   <Plus size={10} /> Add condition
                 </button>
@@ -233,7 +233,7 @@ export default function RuleEditor({
               <select
                 value={rule.target_field ?? ''}
                 onChange={(e) => update({ target_field: e.target.value || undefined })}
-                className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-light"
               >
                 <option value="">Select field...</option>
                 {fieldNames.map(f => <option key={f} value={f}>{f}</option>)}
@@ -253,7 +253,7 @@ export default function RuleEditor({
                   update({ target_fields: items.length > 0 ? items : undefined })
                 }}
                 placeholder="field_a, field_b"
-                className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary-light"
               />
             </div>
           )}
@@ -270,7 +270,7 @@ export default function RuleEditor({
                   update({ allowed_values: items.length > 0 ? items : undefined })
                 }}
                 placeholder="value1, value2"
-                className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light"
               />
             </div>
           )}
@@ -283,7 +283,7 @@ export default function RuleEditor({
                 value={rule.pattern ?? ''}
                 onChange={(e) => update({ pattern: e.target.value || undefined })}
                 placeholder="^[A-Z]{2}-\\d+$"
-                className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary-light"
               />
             </div>
           )}
@@ -296,7 +296,7 @@ export default function RuleEditor({
                   type="number"
                   value={rule.minimum ?? ''}
                   onChange={(e) => update({ minimum: e.target.value === '' ? undefined : Number(e.target.value) })}
-                  className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light"
                 />
               </div>
               <div>
@@ -305,7 +305,7 @@ export default function RuleEditor({
                   type="number"
                   value={rule.maximum ?? ''}
                   onChange={(e) => update({ maximum: e.target.value === '' ? undefined : Number(e.target.value) })}
-                  className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light"
                 />
               </div>
             </div>
@@ -319,7 +319,7 @@ export default function RuleEditor({
               value={rule.error_message ?? ''}
               onChange={(e) => update({ error_message: e.target.value || undefined })}
               placeholder="Shown when validation fails"
-              className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light"
             />
           </div>
         </div>
