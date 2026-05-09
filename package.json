@@ -13,7 +13,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
+    "@anthropic-ai/sdk": "^0.95.1",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "@tanstack/react-query": "^5.96.2",
     "@wip/client": "file:libs/wip-client-0.17.0.tgz",

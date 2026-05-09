@@ -156,8 +156,20 @@ router.post('/query', async (req, res) => {
       const response = await client.messages.create({
         model: MODEL,
         max_tokens: MAX_TOKENS,
-        system: SYSTEM_PROMPT,
-        tools: toolDefinitions,
+        // CASE-311 step 1 — prompt caching on the static blocks. The system
+        // prompt and tool definitions don't change across rounds within a
+        // session; marking them as cache breakpoints lets round 2+ within
+        // the 5-minute TTL hit cache instead of re-reading the same tokens.
+        // The cache_control on the LAST tool definition extends caching
+        // across the whole tools array.
+        system: [
+          { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+        ],
+        tools: toolDefinitions.map((t, idx, arr) =>
+          idx === arr.length - 1
+            ? { ...t, cache_control: { type: 'ephemeral' } }
+            : t
+        ),
         messages: currentMessages,
       })
 
