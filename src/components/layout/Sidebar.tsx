@@ -79,18 +79,18 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'h-full bg-gray-900 text-gray-300 flex flex-col transition-all duration-200',
+        'h-full bg-primary text-white/80 flex flex-col transition-all duration-200',
         collapsed ? 'w-16' : 'w-56'
       )}
     >
       {/* Logo / brand */}
-      <div className="flex items-center justify-between h-14 px-4 border-b border-gray-800">
+      <div className="flex items-center justify-between h-14 px-4 border-b border-primary-light">
         {!collapsed && (
           <span className="text-sm font-semibold text-white tracking-wide">RC Console</span>
         )}
         <button
           onClick={onToggle}
-          className="p-1 rounded hover:bg-gray-800 text-gray-400 hover:text-white"
+          className="p-1 rounded hover:bg-white/10 text-white/70 hover:text-white"
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
@@ -101,7 +101,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {navSections.map(section => (
           <div key={section.label} className="mb-2">
             {!collapsed && (
-              <div className="px-4 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+              <div className="px-4 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/50">
                 {section.label}
               </div>
             )}
@@ -114,8 +114,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   cn(
                     'flex items-center gap-3 px-4 py-2 text-sm transition-colors',
                     isActive
-                      ? 'bg-gray-800 text-white border-r-2 border-primary'
-                      : 'hover:bg-gray-800/50 hover:text-white'
+                      ? 'bg-white/15 text-white font-medium'
+                      : 'text-white/70 hover:bg-white/10 hover:text-white'
                   )
                 }
                 title={collapsed ? item.label : undefined}
