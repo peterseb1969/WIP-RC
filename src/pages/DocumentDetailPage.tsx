@@ -29,6 +29,7 @@ import type { FieldDefinition, TermReference, Reference, Term } from '@wip/clien
 import JsonViewer from '@/components/common/JsonViewer'
 import RelationshipsPanel from '@/components/documents/RelationshipsPanel'
 import TraversalPanel from '@/components/documents/TraversalPanel'
+import PeerHeader from '@/components/documents/PeerHeader'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
@@ -414,12 +415,25 @@ function RelationshipEndpointsHeader({ refs }: { refs: Reference[] }) {
   })
   const [sourceQ, targetQ] = queries
 
+  // CASE-347 Phase 2 — also hydrate each endpoint's template so we can
+  // honour template.header_fields when rendering the endpoint chip.
+  // The hydrated docs above carry template_id; we fetch by that id.
+  const templateQueries = useQueries({
+    queries: [sourceQ?.data, targetQ?.data].map(doc => ({
+      queryKey: ['rc-console', 'tmpl-for-endpoint', doc?.template_id ?? ''],
+      queryFn: () => client.templates.getTemplate(doc!.template_id),
+      enabled: !!doc?.template_id,
+      staleTime: 300_000,
+    })),
+  })
+  const [sourceTmplQ, targetTmplQ] = templateQueries
+
   return (
     <div className="bg-purple-50/60 border border-purple-200 rounded-lg p-3 flex items-center gap-3">
       <Network size={16} className="text-purple-600 shrink-0" />
-      <EndpointChip label="From" ref_={sourceRef} hydratedDoc={sourceQ?.data} loading={sourceQ?.isLoading ?? false} />
+      <EndpointChip label="From" ref_={sourceRef} hydratedDoc={sourceQ?.data} hydratedTemplate={sourceTmplQ?.data} loading={sourceQ?.isLoading ?? false} />
       <ArrowRight size={14} className="text-purple-400 shrink-0" />
-      <EndpointChip label="To" ref_={targetRef} hydratedDoc={targetQ?.data} loading={targetQ?.isLoading ?? false} />
+      <EndpointChip label="To" ref_={targetRef} hydratedDoc={targetQ?.data} hydratedTemplate={targetTmplQ?.data} loading={targetQ?.isLoading ?? false} />
     </div>
   )
 }
@@ -428,11 +442,13 @@ function EndpointChip({
   label,
   ref_,
   hydratedDoc,
+  hydratedTemplate,
   loading,
 }: {
   label: string
   ref_?: Reference
   hydratedDoc?: import('@wip/client').Document
+  hydratedTemplate?: import('@wip/client').Template
   loading: boolean
 }) {
   if (!ref_) {
@@ -448,13 +464,31 @@ function EndpointChip({
   const docId = r.document_id
   const display = hydratedDoc ? pickDocLabel(hydratedDoc) : (loading ? 'loading…' : (docId ? docId.slice(0, 12) + '…' : ref_.lookup_value))
   const subLabel = hydratedDoc?.template_value || r.template_value
+  // CASE-347 Phase 2 — when both doc and its template are hydrated AND
+  // the template declares header_fields (or has identity_fields as a
+  // fallback), render via PeerHeader. Otherwise stay on pickDocLabel.
+  const headerFields = hydratedTemplate?.header_fields ?? []
+  const identityFields = hydratedTemplate?.identity_fields ?? []
+  const useRichHeader = hydratedDoc && (headerFields.length > 0 || identityFields.length > 0)
+
   return (
     <div className="flex-1 min-w-0">
       <div className="text-[10px] uppercase tracking-wide text-purple-700 font-semibold">{label}</div>
       <div className="flex items-center gap-2 min-w-0">
         {docId ? (
-          <Link to={`/documents/${tv}/${docId}`} className="text-sm text-gray-800 hover:text-primary hover:underline truncate">
-            {display}
+          <Link to={`/documents/${tv}/${docId}`} className="hover:underline min-w-0">
+            {useRichHeader ? (
+              <PeerHeader
+                data={hydratedDoc.data as Record<string, unknown>}
+                metadata={hydratedDoc.metadata as unknown as Record<string, unknown>}
+                headerFields={headerFields}
+                identityFields={identityFields}
+                fallbackLabel={display}
+                compact
+              />
+            ) : (
+              <span className="text-sm text-gray-800 truncate">{display}</span>
+            )}
           </Link>
         ) : (
           <span className="text-sm text-danger">unresolved</span>
