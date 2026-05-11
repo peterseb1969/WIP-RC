@@ -2,8 +2,16 @@ import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Network, ArrowUpRight, ArrowDownLeft, Loader2, AlertTriangle } from 'lucide-react'
 import { useDocumentRelationships } from '@wip/react'
-import type { Document, Reference } from '@wip/client'
+import type { Document, Reference, PeerProjection } from '@wip/client'
 import { cn } from '@/lib/cn'
+import PeerHeader from './PeerHeader'
+
+// PeerProjection lands on each relationship doc when ?include=peers is set
+// (CASE-343 wire shape). @wip/client@0.18.0 ships the PeerProjection type
+// but doesn't yet extend Document with a peer slot — local augmentation.
+type RelationshipDoc = Document & {
+  peer?: PeerProjection | null
+}
 
 // ---------------------------------------------------------------------------
 // RelationshipsPanel — incoming + outgoing relationship documents touching
@@ -42,16 +50,19 @@ export default function RelationshipsPanel({ documentId, namespace }: Relationsh
       active_only: activeOnly,
       namespace,
       page_size: 100,
+      // CASE-347 Phase 2 — request peer projections so each row renders
+      // the other-endpoint's header_fields-driven summary (CASE-343).
+      include: 'peers',
     },
   )
 
-  const items = data?.items ?? []
+  const items = (data?.items ?? []) as RelationshipDoc[]
   const total = data?.total ?? items.length
 
   // Group by edge type — we read the relationship doc's template_value via
   // `template_value` (denormalised on the wire) or fall back to template_id.
   const groups = useMemo(() => {
-    const m = new Map<string, Document[]>()
+    const m = new Map<string, RelationshipDoc[]>()
     for (const d of items) {
       const key = d.template_value || d.template_id
       const list = m.get(key) ?? []
@@ -118,7 +129,7 @@ export default function RelationshipsPanel({ documentId, namespace }: Relationsh
   )
 }
 
-function RelationshipRow({ rel, seedDocumentId }: { rel: Document; seedDocumentId: string }) {
+function RelationshipRow({ rel, seedDocumentId }: { rel: RelationshipDoc; seedDocumentId: string }) {
   const data = (rel.data ?? {}) as Record<string, unknown>
   const sourceRefId = String(data.source_ref ?? '')
   const targetRefId = String(data.target_ref ?? '')
@@ -126,8 +137,8 @@ function RelationshipRow({ rel, seedDocumentId }: { rel: Document; seedDocumentI
   const otherDirection = isOutgoing ? 'outgoing' : 'incoming'
   const otherRefId = isOutgoing ? targetRefId : sourceRefId
   const otherRef = findRef(rel.references, isOutgoing ? 'target_ref' : 'source_ref')
-  const otherTemplateValue = otherRef?.resolved?.template_value ?? '_'
-  const otherLabel = otherRef?.lookup_value || otherRefId.slice(0, 8) + '…'
+  const otherTemplateValue = rel.peer?.template_value || otherRef?.resolved?.template_value || '_'
+  const otherFallbackLabel = otherRef?.lookup_value || otherRefId.slice(0, 8) + '…'
 
   // Edge properties = anything in data besides source_ref / target_ref
   const propEntries = Object.entries(data).filter(([k]) => k !== 'source_ref' && k !== 'target_ref')
@@ -147,15 +158,15 @@ function RelationshipRow({ rel, seedDocumentId }: { rel: Document; seedDocumentI
           {otherRefId ? (
             <Link
               to={`/documents/${otherTemplateValue}/${otherRefId}`}
-              className="text-sm text-gray-800 hover:text-primary hover:underline truncate"
+              className="hover:underline"
             >
-              {otherLabel}
+              <PeerHeader peer={rel.peer ?? undefined} fallbackLabel={otherFallbackLabel} compact />
             </Link>
           ) : (
             <span className="text-sm text-danger">unresolved</span>
           )}
           <span className="text-[10px] text-gray-400 font-mono">
-            ({otherRef?.resolved?.template_value || 'unknown template'})
+            ({otherTemplateValue || 'unknown template'})
           </span>
         </div>
         {propEntries.length > 0 && (
