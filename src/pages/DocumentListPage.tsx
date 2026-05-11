@@ -20,6 +20,7 @@ import type { TemplateUsage } from '@wip/client'
 import { useNamespaceFilter, useSyncNamespaceFromUrl } from '@/hooks/use-namespace-filter'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
+import PeerHeader from '@/components/documents/PeerHeader'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
 import { cn } from '@/lib/cn'
@@ -287,7 +288,7 @@ function TemplateSelector({
 }: {
   selectedId: string | null
   onSelect: (id: string, value: string) => void
-  onTemplatesLoaded?: (templates: Array<{ template_id: string; value: string; label?: string | null; usage?: TemplateUsage }>) => void
+  onTemplatesLoaded?: (templates: Array<{ template_id: string; value: string; label?: string | null; usage?: TemplateUsage; header_fields?: string[]; identity_fields?: string[] }>) => void
   allMode: boolean
   onSelectAll: () => void
 }) {
@@ -331,7 +332,7 @@ function DocumentTable({
 }: {
   templateId: string | null
   templateValue: string | null
-  templateById: Map<string, { value: string; label?: string | null; usage?: TemplateUsage }>
+  templateById: Map<string, { value: string; label?: string | null; usage?: TemplateUsage; header_fields?: string[]; identity_fields?: string[] }>
 }) {
   const [page, setPage] = useState(1)
   const [showArchived, setShowArchived] = useState(false)
@@ -411,10 +412,17 @@ function DocumentTable({
         <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
           {items.map(doc => {
             const docData = (doc.data ?? {}) as Record<string, unknown>
-            const previewFields = Object.entries(docData).slice(0, 3)
             const tmpl = doc.template_id ? templateById.get(doc.template_id) : undefined
             const rowTemplateValue = tmpl?.value ?? templateValue ?? ''
             const isRelationship = tmpl?.usage === 'relationship'
+            // CASE-347 Phase 2 — when the template declares header_fields
+            // (or has identity_fields as fallback), render via PeerHeader
+            // for a compact summary. Otherwise fall back to the first
+            // 3 data entries.
+            const hdrFields = tmpl?.header_fields ?? []
+            const idFields = tmpl?.identity_fields ?? []
+            const useRichHeader = hdrFields.length > 0 || idFields.length > 0
+            const previewFields = useRichHeader ? [] : Object.entries(docData).slice(0, 3)
 
             return (
               <Link
@@ -428,9 +436,19 @@ function DocumentTable({
                   <FileText size={16} className="text-gray-400 shrink-0" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-gray-500">{doc.document_id}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-mono text-gray-500">{doc.document_id.slice(0, 8)}</span>
                     <span className="text-[10px] text-gray-300">v{doc.version ?? 1}</span>
+                    {useRichHeader && (
+                      <PeerHeader
+                        data={docData}
+                        metadata={doc.metadata as unknown as Record<string, unknown>}
+                        headerFields={hdrFields}
+                        identityFields={idFields}
+                        fallbackLabel={doc.document_id.slice(0, 12) + '…'}
+                        compact
+                      />
+                    )}
                     {isAll && tmpl && (
                       <span
                         className={cn(
@@ -496,7 +514,7 @@ export default function DocumentListPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const [selectedTemplateValue, setSelectedTemplateValue] = useState<string>(templateParam)
   const [allMode, setAllMode] = useState(false)
-  const [templateById, setTemplateById] = useState<Map<string, { value: string; label?: string | null }>>(new Map())
+  const [templateById, setTemplateById] = useState<Map<string, { value: string; label?: string | null; usage?: TemplateUsage; header_fields?: string[]; identity_fields?: string[] }>>(new Map())
 
   const nsKey = namespace || '__all__'
 
@@ -514,8 +532,8 @@ export default function DocumentListPage() {
   }
 
   // auto-recall last-used template when templates finish loading
-  const handleTemplatesLoaded = useCallback((templates: Array<{ template_id: string; value: string; label?: string | null; usage?: TemplateUsage }>) => {
-    setTemplateById(new Map(templates.map(t => [t.template_id, { value: t.value, label: t.label, usage: t.usage }])))
+  const handleTemplatesLoaded = useCallback((templates: Array<{ template_id: string; value: string; label?: string | null; usage?: TemplateUsage; header_fields?: string[]; identity_fields?: string[] }>) => {
+    setTemplateById(new Map(templates.map(t => [t.template_id, { value: t.value, label: t.label, usage: t.usage, header_fields: t.header_fields, identity_fields: t.identity_fields }])))
     // don't override if already selected or in all mode
     if (selectedTemplateId || allMode) return
 
