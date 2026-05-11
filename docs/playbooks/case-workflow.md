@@ -48,6 +48,8 @@ ls yac-discussions/CASE-03-*.md 2>/dev/null
 
 ## Handling `/case file`
 
+> **Filing discipline (do not skip).** Filing a case ALWAYS goes through `case-helper.sh claim <slug>` (step 3 below) — never the `Write` tool, never `case-helper.sh next` followed by `Write`. The race is real (CASE-67 on Apr 27, CASE-301 on May 6 — both 2-YAC 13-minute collisions); the atomic mechanism is the only collision-safe path. If you find yourself reasoning about case numbers ("what's the next available?", "let me check if N is taken"), stop and run `claim <slug>` instead. The script does the reasoning. Concurrent filers get distinct numbers by construction. `case-helper.sh next` is **only** for displaying-the-likely-next-number for awareness; it is NEVER the path to actually filing. CASE-306 names this discipline gap explicitly.
+
 ### 1. Get the current time
 
 ```bash
@@ -105,9 +107,27 @@ Be specific enough that a BE-YAC with no knowledge of your app can understand.>
 <If Peter provided a comment with `/case file`, put it here verbatim. If no comment, omit this section entirely.>
 ```
 
-### 5. Confirm
+### 5. Mirror to wip-kb (last step before confirming)
 
-Tell Peter the case number, slug, and file path.
+After the body is written and the case file is final, mirror it into the `kb` namespace on `wip-kb.local` so the constellation's knowledge layer has the canonical record:
+
+```bash
+python3 ../FR-YAC/tools/add-to-kb.py yac-discussions/CASE-<NN>-open-<slug>.md
+```
+
+(Path to the script is from your YAC's repo root; adjust if your repo layout differs.)
+
+The script:
+- POSTs a `CASE_RECORD` document into the `kb` namespace with the full file content as `data.body`.
+- Derives `REFERENCES` edges from your frontmatter `related:` field (each `CASE-N` mention becomes an outbound edge to the matching active CASE_RECORD; targets not yet in KB are silently skipped).
+- Is idempotent — re-runs update the existing record's body via JSON Merge Patch (a new version), no duplicates.
+- Exits 0 on success; non-zero on any per-item failure. Fix and re-run.
+
+This step is **not optional.** Without it, the flat file lives in FR-YAC but the KB record never lands. The dual-write is the canonical population path for KB; this script is the surface that enforces it. Filed as CASE-307.
+
+### 6. Confirm
+
+Tell Peter the case number, slug, file path, and the kb document_id printed by the script.
 
 ---
 
@@ -212,7 +232,17 @@ Rename the file: `CASE-<NN>-open-<slug>.md` → `CASE-<NN>-responded-<slug>.md`
 mv yac-discussions/CASE-<NN>-open-<slug>.md yac-discussions/CASE-<NN>-responded-<slug>.md
 ```
 
-### 4. Confirm
+### 4. Mirror to wip-kb
+
+Re-run the loader to refresh the kb record body (idempotent — updates the existing CASE_RECORD via JSON Merge Patch, no duplicates):
+
+```bash
+python3 ../FR-YAC/tools/add-to-kb.py yac-discussions/CASE-<NN>-responded-<slug>.md
+```
+
+This step is **not optional** — without it, the kb body drifts from the flat-file source. CASE-307 names the design.
+
+### 5. Confirm
 
 Tell Peter what you responded and the case number.
 
@@ -244,7 +274,17 @@ Append to the case file:
 
 If the user provided text with the command (e.g., `/case comment 3 This is urgent`), use that as the comment body. Otherwise, infer from the current conversation context.
 
-### 4. Confirm
+### 4. Mirror to wip-kb
+
+Re-run the loader to refresh the kb record body (idempotent — comments don't change status, but the appended body must propagate to kb):
+
+```bash
+python3 ../FR-YAC/tools/add-to-kb.py yac-discussions/CASE-<NN>-*.md
+```
+
+This step is **not optional** — without it, the kb body drifts from the flat-file source. CASE-307 names the design.
+
+### 5. Confirm
 
 Tell Peter the comment was added.
 
@@ -272,7 +312,17 @@ Change `status:` to `status: closed` in the frontmatter.
 
 Rename: `CASE-<NN>-<old-status>-<slug>.md` → `CASE-<NN>-closed-<slug>.md`
 
-### 4. Confirm
+### 4. Mirror to wip-kb
+
+Re-run the loader to refresh the kb record body and status:
+
+```bash
+python3 ../FR-YAC/tools/add-to-kb.py yac-discussions/CASE-<NN>-closed-<slug>.md
+```
+
+This step is **not optional** — without it, the kb body drifts from the flat-file source. CASE-307 names the design.
+
+### 5. Confirm
 
 Tell Peter the case is closed and why.
 
@@ -330,7 +380,17 @@ Applied N of M proposed changes. <Note any skipped changes and why.>
 
 Rename: `CASE-<NN>-<old-status>-<slug>.md` → `CASE-<NN>-implemented-<slug>.md`
 
-### 6. Confirm
+### 6. Mirror to wip-kb
+
+Re-run the loader to refresh the kb record body and status:
+
+```bash
+python3 ../FR-YAC/tools/add-to-kb.py yac-discussions/CASE-<NN>-implemented-<slug>.md
+```
+
+This step is **not optional** — without it, the kb body drifts from the flat-file source. CASE-307 names the design.
+
+### 7. Confirm
 
 Tell Peter the case is implemented. Do NOT commit — Peter decides when to commit.
 
