@@ -584,8 +584,9 @@ export default function APIKeysPage() {
     setExpandedKey(name)
   }
 
+  // APIKeyListResponse became paginated in 0.19+ (PaginatedResponse<APIKeyInfo>).
   // Sort: runtime keys first, then config; within each group alphabetical
-  const sorted = apiKeys?.slice().sort((a, b) => {
+  const sorted = apiKeys?.items?.slice().sort((a, b) => {
     if (a.source !== b.source) return a.source === 'runtime' ? -1 : 1
     return a.name.localeCompare(b.name)
   })

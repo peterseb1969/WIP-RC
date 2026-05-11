@@ -102,7 +102,8 @@ export default function TermSearchPicker({
       }
       if (namespace) params.namespace = namespace
       const res = await client.reporting.search(params as Parameters<typeof client.reporting.search>[0])
-      const termHits = res.results.filter(r => r.type === 'term')
+      // CASE-329: search response is now per-type buckets; pull the term bucket.
+      const termHits = res.results.term?.items ?? []
       // Hydrate in parallel to get terminology_id / terminology_value / namespace
       const hydrated = await Promise.all(
         termHits.map(async (hit): Promise<PickedTerm | null> => {

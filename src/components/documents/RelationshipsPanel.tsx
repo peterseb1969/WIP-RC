@@ -2,16 +2,9 @@ import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Network, ArrowUpRight, ArrowDownLeft, Loader2, AlertTriangle } from 'lucide-react'
 import { useDocumentRelationships } from '@wip/react'
-import type { Document, Reference, PeerProjection } from '@wip/client'
+import type { Document, Reference } from '@wip/client'
 import { cn } from '@/lib/cn'
 import PeerHeader from './PeerHeader'
-
-// PeerProjection lands on each relationship doc when ?include=peers is set
-// (CASE-343 wire shape). @wip/client@0.18.0 ships the PeerProjection type
-// but doesn't yet extend Document with a peer slot — local augmentation.
-type RelationshipDoc = Document & {
-  peer?: PeerProjection | null
-}
 
 // ---------------------------------------------------------------------------
 // RelationshipsPanel — incoming + outgoing relationship documents touching
@@ -56,13 +49,13 @@ export default function RelationshipsPanel({ documentId, namespace }: Relationsh
     },
   )
 
-  const items = (data?.items ?? []) as RelationshipDoc[]
+  const items = data?.items ?? []
   const total = data?.total ?? items.length
 
   // Group by edge type — we read the relationship doc's template_value via
   // `template_value` (denormalised on the wire) or fall back to template_id.
   const groups = useMemo(() => {
-    const m = new Map<string, RelationshipDoc[]>()
+    const m = new Map<string, Document[]>()
     for (const d of items) {
       const key = d.template_value || d.template_id
       const list = m.get(key) ?? []
@@ -129,7 +122,7 @@ export default function RelationshipsPanel({ documentId, namespace }: Relationsh
   )
 }
 
-function RelationshipRow({ rel, seedDocumentId }: { rel: RelationshipDoc; seedDocumentId: string }) {
+function RelationshipRow({ rel, seedDocumentId }: { rel: Document; seedDocumentId: string }) {
   const data = (rel.data ?? {}) as Record<string, unknown>
   const sourceRefId = String(data.source_ref ?? '')
   const targetRefId = String(data.target_ref ?? '')

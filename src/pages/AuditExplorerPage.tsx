@@ -441,7 +441,11 @@ export default function AuditExplorerPage() {
         snippet_format: searchOptions.snippetFormat,
         ...(searchOptions.template.trim() ? { template: searchOptions.template.trim() } : {}),
       })
-      setSearchResults(res.results)
+      // CASE-329: search response is now per-type buckets; flatten back to
+      // a single SearchResult[] for the existing render path. (Per-bucket
+      // pagination + type tabs is a future UX iteration.)
+      const flat = Object.values(res.results).flatMap(b => b.items)
+      setSearchResults(flat)
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : 'Search failed')
     } finally {
