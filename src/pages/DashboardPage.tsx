@@ -30,6 +30,7 @@ import {
   useSyncStatus,
   useTriggerBatchSyncAll,
 } from '@wip/react'
+import { useReportTables } from '@/hooks/use-reporting'
 import { useServiceHealth, useIsServiceInactive, type ServiceHealth } from '@/hooks/use-service-health'
 import { useNamespaceStats, type NamespaceWithStats } from '@/hooks/use-namespace-stats'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
@@ -615,12 +616,19 @@ function InfraQuickStatus() {
 function ReportingSyncCTA() {
   const inactive = useIsServiceInactive('reporting-sync')
   const { data: status } = useSyncStatus({ refetchInterval: 60_000 })
+  // Gate on the database fact (listTables), not the in-memory counter
+  // (status.tables_managed). The counter resets on reporting-sync restart
+  // even when tables persist in PostgreSQL, which previously made this
+  // banner falsely claim "no doc_* tables in PostgreSQL" after a healthy
+  // batch sync had populated them.
+  const { data: tables } = useReportTables()
   const { data: docs } = useDocuments({ page_size: 1 })
   const trigger = useTriggerBatchSyncAll()
 
   if (inactive) return null
   if (!status) return null
-  if (status.tables_managed > 0) return null
+  if (!tables) return null
+  if (tables.length > 0) return null
   const docCount = docs?.total ?? 0
   if (docCount === 0) return null
 

@@ -62,10 +62,16 @@ function saveHistory(entries: HistoryEntry[]) {
 
 function SyncStatusBar() {
   const { data, isLoading } = useSyncStatus({ refetchInterval: 60_000 })
+  // Tables count reads from the database (list_tables), not the
+  // reporting-sync service's in-memory counter (status.tables_managed).
+  // The runtime counter resets to 0 on service restart even when tables
+  // persist in PostgreSQL — which made the UI lie about empty state.
+  const { data: tables } = useReportTables()
 
   if (isLoading || !data) return null
 
   const isHealthy = data.running && data.connected_to_nats && data.connected_to_postgres
+  const tableCount = tables?.length ?? 0
 
   return (
     <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-500">
@@ -84,7 +90,7 @@ function SyncStatusBar() {
       {data.events_failed > 0 && (
         <span className="text-amber-600">{data.events_failed} failed</span>
       )}
-      <span>Tables: {data.tables_managed}</span>
+      <span>Tables: {tableCount}</span>
       {data.last_event_processed && (
         <span className="ml-auto">Last: {new Date(data.last_event_processed).toLocaleTimeString()}</span>
       )}
