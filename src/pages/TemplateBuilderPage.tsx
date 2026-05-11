@@ -125,6 +125,12 @@ export default function TemplateBuilderPage() {
   const [extendsTemplate, setExtendsTemplate] = useState<string | undefined>()
   const [extendsVersion, setExtendsVersion] = useState<number | undefined>()
   const [identityFields, setIdentityFields] = useState<string[]>([])
+  // CASE-347.A — header_fields declares what the platform projects in
+  // peer/header summary contexts. Implicit fallback is identity_fields
+  // (CASE-343 Phase 1 option-a). Supports metadata.custom.<name> paths
+  // that aren't in the template's `fields` list.
+  const [headerFields, setHeaderFields] = useState<string[]>([])
+  const [headerMetaInput, setHeaderMetaInput] = useState('')
   const [fields, setFields] = useState<FieldDefinition[]>([])
   const [rules, setRules] = useState<ValidationRule[]>([])
 
@@ -162,6 +168,7 @@ export default function TemplateBuilderPage() {
     setExtendsTemplate(existing.extends ?? undefined)
     setExtendsVersion(existing.extends_version ?? undefined)
     setIdentityFields(existing.identity_fields ?? [])
+    setHeaderFields(existing.header_fields ?? [])
     setFields(existing.fields ?? [])
     setRules(existing.rules ?? [])
     setDomain(existing.metadata?.domain ?? '')
@@ -312,6 +319,7 @@ export default function TemplateBuilderPage() {
         extends: extendsTemplate,
         extends_version: extendsVersion,
         identity_fields: identityFields.length > 0 ? identityFields : undefined,
+        header_fields: headerFields.length > 0 ? headerFields : undefined,
         fields: effectiveFields.length > 0 ? effectiveFields : undefined,
         rules: rules.length > 0 ? rules : undefined,
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
@@ -328,6 +336,7 @@ export default function TemplateBuilderPage() {
         extends: extendsTemplate,
         extends_version: extendsVersion,
         identity_fields: identityFields.length > 0 ? identityFields : undefined,
+        header_fields: headerFields.length > 0 ? headerFields : undefined,
         fields: effectiveFields.length > 0 ? effectiveFields : undefined,
         rules: rules.length > 0 ? rules : undefined,
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
@@ -688,6 +697,98 @@ export default function TemplateBuilderPage() {
                 )
               })}
             </div>
+          </div>
+        )}
+
+        {/* Header Fields (CASE-347.A) — declares peer/header projection */}
+        {fields.length > 0 && (
+          <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Header Fields</h3>
+            <p className="text-xs text-gray-400 mb-2">
+              Field paths the platform projects in peer/header summary contexts (relationship sidebars, compact cards).
+              If empty, falls back to Identity Fields. Supports <code className="font-mono">metadata.custom.&lt;name&gt;</code> paths.
+            </p>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {fields.filter(f => !f.inherited).map(f => {
+                const isHeader = headerFields.includes(f.name)
+                return (
+                  <button
+                    key={f.name}
+                    type="button"
+                    onClick={() => {
+                      setHeaderFields(prev =>
+                        isHeader
+                          ? prev.filter(n => n !== f.name)
+                          : [...prev, f.name]
+                      )
+                    }}
+                    className={cn(
+                      'inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border transition-colors',
+                      isHeader
+                        ? 'bg-primary/10 border-primary/30 text-primary-dark'
+                        : 'bg-white border-gray-200 text-gray-500 hover:border-primary/30'
+                    )}
+                  >
+                    {isHeader && <CheckCircle size={10} />}
+                    {f.name}
+                  </button>
+                )
+              })}
+              {/* Pills for any metadata.custom.* paths already in headerFields but not in fields */}
+              {headerFields
+                .filter(h => !fields.some(f => f.name === h))
+                .map(h => (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => setHeaderFields(prev => prev.filter(n => n !== h))}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border bg-primary/10 border-primary/30 text-primary-dark"
+                    title="Remove this metadata path"
+                  >
+                    <CheckCircle size={10} />
+                    <span className="font-mono">{h}</span>
+                    <span className="text-primary/60 ml-0.5">×</span>
+                  </button>
+                ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="metadata.custom.field_name"
+                value={headerMetaInput}
+                onChange={e => setHeaderMetaInput(e.target.value)}
+                className="flex-1 text-xs px-2 py-1 border border-gray-200 rounded font-mono focus:outline-none focus:border-primary"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    const path = headerMetaInput.trim()
+                    if (path && !headerFields.includes(path)) {
+                      setHeaderFields(prev => [...prev, path])
+                      setHeaderMetaInput('')
+                    }
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const path = headerMetaInput.trim()
+                  if (path && !headerFields.includes(path)) {
+                    setHeaderFields(prev => [...prev, path])
+                    setHeaderMetaInput('')
+                  }
+                }}
+                disabled={!headerMetaInput.trim()}
+                className="text-xs px-3 py-1 border border-primary/30 text-primary-dark rounded hover:bg-primary/5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Add path
+              </button>
+            </div>
+            {headerFields.length === 0 && identityFields.length > 0 && (
+              <p className="text-xs text-gray-400 mt-2 italic">
+                Empty — peer projections will fall back to identity fields: {identityFields.join(', ')}
+              </p>
+            )}
           </div>
         )}
 

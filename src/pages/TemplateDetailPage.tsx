@@ -20,6 +20,7 @@ import {
   Copy,
   Network,
   ArrowRight,
+  Eye,
 } from 'lucide-react'
 import { useTerminologies, useTemplates, useDeleteTemplate, useWipClient } from '@wip/react'
 import { useQuery } from '@tanstack/react-query'
@@ -212,6 +213,7 @@ export default function TemplateDetailPage() {
   const identityFields = new Set(
     Array.isArray(template.identity_fields) ? template.identity_fields.map(String) : []
   )
+  const headerFields = Array.isArray(template.header_fields) ? template.header_fields.map(String) : []
 
   // Maps: ID → { label, id } so we can resolve terminology_ref/template_ref (which are IDs) to display names and links
   const terminologyMap = new Map<string, { label: string; id: string }>(
@@ -379,6 +381,17 @@ export default function TemplateDetailPage() {
           <span className="flex items-center gap-1">
             <Key size={10} className="text-amber-500" />
             Identity: {Array.from(identityFields).join(', ')}
+          </span>
+        )}
+        {headerFields.length > 0 ? (
+          <span className="flex items-center gap-1" title="Fields projected in peer/header summary contexts (CASE-343)">
+            <Eye size={10} className="text-primary" />
+            Header: {headerFields.join(', ')}
+          </span>
+        ) : identityFields.size > 0 && (
+          <span className="flex items-center gap-1 italic text-gray-400/70" title="No header_fields declared — peer projections fall back to identity fields">
+            <Eye size={10} className="text-gray-300" />
+            Header: (falls back to identity)
           </span>
         )}
         {template.extends && (
