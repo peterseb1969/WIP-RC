@@ -32,6 +32,19 @@ interface BackupJob {
   message?: string
   archive_size?: number
   created_at?: string
+  completed_at?: string
+}
+
+// Build a human-useful archive filename: <namespace>_<YYYY-MM-DD_HHMMSS>.zip
+// (e.g. clintrial_2026-05-23_191405.zip). Timestamp prefers the job's
+// completion time, falling back to creation time. Both the server's
+// Content-Disposition header and the anchor's download attribute use this —
+// the server header wins in browsers, so they must agree.
+function archiveFilename(job: Pick<BackupJob, 'namespace' | 'completed_at' | 'created_at'>): string {
+  const iso = (job.completed_at || job.created_at || '').slice(0, 19) // YYYY-MM-DDTHH:MM:SS
+  const stamp = iso ? iso.replace('T', '_').replace(/:/g, '') : 'unknown'
+  const ns = (job.namespace || 'wip').replace(/[^A-Za-z0-9_-]/g, '_')
+  return `${ns}_${stamp}.zip`
 }
 
 // ---------------------------------------------------------------------------
@@ -94,9 +107,10 @@ function BackupTab() {
     // Open download URL directly — lets the browser stream the file
     // instead of buffering the entire archive in JS memory.
     // This avoids 502s on large archives (2GB+) and works with any size.
+    const fname = archiveFilename(activeJob)
     const a = document.createElement('a')
-    a.href = apiUrl(`/api/backup-download/${activeJob.job_id}`)
-    a.download = `${activeJob.namespace}_backup.zip`
+    a.href = apiUrl(`/api/backup-download/${activeJob.job_id}?filename=${encodeURIComponent(fname)}`)
+    a.download = fname
     a.click()
   }
 
@@ -386,8 +400,8 @@ function JobsList() {
               {job.created_at && <span className="text-gray-300">{new Date(job.created_at).toLocaleDateString()}</span>}
               {job.status === 'complete' && (job.kind ?? job.type) === 'backup' && (
                 <a
-                  href={apiUrl(`/api/backup-download/${job.job_id}`)}
-                  download={`${job.namespace}_backup.zip`}
+                  href={apiUrl(`/api/backup-download/${job.job_id}?filename=${encodeURIComponent(archiveFilename(job))}`)}
+                  download={archiveFilename(job)}
                   className="text-primary-light hover:text-primary"
                   title="Download archive"
                 >

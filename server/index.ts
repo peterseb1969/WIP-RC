@@ -203,7 +203,13 @@ router.get('/api/backup-download/:jobId', async (req, res) => {
       return
     }
     res.setHeader('Content-Type', 'application/zip')
-    res.setHeader('Content-Disposition', `attachment; filename="backup-${req.params.jobId}.zip"`)
+    // Client passes a human-useful name (<namespace>_<timestamp>.zip). Sanitize
+    // hard — it lands in a response header, so strip anything that could enable
+    // header injection or path traversal. Fall back to the job id if absent.
+    const rawName = typeof req.query.filename === 'string' ? req.query.filename : ''
+    const safeName = rawName.replace(/[^A-Za-z0-9._-]/g, '')
+    const filename = safeName && safeName.endsWith('.zip') ? safeName : `backup-${req.params.jobId}.zip`
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
     if (upstream.headers.get('content-length')) {
       res.setHeader('Content-Length', upstream.headers.get('content-length')!)
     }
