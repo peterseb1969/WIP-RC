@@ -4,3 +4,7 @@ dist/
 *.tgz
 .DS_Store
 .claude-context-pct
+
+# Ephemeral per-session sentinel minted by /wip-setup + /wip-wake (CASE-389).
+# The role marker (.session-role) IS tracked; the minted id is per-session.
+.claude/.session-id
