@@ -12,14 +12,23 @@ import {
   RefreshCw,
   Pencil,
   Trash2,
+  AlertTriangle,
 } from 'lucide-react'
 import { useNamespaces, useWipClient, useCreateNamespace, useUpdateNamespace, useDeleteNamespace } from '@wip/react'
-import type { Namespace, IdAlgorithmConfig } from '@wip/client'
+import type { Namespace, IdAlgorithmConfig, UpdateNamespaceRequest } from '@wip/client'
 import { useQuery } from '@tanstack/react-query'
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import JsonViewer from '@/components/common/JsonViewer'
+import { cn } from '@/lib/cn'
+
+// CASE-429: the backend requires `confirm_enable_deletion: true` to flip a
+// namespace's deletion_mode from 'retain' to 'full' (a deliberate safety
+// guard — enabling 'full' makes namespace deletion hard-delete data). The
+// @wip/client UpdateNamespaceRequest type doesn't expose the field yet, so
+// augment locally. Remove this and the `as` use once @wip/client ships it.
+type NamespaceUpdateBody = UpdateNamespaceRequest & { confirm_enable_deletion?: boolean }
 
 // ---------------------------------------------------------------------------
 // Namespace Stats Hook (per-namespace detail)
@@ -284,7 +293,10 @@ function NamespaceRow({
     setDeleteError(null)
     try {
       if (ns.deletion_mode !== 'full') {
-        await client.registry.updateNamespace(ns.prefix, { deletion_mode: 'full' })
+        // Flipping retain -> full requires the confirm flag (CASE-429). The
+        // user has already double-confirmed via the confirm-retain gate.
+        const body: NamespaceUpdateBody = { deletion_mode: 'full', confirm_enable_deletion: true }
+        await client.registry.updateNamespace(ns.prefix, body)
       }
       remove.mutate({ prefix: ns.prefix, deletedBy: 'rc-console' })
     } catch (err) {
@@ -300,6 +312,21 @@ function NamespaceRow({
     setEditIdConfig(ns.id_config ?? {})
     update.reset()
     setEditing(true)
+  }
+
+  // Switching deletion_mode retain -> full enables hard-delete; the backend
+  // requires confirm_enable_deletion=true for that transition (CASE-429).
+  const enablingFullDelete = editDeletionMode === 'full' && (ns.deletion_mode ?? 'retain') !== 'full'
+
+  const handleSaveEdit = () => {
+    const body: NamespaceUpdateBody = {
+      description: editDesc.trim() || undefined,
+      isolation_mode: editIsolation as 'open' | 'strict',
+      deletion_mode: editDeletionMode as 'retain' | 'full',
+      id_config: Object.keys(editIdConfig).length > 0 ? editIdConfig : undefined,
+      ...(enablingFullDelete ? { confirm_enable_deletion: true } : {}),
+    }
+    update.mutate({ prefix: ns.prefix, data: body })
   }
 
   return (
@@ -475,6 +502,15 @@ function NamespaceRow({
                     <option value="retain">retain</option>
                     <option value="full">full</option>
                   </select>
+                  {enablingFullDelete && (
+                    <p className="mt-1 text-xs text-danger flex items-start gap-1">
+                      <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                      <span>
+                        <strong>full</strong> enables permanent deletion — deleting this namespace will
+                        hard-delete all its data, with no recovery. Saving confirms this.
+                      </span>
+                    </p>
+                  )}
                 </div>
               </div>
               <div>
@@ -484,11 +520,14 @@ function NamespaceRow({
               {update.error && <p className="text-xs text-danger">{update.error.message}</p>}
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => update.mutate({ prefix: ns.prefix, data: { description: editDesc.trim() || undefined, isolation_mode: editIsolation as 'open' | 'strict', deletion_mode: editDeletionMode as 'retain' | 'full', id_config: Object.keys(editIdConfig).length > 0 ? editIdConfig : undefined } })}
+                  onClick={handleSaveEdit}
                   disabled={update.isPending}
-                  className="px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
+                  className={cn(
+                    'px-3 py-1.5 text-white text-sm rounded-md disabled:opacity-50',
+                    enablingFullDelete ? 'bg-danger hover:bg-danger' : 'bg-primary hover:bg-primary-dark',
+                  )}
                 >
-                  {update.isPending ? 'Saving...' : 'Save'}
+                  {update.isPending ? 'Saving...' : enablingFullDelete ? 'Enable full deletion & save' : 'Save'}
                 </button>
                 <button
                   onClick={() => setEditing(false)}
