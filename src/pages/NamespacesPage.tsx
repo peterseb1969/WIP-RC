@@ -23,13 +23,6 @@ import ErrorState from '@/components/common/ErrorState'
 import JsonViewer from '@/components/common/JsonViewer'
 import { cn } from '@/lib/cn'
 
-// CASE-429: the backend requires `confirm_enable_deletion: true` to flip a
-// namespace's deletion_mode from 'retain' to 'full' (a deliberate safety
-// guard — enabling 'full' makes namespace deletion hard-delete data). The
-// @wip/client UpdateNamespaceRequest type doesn't expose the field yet, so
-// augment locally. Remove this and the `as` use once @wip/client ships it.
-type NamespaceUpdateBody = UpdateNamespaceRequest & { confirm_enable_deletion?: boolean }
-
 // ---------------------------------------------------------------------------
 // Namespace Stats Hook (per-namespace detail)
 // ---------------------------------------------------------------------------
@@ -295,8 +288,7 @@ function NamespaceRow({
       if (ns.deletion_mode !== 'full') {
         // Flipping retain -> full requires the confirm flag (CASE-429). The
         // user has already double-confirmed via the confirm-retain gate.
-        const body: NamespaceUpdateBody = { deletion_mode: 'full', confirm_enable_deletion: true }
-        await client.registry.updateNamespace(ns.prefix, body)
+        await client.registry.updateNamespace(ns.prefix, { deletion_mode: 'full', confirm_enable_deletion: true })
       }
       remove.mutate({ prefix: ns.prefix, deletedBy: 'rc-console' })
     } catch (err) {
@@ -319,7 +311,7 @@ function NamespaceRow({
   const enablingFullDelete = editDeletionMode === 'full' && (ns.deletion_mode ?? 'retain') !== 'full'
 
   const handleSaveEdit = () => {
-    const body: NamespaceUpdateBody = {
+    const body: UpdateNamespaceRequest = {
       description: editDesc.trim() || undefined,
       isolation_mode: editIsolation as 'open' | 'strict',
       deletion_mode: editDeletionMode as 'retain' | 'full',
