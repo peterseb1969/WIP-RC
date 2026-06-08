@@ -11,7 +11,7 @@ The existing Vue console (PrimeVue + Pinia + Vue Router) has 24 views covering n
 - **App name:** `rc-console`
 - **Gateway path:** `/apps/rc-console`
 - **Internal port:** 3010
-- **Git remote:** `http://gitea.local:3000/peter/WIP-APP-RC.git`
+- **Git remote:** `http://gitea.internal:3000/peter/WIP-APP-RC.git`
 - **Dev namespace:** `dev-wip-reactconsole` (exists, empty — not used for data modeling since this app doesn't store domain data)
 
 ## Tech Stack
