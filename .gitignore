@@ -2,6 +2,9 @@ node_modules/
 dist/
 .env
 *.tgz
+# ...but the @wip/* tarballs package.json pins must be in-repo so a
+# GitHub runner can `npm ci` + build images without external deps.
+!libs/wip-*-latest.tgz
 .DS_Store
 .claude-context-pct
 
