@@ -16,7 +16,11 @@ export default function AppLayout() {
         <Breadcrumbs />
         <main className="flex-1 overflow-auto p-6">
           <Outlet />
-          <WipFooter appName="RC-Console" />
+          <WipFooter
+            appName="RC-Console"
+            buildStamp={import.meta.env.VITE_BUILD_STAMP}
+            buildSha={import.meta.env.VITE_BUILD_SHA}
+          />
         </main>
       </div>
     </div>
