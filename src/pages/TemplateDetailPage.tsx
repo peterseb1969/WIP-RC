@@ -21,9 +21,10 @@ import {
   Network,
   ArrowRight,
   Eye,
+  RotateCcw,
 } from 'lucide-react'
-import { useTerminologies, useTemplates, useDeleteTemplate, useWipClient } from '@wip/react'
-import { useQuery } from '@tanstack/react-query'
+import { useTerminologies, useTemplates, useDeleteTemplate, useReactivateTemplate, useWipClient } from '@wip/react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { FieldDefinition } from '@wip/client'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
@@ -177,6 +178,7 @@ export default function TemplateDetailPage() {
   const selectedVersion = searchParams.get('v') ? Number(searchParams.get('v')) : undefined
   const navigate = useNavigate()
   const client = useWipClient()
+  const queryClient = useQueryClient()
 
   // If ?v= is set, fetch that specific version; otherwise latest
   const { data: template, isLoading, error } = useQuery({
@@ -189,6 +191,17 @@ export default function TemplateDetailPage() {
   const deactivate = useDeleteTemplate({
     onSuccess: () => navigate('/templates'),
     onError: (err) => setDeactivateError(err.message),
+  })
+  const [reactivateError, setReactivateError] = useState<string | null>(null)
+  // Reactivate a soft-deactivated version (inverse of useDeleteTemplate({ id, version })).
+  // Version-specific — restores the version currently being viewed (CASE-498, @wip/react 0.15.0).
+  const reactivate = useReactivateTemplate({
+    onSuccess: () => {
+      setReactivateError(null)
+      queryClient.invalidateQueries({ queryKey: ['wip', 'template', id] })
+      queryClient.invalidateQueries({ queryKey: ['rc-console', 'template-versions'] })
+    },
+    onError: (err) => setReactivateError(err.message),
   })
 
   // Fetch all versions of this template — scoped to its namespace. A template `value`
@@ -316,6 +329,17 @@ export default function TemplateDetailPage() {
                 Deactivate
               </button>
             )}
+            {template.status !== 'active' && (
+              <button
+                onClick={() => reactivate.mutate({ id: template.template_id, version: template.version, namespace: template.namespace })}
+                disabled={reactivate.isPending}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-success/30 text-sm rounded-md text-success hover:bg-success/5 disabled:opacity-50"
+                title={`Restore version ${template.version} to active`}
+              >
+                <RotateCcw size={12} />
+                {reactivate.isPending ? 'Reactivating...' : 'Reactivate'}
+              </button>
+            )}
           </div>
         </div>
         {confirmDeactivate && (
@@ -345,6 +369,12 @@ export default function TemplateDetailPage() {
           <div className="flex items-center gap-2 px-4 py-2 bg-danger/5 border border-danger/20 rounded-lg text-sm text-danger">
             <AlertTriangle size={14} className="shrink-0" />
             {deactivateError}
+          </div>
+        )}
+        {reactivateError && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-danger/5 border border-danger/20 rounded-lg text-sm text-danger">
+            <AlertTriangle size={14} className="shrink-0" />
+            {reactivateError}
           </div>
         )}
         {template.description && (
