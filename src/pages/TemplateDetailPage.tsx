@@ -191,10 +191,12 @@ export default function TemplateDetailPage() {
     onError: (err) => setDeactivateError(err.message),
   })
 
-  // Fetch all versions of this template (by value code)
+  // Fetch all versions of this template — scoped to its namespace. A template `value`
+  // is unique only within a namespace, so an unscoped by-value call returns every
+  // namespace's versions of that value (CASE-496, fixed in @wip/client 0.22.0).
   const { data: versionsData } = useQuery({
-    queryKey: ['rc-console', 'template-versions', template?.value],
-    queryFn: () => client.templates.getTemplateVersions(template!.value),
+    queryKey: ['rc-console', 'template-versions', template?.namespace, template?.value],
+    queryFn: () => client.templates.getTemplateVersions(template!.value, { namespace: template!.namespace }),
     enabled: !!template?.value,
     staleTime: 60_000,
   })
