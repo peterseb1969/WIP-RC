@@ -21,6 +21,7 @@ import {
 import type { FieldDefinition, ValidationRule, CreateTemplateRequest, UpdateTemplateRequest, TemplateMetadata, TemplateUsage } from '@wip/client'
 import FieldList from '@/components/templates/FieldList'
 import FieldSlideOut from '@/components/templates/FieldSlideOut'
+import TemplateVersionPicker from '@/components/templates/TemplateVersionPicker'
 import FieldQuickAdd from '@/components/templates/FieldQuickAdd'
 import VersionWarnings from '@/components/templates/VersionWarnings'
 import RuleList from '@/components/templates/RuleList'
@@ -283,6 +284,25 @@ export default function TemplateBuilderPage() {
       if (targetTemplates.length === 0) { setError('Edge type requires at least one target template'); return }
     }
 
+    // Pinned-version requirement on template→template references (CASE-493):
+    // a parent template / nested template_ref / array_template_ref must carry
+    // an explicit version — "latest" was removed on these axes, so a missing
+    // pin is a hard backend rejection. Catch it here with a clearer message.
+    if (extendsTemplate && extendsVersion === undefined) {
+      setError('Select a version for the parent template (Extends).')
+      return
+    }
+    for (const f of fields) {
+      if (f.template_ref && f.template_ref_version === undefined) {
+        setError(`Field "${f.name}" references a template but has no pinned version — select a Template ref version.`)
+        return
+      }
+      if (f.array_template_ref && f.array_template_ref_version === undefined) {
+        setError(`Field "${f.name}" references a template in its array items but has no pinned version — select an Array template ref version.`)
+        return
+      }
+    }
+
     // For edge types: ensure source_ref / target_ref reference fields are
     // present with the right shape. Mirrors create_edge_type's contract
     // (api-conventions.md §"Edge-type creation constraints"). On edit,
@@ -441,21 +461,32 @@ export default function TemplateBuilderPage() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Extends (parent template)</label>
-              <select
-                value={extendsTemplate ?? ''}
-                onChange={(e) => {
-                  setExtendsTemplate(e.target.value || undefined)
-                  if (!e.target.value) setExtendsVersion(undefined)
-                }}
-                className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-light"
-              >
-                <option value="">(none)</option>
-                {templateOptions.map(t => (
-                  <option key={t.id} value={t.id}>{t.label} ({t.value})</option>
-                ))}
-              </select>
+            <div className="space-y-2">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Extends (parent template)</label>
+                <select
+                  value={extendsTemplate ?? ''}
+                  onChange={(e) => {
+                    setExtendsTemplate(e.target.value || undefined)
+                    // Reset the pinned version — it belongs to the previous parent.
+                    setExtendsVersion(undefined)
+                  }}
+                  className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-light"
+                >
+                  <option value="">(none)</option>
+                  {templateOptions.map(t => (
+                    <option key={t.id} value={t.id}>{t.label} ({t.value})</option>
+                  ))}
+                </select>
+              </div>
+              {extendsTemplate && (
+                <TemplateVersionPicker
+                  label="Parent version"
+                  templateId={extendsTemplate}
+                  value={extendsVersion}
+                  onChange={setExtendsVersion}
+                />
+              )}
             </div>
           </div>
         </div>

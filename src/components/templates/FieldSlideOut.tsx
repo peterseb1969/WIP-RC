@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import type { FieldDefinition, FieldType, FieldValidation, FileFieldConfig, SemanticType, ReferenceType, VersionStrategy } from '@wip/client'
 import { Label, TextInput, NumberInput, SelectInput, Toggle, Section } from '@/components/common/FormInputs'
+import TemplateVersionPicker from '@/components/templates/TemplateVersionPicker'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -213,6 +214,7 @@ export default function FieldSlideOut({
     if (newType !== 'term' && newType !== 'reference') {
       cleaned.terminology_ref = undefined
       cleaned.template_ref = undefined
+      cleaned.template_ref_version = undefined
       cleaned.reference_type = undefined
       cleaned.target_templates = undefined
       cleaned.target_terminologies = undefined
@@ -226,6 +228,7 @@ export default function FieldSlideOut({
       cleaned.array_item_type = undefined
       cleaned.array_terminology_ref = undefined
       cleaned.array_template_ref = undefined
+      cleaned.array_template_ref_version = undefined
       cleaned.array_file_config = undefined
     }
     if (newType !== 'string') {
@@ -376,8 +379,16 @@ export default function FieldSlideOut({
                   label="Template ref"
                   value={field.template_ref}
                   options={templates}
-                  onChange={(id) => update({ template_ref: id })}
+                  onChange={(id) => update({ template_ref: id, template_ref_version: undefined })}
                 />
+                {field.template_ref && (
+                  <TemplateVersionPicker
+                    label="Template ref version"
+                    templateId={field.template_ref}
+                    value={field.template_ref_version}
+                    onChange={(v) => update({ template_ref_version: v })}
+                  />
+                )}
                 <div>
                   <Label htmlFor="field-verstrat">Version strategy</Label>
                   <SelectInput
@@ -425,12 +436,22 @@ export default function FieldSlideOut({
               />
             )}
             {field.array_item_type === 'reference' && (
-              <ReferencePicker
-                label="Array template ref"
-                value={field.array_template_ref}
-                options={templates}
-                onChange={(id) => update({ array_template_ref: id })}
-              />
+              <>
+                <ReferencePicker
+                  label="Array template ref"
+                  value={field.array_template_ref}
+                  options={templates}
+                  onChange={(id) => update({ array_template_ref: id, array_template_ref_version: undefined })}
+                />
+                {field.array_template_ref && (
+                  <TemplateVersionPicker
+                    label="Array template ref version"
+                    templateId={field.array_template_ref}
+                    value={field.array_template_ref_version}
+                    onChange={(v) => update({ array_template_ref_version: v })}
+                  />
+                )}
+              </>
             )}
           </Section>
         )}
