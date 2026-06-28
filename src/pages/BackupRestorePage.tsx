@@ -52,14 +52,24 @@ function archiveFilename(job: Pick<BackupJob, 'namespace' | 'completed_at' | 'cr
 // ---------------------------------------------------------------------------
 
 function BackupTab() {
-  const { namespace } = useNamespaceFilter()
+  const { namespace: globalNs } = useNamespaceFilter()
+  const { data: namespaces } = useNamespaces()
+  // Default the selection to the current top-bar namespace (if any); the user
+  // can add more. Backup fans out one single-namespace job per selected
+  // namespace — the backend is single-namespace per archive (see CASE-542 for
+  // the combined-archive work), so N selections produce N independent archives.
+  const [selected, setSelected] = useState<string[]>(globalNs ? [globalNs] : [])
   const [includeFiles, setIncludeFiles] = useState(false)
   const [includeInactive, setIncludeInactive] = useState(false)
   const [latestOnly, setLatestOnly] = useState(false)
   const [starting, setStarting] = useState(false)
-  const [activeJob, setActiveJob] = useState<BackupJob | null>(null)
+  const [activeJobs, setActiveJobs] = useState<BackupJob[]>([])
   const [error, setError] = useState<string | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Mirror the latest jobs into a ref so the poll interval reads current state
+  // without being re-created each tick.
+  const jobsRef = useRef<BackupJob[]>([])
+  jobsRef.current = activeJobs
 
   const stopPolling = () => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
@@ -67,34 +77,57 @@ function BackupTab() {
 
   useEffect(() => () => stopPolling(), [])
 
+  const isTerminal = (s: BackupJob['status']) => s === 'complete' || s === 'failed'
+
+  const startPolling = useCallback(() => {
+    stopPolling()
+    pollRef.current = setInterval(async () => {
+      const pending = jobsRef.current.filter(j => !isTerminal(j.status) && !j.job_id.startsWith('err-'))
+      if (pending.length === 0) { stopPolling(); return }
+      const updates = await Promise.all(pending.map(async j => {
+        try {
+          const r = await fetch(apiUrl(`/wip/api/document-store/backup/jobs/${j.job_id}`))
+          if (!r.ok) return null
+          return await r.json() as BackupJob
+        } catch { return null }
+      }))
+      setActiveJobs(prev => prev.map(j => updates.find(u => u?.job_id === j.job_id) ?? j))
+    }, 2000)
+  }, [])
+
   const handleStart = async () => {
-    if (!namespace) return
+    if (selected.length === 0) return
     setStarting(true)
     setError(null)
-    setActiveJob(null)
+    setActiveJobs([])
     try {
-      const res = await fetch(apiUrl(`/wip/api/document-store/backup/namespaces/${namespace}/backup`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          include_files: includeFiles,
-          include_inactive: includeInactive,
-          latest_only: latestOnly,
-        }),
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
-      const job = await res.json() as BackupJob
-      setActiveJob(job)
-      // Start polling
-      pollRef.current = setInterval(async () => {
+      const started = await Promise.all(selected.map(async ns => {
         try {
-          const r = await fetch(apiUrl(`/wip/api/document-store/backup/jobs/${job.job_id}`))
-          if (!r.ok) return
-          const updated = await r.json() as BackupJob
-          setActiveJob(updated)
-          if (updated.status === 'complete' || updated.status === 'failed') stopPolling()
-        } catch { /* ignore poll errors */ }
-      }, 2000)
+          const res = await fetch(apiUrl(`/wip/api/document-store/backup/namespaces/${ns}/backup`), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              include_files: includeFiles,
+              include_inactive: includeInactive,
+              latest_only: latestOnly,
+            }),
+          })
+          if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+          return await res.json() as BackupJob
+        } catch (e) {
+          // Surface a per-namespace start failure as a failed pseudo-job rather
+          // than aborting the whole fan-out — other namespaces still proceed.
+          return {
+            job_id: `err-${ns}`,
+            namespace: ns,
+            kind: 'backup',
+            status: 'failed',
+            message: e instanceof Error ? e.message : 'Failed to start',
+          } as BackupJob
+        }
+      }))
+      setActiveJobs(started)
+      startPolling()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Backup failed')
     } finally {
@@ -102,28 +135,27 @@ function BackupTab() {
     }
   }
 
-  const handleDownload = () => {
-    if (!activeJob) return
-    // Open download URL directly — lets the browser stream the file
-    // instead of buffering the entire archive in JS memory.
-    // This avoids 502s on large archives (2GB+) and works with any size.
-    const fname = archiveFilename(activeJob)
+  const downloadJob = (job: BackupJob) => {
+    // Open download URL directly — lets the browser stream the file instead of
+    // buffering the entire archive in JS memory. Avoids 502s on large archives.
+    const fname = archiveFilename(job)
     const a = document.createElement('a')
-    a.href = apiUrl(`/api/backup-download/${activeJob.job_id}?filename=${encodeURIComponent(fname)}`)
+    a.href = apiUrl(`/api/backup-download/${job.job_id}?filename=${encodeURIComponent(fname)}`)
     a.download = fname
     a.click()
   }
 
+  const anyRunning = activeJobs.some(j => !isTerminal(j.status) && !j.job_id.startsWith('err-'))
+
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-500">Export a namespace as a .zip archive. Includes terminologies, templates, documents, and optionally files.</p>
+      <p className="text-sm text-gray-500">Export one or more namespaces as .zip archives. Each namespace produces its own archive — select several to back them up in one go. Includes terminologies, templates, documents, and optionally files.</p>
 
-      {!namespace && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-          <AlertTriangle size={14} />
-          Select a namespace in the top bar first.
-        </div>
-      )}
+      <NamespaceMultiSelect
+        namespaces={(namespaces ?? []).map(n => ({ prefix: n.prefix }))}
+        selected={selected}
+        onChange={setSelected}
+      />
 
       <div className="space-y-2">
         <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
@@ -142,11 +174,15 @@ function BackupTab() {
 
       <button
         onClick={handleStart}
-        disabled={starting || !namespace || (activeJob?.status === 'running')}
+        disabled={starting || selected.length === 0 || anyRunning}
         className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
       >
         {starting ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-        {starting ? 'Starting...' : `Backup ${namespace || '...'}`}
+        {starting
+          ? 'Starting...'
+          : selected.length === 0
+            ? 'Select namespaces to back up'
+            : `Backup ${selected.length} namespace${selected.length === 1 ? '' : 's'}`}
       </button>
 
       {error && (
@@ -155,7 +191,69 @@ function BackupTab() {
         </div>
       )}
 
-      {activeJob && <JobProgress job={activeJob} onDownload={handleDownload} />}
+      {activeJobs.length > 0 && (
+        <div className="space-y-2">
+          {activeJobs.map(job => (
+            <JobProgress key={job.job_id} job={job} onDownload={() => downloadJob(job)} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Compact checkbox list for picking one-or-more namespaces to back up.
+function NamespaceMultiSelect({
+  namespaces,
+  selected,
+  onChange,
+}: {
+  namespaces: Array<{ prefix: string }>
+  selected: string[]
+  onChange: (next: string[]) => void
+}) {
+  const allPrefixes = namespaces.map(n => n.prefix)
+  const allSelected = allPrefixes.length > 0 && allPrefixes.every(p => selected.includes(p))
+  const toggle = (p: string) =>
+    onChange(selected.includes(p) ? selected.filter(x => x !== p) : [...selected, p])
+  const toggleAll = () => onChange(allSelected ? [] : allPrefixes)
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <label className="text-xs font-medium text-gray-600">Namespaces to back up</label>
+        {allPrefixes.length > 0 && (
+          <button type="button" onClick={toggleAll} className="text-[11px] text-primary hover:underline">
+            {allSelected ? 'Clear all' : 'Select all'}
+          </button>
+        )}
+      </div>
+      {allPrefixes.length === 0 ? (
+        <p className="text-xs text-gray-400 italic">No namespaces available.</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto border border-gray-100 rounded p-2 bg-gray-50/50">
+          {namespaces.map(n => (
+            <label
+              key={n.prefix}
+              className={cn(
+                'flex items-center gap-2 px-2 py-1 rounded text-xs cursor-pointer hover:bg-white',
+                selected.includes(n.prefix) && 'bg-white',
+              )}
+            >
+              <input
+                type="checkbox"
+                checked={selected.includes(n.prefix)}
+                onChange={() => toggle(n.prefix)}
+                className="rounded border-gray-300"
+              />
+              <span className="font-mono text-gray-700 truncate">{n.prefix}</span>
+            </label>
+          ))}
+        </div>
+      )}
+      {selected.length > 0 && (
+        <p className="text-[11px] text-gray-500 mt-1">{selected.length} selected</p>
+      )}
     </div>
   )
 }
@@ -398,6 +496,11 @@ function JobsList() {
                 label={job.status}
               />
               {job.created_at && <span className="text-gray-300">{new Date(job.created_at).toLocaleDateString()}</span>}
+              {/* Download is a repeatable GET against the job's retained
+                  archive. The backend (document-store backup.py:415) refuses
+                  download for any job whose kind !== 'backup' (400), even
+                  though restore-upload archives sit on disk too — so we can
+                  only offer it for backup jobs until that guard is relaxed. */}
               {job.status === 'complete' && (job.kind ?? job.type) === 'backup' && (
                 <a
                   href={apiUrl(`/api/backup-download/${job.job_id}?filename=${encodeURIComponent(archiveFilename(job))}`)}
