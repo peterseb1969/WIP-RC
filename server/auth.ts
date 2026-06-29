@@ -39,6 +39,33 @@ const ALLOWED_GROUPS = process.env.ALLOWED_GROUPS
 /** Public paths that skip authentication */
 const PUBLIC_PATHS = ['/api/health', '/auth/callback', '/auth/logout']
 
+/** Comma-separated Dex/gateway groups treated as admins. Default: wip-admins. */
+const ADMIN_GROUPS = (process.env.WIP_ADMIN_GROUPS || 'wip-admins')
+  .split(',').map(g => g.trim()).filter(Boolean)
+
+/**
+ * Require the caller to be in an admin group (mirrors APP-KB's requireAdmin,
+ * CASE-508). Reads identity from X-WIP-Groups — set by the gateway, or by
+ * requireAuth() above in OIDC mode — falling back to the session. When no auth
+ * is configured at all (local dev: no OIDC issuer and no gateway header), it
+ * passes through so development isn't blocked.
+ */
+export function requireAdmin(): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const gwUser = req.headers['x-wip-user'] as string | undefined
+    const gwGroups = (req.headers['x-wip-groups'] as string || '')
+      .split(',').map(g => g.trim()).filter(Boolean)
+    const sessionGroups = req.session?.user?.groups ?? []
+    const groups = gwGroups.length ? gwGroups : sessionGroups
+
+    const authEnabled = !!OIDC_ISSUER || !!gwUser
+    if (!authEnabled) { next(); return } // open dev mode
+
+    if (groups.some(g => ADMIN_GROUPS.includes(g))) { next(); return }
+    res.status(403).json({ error: 'Administrator access required' })
+  }
+}
+
 /**
  * Initialize OIDC client. Call once at startup.
  * Returns true if auth is enabled, false if OIDC_ISSUER is not set.

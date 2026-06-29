@@ -20,6 +20,7 @@ import type { APIKeyInfo, CreateAPIKeyRequest, UpdateAPIKeyRequest } from '@wip/
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
+import AnthropicKeyCard from '@/components/settings/AnthropicKeyCard'
 import { cn } from '@/lib/cn'
 
 // ---------------------------------------------------------------------------
@@ -659,6 +660,13 @@ export default function APIKeysPage() {
           )}
         </p>
       )}
+
+      {/* LLM key — distinct from WIP access keys above. Anthropic key for the
+          askBar / NL-query feature, settable at runtime (in-memory override). */}
+      <div className="pt-2 border-t border-gray-100">
+        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">LLM</h2>
+        <AnthropicKeyCard />
+      </div>
     </div>
   )
 }

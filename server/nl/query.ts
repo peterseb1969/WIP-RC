@@ -12,6 +12,14 @@
 import { Router } from 'express'
 import Anthropic from '@anthropic-ai/sdk'
 import { toolDefinitions, executeTool } from './tools.js'
+import {
+  resolveAnthropicKey,
+  keyStatus,
+  setKeyOverride,
+  clearKeyOverride,
+  validateKey,
+} from './anthropic-key.js'
+import { requireAdmin } from '../auth.js'
 
 const router = Router()
 
@@ -93,16 +101,21 @@ interface QueryResponse {
 }
 
 let anthropic: Anthropic | null = null
+let cachedKey = ''
 
 function getClient(): Anthropic {
-  if (!anthropic) {
-    const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) {
-      throw new Error(
-        'ANTHROPIC_API_KEY is not set. Add it to .env to enable NL queries.'
-      )
-    }
+  const apiKey = resolveAnthropicKey()
+  if (!apiKey) {
+    throw new Error(
+      'ANTHROPIC_API_KEY is not set. Add it to .env, or provide a key in API Keys, to enable NL queries.'
+    )
+  }
+  // Rebuild the cached client whenever the resolved key changes (e.g. an
+  // admin set or cleared the runtime override), so a new key takes effect
+  // without a server restart.
+  if (!anthropic || cachedKey !== apiKey) {
     anthropic = new Anthropic({ apiKey })
+    cachedKey = apiKey
   }
   return anthropic
 }
@@ -267,14 +280,40 @@ router.post('/query', async (req, res) => {
   }
 })
 
-// GET /api/nl/status — check if NL query is available
+// GET /api/nl/status — check if NL query is available + which key source
 router.get('/status', (_req, res) => {
-  const hasKey = !!process.env.ANTHROPIC_API_KEY
+  const st = keyStatus()
   res.json({
-    available: hasKey,
+    available: st.configured,
     model: MODEL,
-    hint: hasKey ? undefined : 'Set ANTHROPIC_API_KEY in .env to enable NL queries',
+    source: st.source,
+    last4: st.last4,
+    hint: st.configured ? undefined : 'Set ANTHROPIC_API_KEY in .env, or provide a key in API Keys, to enable NL queries',
   })
+})
+
+// POST /api/nl/anthropic-key — set the in-memory key override (admin only).
+// The key is validated with a live probe before it is accepted, held in
+// process memory only, and never echoed back (response carries masked status).
+router.post('/anthropic-key', requireAdmin(), async (req, res) => {
+  const key = typeof req.body?.key === 'string' ? req.body.key.trim() : ''
+  if (!key) {
+    res.status(400).json({ error: 'key is required' })
+    return
+  }
+  const v = await validateKey(key)
+  if (!v.ok) {
+    res.status(400).json({ error: `Key rejected: ${v.error}` })
+    return
+  }
+  setKeyOverride(key)
+  res.json(keyStatus())
+})
+
+// DELETE /api/nl/anthropic-key — clear the override; falls back to env (admin only).
+router.delete('/anthropic-key', requireAdmin(), (_req, res) => {
+  clearKeyOverride()
+  res.json(keyStatus())
 })
 
 export default router
