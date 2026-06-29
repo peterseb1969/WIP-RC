@@ -16,6 +16,7 @@ import StatusBadge from '@/components/common/StatusBadge'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 import { cn } from '@/lib/cn'
 import { apiUrl } from '@/lib/wip'
+import { readArchiveFormatVersion, isUnsupportedArchiveVersion } from '@/lib/archive-version'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -24,6 +25,10 @@ import { apiUrl } from '@/lib/wip'
 interface BackupJob {
   job_id: string
   namespace: string
+  // CASE-542: a combined-archive job spans several namespaces; `namespace` is
+  // the anchor, `namespaces` the full set. Single-namespace jobs omit it or
+  // carry a 1-element list.
+  namespaces?: string[]
   type?: 'backup' | 'restore'
   kind?: 'backup' | 'restore'
   status: 'pending' | 'running' | 'complete' | 'failed'
@@ -40,11 +45,45 @@ interface BackupJob {
 // completion time, falling back to creation time. Both the server's
 // Content-Disposition header and the anchor's download attribute use this —
 // the server header wins in browsers, so they must agree.
-function archiveFilename(job: Pick<BackupJob, 'namespace' | 'completed_at' | 'created_at'>): string {
+function archiveFilename(job: Pick<BackupJob, 'namespace' | 'namespaces' | 'completed_at' | 'created_at'>): string {
   const iso = (job.completed_at || job.created_at || '').slice(0, 19) // YYYY-MM-DDTHH:MM:SS
   const stamp = iso ? iso.replace('T', '_').replace(/:/g, '') : 'unknown'
-  const ns = (job.namespace || 'wip').replace(/[^A-Za-z0-9_-]/g, '_')
+  // Combined archive (CASE-542) spans several namespaces — name it
+  // <anchor>+<n>ns so the file isn't mislabelled as a single-namespace backup.
+  const base = job.namespaces && job.namespaces.length > 1
+    ? `${job.namespace || 'wip'}+${job.namespaces.length - 1}ns`
+    : (job.namespace || 'wip')
+  const ns = base.replace(/[^A-Za-z0-9_-]/g, '_')
   return `${ns}_${stamp}.zip`
+}
+
+// Extract a clean message from a non-ok response: prefer the backend's JSON
+// `detail`/`error`/`message`, fall back to raw text. Keeps API errors (e.g.
+// CASE-552's "Archive is format v2.0 — convert it first") readable instead of
+// dumping `HTTP 400: {"detail":...}`.
+async function readError(res: Response): Promise<string> {
+  const text = await res.text()
+  try {
+    const j = JSON.parse(text)
+    return j.detail || j.error || j.message || text || `HTTP ${res.status}`
+  } catch {
+    return text || `HTTP ${res.status}`
+  }
+}
+
+// A multi-namespace restore has no single target — the backend uses '_' as
+// the URL anchor and restores each namespace in the archive into itself.
+const PLACEHOLDER_NS = new Set(['_', '-', ''])
+
+// Human label for the namespace(s) a job touches. Prefers the explicit
+// `namespaces` list (combined backups, and restores once the backend
+// populates it); falls back to the single `namespace`, and never shows the
+// bare '_' placeholder.
+function jobNamespaceLabel(job: Pick<BackupJob, 'namespace' | 'namespaces'>): string {
+  if (job.namespaces && job.namespaces.length > 1) return `${job.namespaces.length} namespaces`
+  if (job.namespaces && job.namespaces.length === 1) return job.namespaces[0]!
+  if (job.namespace && !PLACEHOLDER_NS.has(job.namespace)) return job.namespace
+  return 'multiple namespaces'
 }
 
 // ---------------------------------------------------------------------------
@@ -59,6 +98,9 @@ function BackupTab() {
   // namespace — the backend is single-namespace per archive (see CASE-542 for
   // the combined-archive work), so N selections produce N independent archives.
   const [selected, setSelected] = useState<string[]>(globalNs ? [globalNs] : [])
+  // CASE-542: combine the selected namespaces into ONE archive (a single
+  // job spanning them) instead of fanning out to one archive per namespace.
+  const [combine, setCombine] = useState(false)
   const [includeFiles, setIncludeFiles] = useState(false)
   const [includeInactive, setIncludeInactive] = useState(false)
   const [latestOnly, setLatestOnly] = useState(false)
@@ -95,11 +137,46 @@ function BackupTab() {
     }, 2000)
   }, [])
 
+  const startCombined = async () => {
+    // One job spanning all selected namespaces → one archive (CASE-542 v3).
+    // The URL anchor is the first selection; the rest go in the body, where
+    // the backend merges + dedups them with the anchor.
+    const [anchor, ...rest] = selected
+    const res = await fetch(apiUrl(`/wip/api/document-store/backup/namespaces/${anchor}/backup`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        include_files: includeFiles,
+        include_inactive: includeInactive,
+        latest_only: latestOnly,
+        namespaces: rest,
+      }),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+    return await res.json() as BackupJob
+  }
+
   const handleStart = async () => {
     if (selected.length === 0) return
     setStarting(true)
     setError(null)
     setActiveJobs([])
+
+    // Combined mode: a single job for all selected namespaces.
+    if (combine && selected.length > 1) {
+      try {
+        const job = await startCombined()
+        setActiveJobs([job])
+        startPolling()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Combined backup failed')
+      } finally {
+        setStarting(false)
+      }
+      return
+    }
+
+    // Separate mode (or a single selection): one job per namespace.
     try {
       const started = await Promise.all(selected.map(async ns => {
         try {
@@ -149,13 +226,35 @@ function BackupTab() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-500">Export one or more namespaces as .zip archives. Each namespace produces its own archive — select several to back them up in one go. Includes terminologies, templates, documents, and optionally files.</p>
+      <p className="text-sm text-gray-500">Export one or more namespaces as .zip archives. Select several to back them up in one go — as separate archives, or combined into a single archive. Includes terminologies, templates, documents, and optionally files.</p>
 
       <NamespaceMultiSelect
         namespaces={(namespaces ?? []).map(n => ({ prefix: n.prefix }))}
         selected={selected}
         onChange={setSelected}
       />
+
+      {/* CASE-542 — combine selected namespaces into one archive. Only
+          meaningful with 2+ selected; otherwise a single namespace is one
+          archive either way. */}
+      <label className={cn(
+        'flex items-start gap-2 text-sm cursor-pointer',
+        selected.length < 2 ? 'text-gray-400' : 'text-gray-700',
+      )}>
+        <input
+          type="checkbox"
+          checked={combine}
+          onChange={e => setCombine(e.target.checked)}
+          disabled={selected.length < 2}
+          className="rounded border-gray-300 mt-0.5"
+        />
+        <span>
+          Combine into a single archive
+          <span className="block text-[11px] text-gray-400">
+            One job spanning all selected namespaces (restores them together). Off = one archive per namespace.
+          </span>
+        </span>
+      </label>
 
       <div className="space-y-2">
         <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
@@ -182,7 +281,9 @@ function BackupTab() {
           ? 'Starting...'
           : selected.length === 0
             ? 'Select namespaces to back up'
-            : `Backup ${selected.length} namespace${selected.length === 1 ? '' : 's'}`}
+            : combine && selected.length > 1
+              ? `Backup ${selected.length} namespaces → 1 archive`
+              : `Backup ${selected.length} namespace${selected.length === 1 ? '' : 's'}${selected.length > 1 ? ` → ${selected.length} archives` : ''}`}
       </button>
 
       {error && (
@@ -270,6 +371,10 @@ function RestoreTab() {
   const [activeJob, setActiveJob] = useState<BackupJob | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
+  // Set when the selected archive is positively detected as a non-v3 format —
+  // blocks the upload locally with a clear message (CASE-552 also guards the
+  // backend). Unknown/v3 archives leave this null (fail open).
+  const [unsupported, setUnsupported] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -279,15 +384,25 @@ function RestoreTab() {
 
   useEffect(() => () => stopPolling(), [])
 
-  const handleFileSelect = (f: File | null) => {
+  const handleFileSelect = async (f: File | null) => {
     setFile(f)
     setError(null)
     setWarning(null)
     setActiveJob(null)
+    setUnsupported(false)
+    if (!f) return
+    // Peek the archive's format_version client-side so an accidental v2 upload
+    // is caught instantly (it would otherwise create an empty namespace and
+    // silently restore nothing — CASE-552).
+    const version = await readArchiveFormatVersion(f)
+    if (isUnsupportedArchiveVersion(version)) {
+      setUnsupported(true)
+      setError(`This is a v${version} archive — restore only supports v3. Convert it first:  python -m wip_toolkit.convert_archive OLD.zip NEW.zip`)
+    }
   }
 
   const handleRestore = async () => {
-    if (!file) return
+    if (!file || unsupported) return
     setRestoring(true)
     setError(null)
     setWarning(null)
@@ -300,17 +415,33 @@ function RestoreTab() {
         method: 'POST',
         body: formData,
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+      if (!res.ok) throw new Error(await readError(res))
       const job = await res.json() as BackupJob
 
-      // Inform user which namespace the archive will restore into
+      // Inform the user which namespace(s) the archive will restore into.
+      // The backend reads them from the archive manifest: a single-namespace
+      // archive resolves a real target; a combined archive restores each
+      // namespace into itself (no single target — the URL anchor is '_').
       const existingPrefixes = new Set((namespaces ?? []).map(ns => ns.prefix))
-      if (job.namespace) {
+      const archiveNs = job.namespaces && job.namespaces.length > 0 ? job.namespaces : null
+      if (archiveNs) {
+        // Explicit list available — name them, flagging which already exist.
+        const existing = archiveNs.filter(n => existingPrefixes.has(n))
+        const fresh = archiveNs.filter(n => !existingPrefixes.has(n))
+        const parts: string[] = []
+        if (existing.length) parts.push(`merging/overwriting existing: ${existing.join(', ')}`)
+        if (fresh.length) parts.push(`creating new: ${fresh.join(', ')}`)
+        setWarning(`Restoring ${archiveNs.length} namespace${archiveNs.length === 1 ? '' : 's'} — ${parts.join('; ')}.`)
+      } else if (job.namespace && !PLACEHOLDER_NS.has(job.namespace)) {
+        // Single namespace, target resolved from the archive.
         if (existingPrefixes.has(job.namespace)) {
           setWarning(`Restoring into existing namespace "${job.namespace}" — data will be merged/overwritten.`)
         } else {
           setWarning(`Restoring into new namespace "${job.namespace}".`)
         }
+      } else {
+        // Combined archive whose per-namespace list the backend didn't return.
+        setWarning('Restoring multiple namespaces from the archive — each restores into itself (existing data is merged/overwritten).')
       }
 
       setActiveJob(job)
@@ -361,7 +492,7 @@ function RestoreTab() {
 
       <button
         onClick={handleRestore}
-        disabled={restoring || !file || (activeJob?.status === 'running')}
+        disabled={restoring || !file || unsupported || (activeJob?.status === 'running')}
         className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
       >
         {restoring ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
@@ -395,7 +526,11 @@ function JobProgress({ job, onDownload }: { job: BackupJob; onDownload?: () => v
           <span className={cn('text-sm font-medium', statusColor)}>
             {job.status === 'pending' ? 'Queued' : job.status === 'running' ? 'Running' : job.status === 'complete' ? 'Complete' : 'Failed'}
           </span>
-          {job.namespace && <span className="text-xs text-gray-400">{job.namespace}</span>}
+          {job.namespace && (
+            <span className="text-xs text-gray-400" title={job.namespaces?.join(', ')}>
+              {jobNamespaceLabel(job)}
+            </span>
+          )}
         </div>
         <span className="text-xs font-mono text-gray-400">{job.job_id}</span>
       </div>
@@ -485,7 +620,9 @@ function JobsList() {
             <div key={job.job_id} className="flex items-center gap-3 px-4 py-2.5 text-xs">
               <div className="flex-1 min-w-0">
                 <span className={cn('font-medium', (job.kind ?? job.type) === 'backup' ? 'text-primary' : 'text-success')}>{job.kind ?? job.type ?? 'job'}</span>
-                <span className="text-gray-400 ml-2">{job.namespace}</span>
+                <span className="text-gray-400 ml-2" title={job.namespaces?.join(', ')}>
+                  {jobNamespaceLabel(job)}
+                </span>
                 {job.message && <span className="text-gray-400 ml-2 truncate">{job.message}</span>}
               </div>
               {job.archive_size != null && (
