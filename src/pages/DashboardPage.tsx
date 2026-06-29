@@ -126,6 +126,23 @@ function ServiceCard({ service }: { service: ServiceHealth }) {
         {service.responseTimeMs !== null ? `${service.responseTimeMs}ms` : '—'}
         <span className="ml-1 text-gray-300">{service.slug}</span>
       </div>
+      {/* CASE-526 — build provenance, when the service reports it. `sha: "dev"`
+          is the intended sentinel for bind-mounted/locally-built source. */}
+      {service.build?.sha && (
+        <div
+          className="text-[10px] font-mono text-gray-400 truncate"
+          title={[
+            service.build.version && `version ${service.build.version}`,
+            service.build.sha && `sha ${service.build.sha}`,
+            service.build.image_tag && `tag ${service.build.image_tag}`,
+            service.build.built_at && `built ${service.build.built_at}`,
+          ].filter(Boolean).join('\n')}
+        >
+          {service.build.sha === 'dev'
+            ? 'build: dev (source)'
+            : `${service.build.sha}${service.build.version ? ` · v${service.build.version}` : ''}`}
+        </div>
+      )}
       {service.error && service.status !== 'inactive' && (
         <div className="text-xs text-danger truncate" title={service.error}>
           {service.error}

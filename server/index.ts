@@ -75,15 +75,37 @@ router.use('/wip', wipProxy({
 }))
 
 // WIP service health checks — probes each service via Caddy
+// `buildPath` is a service's root endpoint that returns a CASE-526 `build`
+// block ({version, sha, built_at, image_tag}). Only the wip-auth services
+// expose it today; the gateways / mcp-server carry OCI image labels but no
+// endpoint yet, so they omit it.
 const WIP_SERVICES = [
-  { name: 'Registry', slug: 'registry', path: '/api/registry/namespaces' },
-  { name: 'Def-Store', slug: 'def-store', path: '/api/def-store/terminologies?page_size=1' },
-  { name: 'Template-Store', slug: 'template-store', path: '/api/template-store/templates?page_size=1' },
-  { name: 'Document-Store', slug: 'document-store', path: '/api/document-store/documents?page_size=1' },
-  { name: 'Reporting-Sync', slug: 'reporting-sync', path: '/api/reporting-sync/status' },
+  { name: 'Registry', slug: 'registry', path: '/api/registry/namespaces', buildPath: '/api/registry/' },
+  { name: 'Def-Store', slug: 'def-store', path: '/api/def-store/terminologies?page_size=1', buildPath: '/api/def-store/' },
+  { name: 'Template-Store', slug: 'template-store', path: '/api/template-store/templates?page_size=1', buildPath: '/api/template-store/' },
+  { name: 'Document-Store', slug: 'document-store', path: '/api/document-store/documents?page_size=1', buildPath: '/api/document-store/' },
+  { name: 'Reporting-Sync', slug: 'reporting-sync', path: '/api/reporting-sync/status', buildPath: '/api/reporting-sync/' },
   { name: 'Ingest-Gateway', slug: 'ingest-gateway', path: '/api/ingest-gateway/health' },
   { name: 'File-Store', slug: 'file-store', path: '/api/document-store/files?page_size=1' },
 ]
+
+interface BuildInfo { version?: string; sha?: string; built_at?: string; image_tag?: string }
+
+// Best-effort fetch of a service's CASE-526 build block from its root endpoint.
+// Returns undefined if the service is old (no build block) or unreachable.
+async function probeBuild(wipBase: string, apiKey: string, buildPath: string): Promise<BuildInfo | undefined> {
+  try {
+    const resp = await fetch(`${wipBase}${buildPath}`, {
+      headers: { 'X-API-Key': apiKey },
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!resp.ok || !(resp.headers.get('content-type') ?? '').includes('application/json')) return undefined
+    const body = await resp.json() as { build?: BuildInfo }
+    return body.build && typeof body.build === 'object' ? body.build : undefined
+  } catch {
+    return undefined
+  }
+}
 
 router.get('/api/infra/health', async (_req, res) => {
   const wipBase = process.env.WIP_BASE_URL || 'https://localhost:8443'
@@ -92,6 +114,8 @@ router.get('/api/infra/health', async (_req, res) => {
   const results = await Promise.allSettled(
     WIP_SERVICES.map(async (svc) => {
       const start = performance.now()
+      // Fetch build provenance (CASE-526) in parallel with the health probe.
+      const buildPromise = svc.buildPath ? probeBuild(wipBase, apiKey, svc.buildPath) : Promise.resolve(undefined)
       try {
         const resp = await fetch(`${wipBase}${svc.path}`, {
           headers: { 'X-API-Key': apiKey },
@@ -100,7 +124,8 @@ router.get('/api/infra/health', async (_req, res) => {
         const ms = Math.round(performance.now() - start)
         const contentType = resp.headers.get('content-type') ?? ''
         const isJson = contentType.includes('application/json')
-        const base = { name: svc.name, slug: svc.slug, responseTimeMs: ms, probedPath: svc.path, httpStatus: resp.status, contentType }
+        const build = await buildPromise
+        const base = { name: svc.name, slug: svc.slug, responseTimeMs: ms, probedPath: svc.path, httpStatus: resp.status, contentType, build }
 
         // 404 / non-JSON response usually means the service isn't deployed
         // (Caddy returns a fallback HTML page or 404 for unrouted paths).
@@ -127,6 +152,7 @@ router.get('/api/infra/health', async (_req, res) => {
           responseTimeMs: ms,
           probedPath: svc.path,
           error: msg,
+          build: await buildPromise,
         }
       }
     })

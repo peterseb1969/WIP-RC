@@ -1,11 +1,22 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiUrl } from '@/lib/wip'
 
+/** CASE-526 build provenance from a service's root endpoint. Absent for
+ *  services that don't expose a build block (gateways, mcp-server, old images). */
+export interface BuildInfo {
+  version?: string
+  sha?: string
+  built_at?: string
+  image_tag?: string
+}
+
 export interface ServiceHealth {
   name: string
   slug: string
   status: 'healthy' | 'unhealthy' | 'inactive' | 'unknown'
   responseTimeMs: number | null
+  /** CASE-526 — build/version provenance, when the service exposes it. */
+  build?: BuildInfo
   error?: string
   /** Upstream HTTP status observed by the health probe. Useful for diagnosing
    *  "inactive" results — distinguishes 404 (not routed) from 2xx-non-JSON
