@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Search,
@@ -714,6 +714,160 @@ function SearchResults({
 }
 
 // ---------------------------------------------------------------------------
+// By-term search (POST /search/by-term via registry.searchEntries)
+// ---------------------------------------------------------------------------
+// Matches a literal substring against each entry's composite-key AND synonym
+// string values, reporting matched_in = primary | synonym — the "I know a
+// fragment (a vendor SKU, a legacy code) → find the canonical entry" tool.
+//
+// NOTE: @wip/client's RegistryLookupResponse type is wrong for this endpoint
+// (it declares entry_id / matched_via, but the runtime payload is
+// registry_id / matched_in / matched_composite_key / all_synonyms). We bind to
+// the real shape here; the type bug is filed separately.
+
+interface ByTermHit {
+  registry_id: string
+  namespace: string
+  entity_type: string
+  matched_in: string // 'primary' | 'synonym'
+  matched_namespace: string | null
+  matched_entity_type: string | null
+  matched_composite_key: Record<string, unknown> | null
+  all_synonyms?: unknown[]
+}
+
+const BY_TERM_DISPLAY_CAP = 100
+
+function compositeKeySummary(k: Record<string, unknown> | null): string {
+  if (!k) return ''
+  return Object.entries(k)
+    .filter(([, v]) => typeof v === 'string' || typeof v === 'number')
+    .map(([kk, v]) => `${kk}=${v}`)
+    .join('  ')
+}
+
+function ByTermRow({ hit, isSelected, onClick }: { hit: ByTermHit; isSelected: boolean; onClick: () => void }) {
+  const viaSynonym = hit.matched_in === 'synonym'
+  const summary = compositeKeySummary(hit.matched_composite_key)
+  return (
+    <button
+      onClick={onClick}
+      className={cn('w-full text-left px-3 py-2.5 transition-colors', isSelected ? 'bg-primary/5' : 'hover:bg-gray-50')}
+    >
+      <div className="flex items-center gap-2">
+        {ENTITY_ICONS[hit.entity_type] ?? <Hash size={12} className="text-gray-400" />}
+        <span className="text-sm text-gray-800 truncate font-medium">{summary || hit.registry_id}</span>
+        <span className={cn(
+          'text-[10px] px-1.5 py-0.5 rounded border shrink-0',
+          viaSynonym ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200',
+        )}>
+          {viaSynonym ? 'via synonym' : 'primary'}
+        </span>
+      </div>
+      <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5 ml-5">
+        <span className={cn('capitalize px-1.5 py-0.5 rounded text-[10px]', ENTITY_COLORS[hit.entity_type] ?? 'bg-gray-100 text-gray-600')}>
+          {hit.entity_type}
+        </span>
+        <span className="font-mono truncate">{hit.registry_id}</span>
+        {hit.matched_namespace && <span>{hit.matched_namespace}</span>}
+      </div>
+    </button>
+  )
+}
+
+function ByTermSearchResults({
+  query,
+  namespace,
+  entityType,
+}: {
+  query: string
+  namespace: string
+  entityType: EntityType | ''
+}) {
+  const client = useWipClient()
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
+  const [includeInactive, setIncludeInactive] = useState(false)
+  const [debounced, setDebounced] = useState(query)
+
+  // by-term is literal-substring and can return thousands of hits (a fragment
+  // of a common namespace value matches every entry in it) — debounce and
+  // require a minimum length so we don't fire a huge query on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(query), 400)
+    return () => clearTimeout(t)
+  }, [query])
+
+  const term = debounced.trim()
+  const enabled = term.length >= 2
+
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['rc-console', 'registry-by-term', term, namespace, entityType, includeInactive],
+    queryFn: async () => {
+      const res = await client.registry.searchEntries(term, {
+        namespaces: namespace ? [namespace] : undefined,
+        entityTypes: entityType ? [ENTITY_TYPE_PLURAL[entityType]] : undefined,
+        includeInactive,
+      })
+      return res as unknown as ByTermHit[]
+    },
+    enabled,
+    staleTime: 15_000,
+  })
+
+  const hits = data ?? []
+  const shown = hits.slice(0, BY_TERM_DISPLAY_CAP)
+
+  return (
+    <div className="grid grid-cols-12 gap-4">
+      <div className="col-span-5 space-y-2">
+        <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+          <input type="checkbox" checked={includeInactive} onChange={e => setIncludeInactive(e.target.checked)} className="rounded border-gray-300" />
+          Include inactive entries
+        </label>
+
+        {!enabled && <p className="text-xs text-gray-400 px-1">Type at least 2 characters to search composite-key & synonym values.</p>}
+        {enabled && (isLoading || isFetching) && <LoadingState label="Searching by term..." />}
+        {error && <ErrorState message={error instanceof Error ? error.message : 'By-term search failed'} />}
+        {enabled && !isFetching && data && (
+          <>
+            <div className="text-xs text-gray-400">
+              {hits.length} match{hits.length !== 1 ? 'es' : ''} for "{term}"
+              {hits.length > BY_TERM_DISPLAY_CAP && (
+                <span className="text-amber-600"> — showing first {BY_TERM_DISPLAY_CAP}; refine the term</span>
+              )}
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
+              {shown.length === 0 ? (
+                <p className="text-sm text-gray-400 p-6 text-center">No matches.</p>
+              ) : (
+                shown.map(h => (
+                  <ByTermRow
+                    key={h.registry_id}
+                    hit={h}
+                    isSelected={selectedEntryId === h.registry_id}
+                    onClick={() => setSelectedEntryId(h.registry_id)}
+                  />
+                ))
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="col-span-7">
+        {selectedEntryId ? (
+          <EntryDetail entryId={selectedEntryId} />
+        ) : (
+          <div className="flex items-center justify-center h-48 text-sm text-gray-400">
+            Select an entry to view details
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Registry Page
 // ---------------------------------------------------------------------------
 
@@ -723,6 +877,7 @@ export default function RegistryPage() {
   const [query, setQuery] = useState('')
   const [entityType, setEntityType] = useState<EntityType | ''>('')
   const [nsOverride, setNsOverride] = useState('')
+  const [searchMode, setSearchMode] = useState<'unified' | 'by-term'>('unified')
 
   const effectiveNs = nsOverride || namespace
 
@@ -742,10 +897,30 @@ export default function RegistryPage() {
               type="text"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Search by ID, value, label, or composite key..."
+              placeholder={searchMode === 'by-term'
+                ? 'Find by fragment — SKU, legacy code, any composite-key or synonym value...'
+                : 'Search by ID, value, label, or composite key...'}
               className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-primary-light"
               autoFocus
             />
+          </div>
+          {/* Search mode: unified full-text vs by-term (literal substring over
+              composite-key + synonym values, reporting primary vs synonym). */}
+          <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+            {(['unified', 'by-term'] as const).map(m => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setSearchMode(m)}
+                className={cn(
+                  'px-3 py-2 transition-colors',
+                  searchMode === m ? 'bg-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50',
+                )}
+                title={m === 'by-term' ? 'Literal match over composite-key & synonym values (matched_in: primary|synonym)' : 'Full-text search'}
+              >
+                {m === 'by-term' ? 'By term' : 'Search'}
+              </button>
+            ))}
           </div>
           <select
             value={nsOverride}
@@ -770,6 +945,8 @@ export default function RegistryPage() {
         </>
       ) : !query ? (
         <BrowseEntries namespace={effectiveNs} entityType={entityType} />
+      ) : searchMode === 'by-term' ? (
+        <ByTermSearchResults query={query} namespace={effectiveNs} entityType={entityType} />
       ) : (
         <SearchResults query={query} namespace={effectiveNs} entityType={entityType} />
       )}
