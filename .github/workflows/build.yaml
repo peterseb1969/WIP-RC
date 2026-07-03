@@ -1,14 +1,33 @@
-name: Build & Push Image (x86)
+name: Build & Push Image
 
-# Manually triggered: Actions tab -> Run workflow. Builds the production
-# image and pushes it to GHCR as ghcr.io/<owner>/react-console:<tag>.
-# Empty tag input falls back to sha-<short>. VITE_BASE_PATH must match the
-# platform manifest's APP_BASE_PATH (apps/react-console/wip-app.yaml in
-# World-in-a-Pie).
+# Manually triggered: Actions tab -> "Build & Push Image" -> Run workflow.
+# Builds the react-console production image for BOTH arches NATIVELY (no QEMU)
+# and publishes one multi-arch tag to GHCR: ghcr.io/<owner>/react-console:<tag>.
 #
-# Platforms: default native amd64. Set the platforms input to e.g.
-# "linux/amd64,linux/arm64" for a multi-arch manifest via buildx + QEMU
-# (emulated arm64 npm ci/build is slow).
+# Architecture — the WIP dual-arch pattern (mirrors World-in-a-Pie's
+# .github/workflows/build.yaml, adapted for this repo's single image):
+#   1. resolve-tag   — resolve tag/sha/stamp ONCE (input tag, or sha-<short>
+#      fallback) and expose them as job outputs, so both arch builds bake
+#      identical build-args and every job tags identically.
+#   2. build (matrix)— one NATIVE job per arch, no QEMU:
+#        amd64 -> ubuntu-latest, arm64 -> ubuntu-24.04-arm (GitHub's native arm
+#        runner, free for public repos). Each pushes react-console:<tag>-<arch>.
+#        fail-fast: false so one arch failing doesn't cancel the other.
+#   3. stitch        — needs BOTH arch builds; welds them into the bare <tag>
+#      via `docker buildx imagetools create` (manifest-only: no rebuild, no
+#      layer transfer). Runs only if both arches succeeded, so a bare <tag> is
+#      never a half-index and both halves come from this run's single commit.
+#
+# Rules that keep this safe:
+#   - Never pull+tag+push to retag — it silently flattens a multi-arch index to
+#     one arch. `imagetools create` only.
+#   - Version tags (e.g. 1.2.0, 20260703a) are write-once — bump, never
+#     re-point an existing version tag. Adding a new tag to a manifest is fine.
+#   - The arch-suffixed tags (<tag>-amd64, <tag>-arm64) stay in the registry as
+#     provenance; deploys always pin the bare <tag>.
+#
+# VITE_BASE_PATH must match APP_BASE_PATH in the platform manifest
+# (apps/react-console/wip-app.yaml in World-in-a-Pie).
 
 on:
   workflow_dispatch:
@@ -17,33 +36,47 @@ on:
         description: 'Image tag (e.g. 1.0.0). Leave empty for sha-<short-commit>.'
         required: false
         default: ''
-      platforms:
-        description: 'Comma-separated platforms. Default native amd64; e.g. linux/amd64,linux/arm64 for multi-arch (QEMU, slow).'
-        required: false
-        default: 'linux/amd64'
 
 jobs:
-  build-and-push:
+  resolve-tag:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      sha: ${{ steps.tag.outputs.sha }}
+      stamp: ${{ steps.tag.outputs.stamp }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve tag / sha / build stamp (once, shared by both arches)
+        id: tag
+        run: |
+          SHA="$(git rev-parse --short HEAD)"
+          TAG="${{ inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="sha-$SHA"
+          fi
+          {
+            echo "tag=$TAG"
+            echo "sha=$SHA"
+            echo "stamp=$(date -u +%FT%TZ)"
+          } >> "$GITHUB_OUTPUT"
+          echo "Building tag: $TAG (arch images: $TAG-amd64, $TAG-arm64)"
+
+  build:
+    needs: resolve-tag
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v4
-
-      - name: Resolve image tag
-        id: tag
-        run: |
-          TAG="${{ inputs.tag }}"
-          if [ -z "$TAG" ]; then
-            TAG="sha-$(git rev-parse --short HEAD)"
-          fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "Building with tag: $TAG"
-
-      - name: Set up QEMU (multi-arch only)
-        if: inputs.platforms != 'linux/amd64'
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -53,12 +86,35 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | \
             docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-      - name: Build and push
+      - name: Build and push (${{ matrix.arch }}, native)
         run: |
           docker buildx build \
-            --platform "${{ inputs.platforms }}" \
+            --platform "linux/${{ matrix.arch }}" \
             --build-arg VITE_BASE_PATH=/apps/rc/ \
-            --build-arg VITE_BUILD_STAMP="$(date -u +%FT%TZ)" \
-            --build-arg VITE_BUILD_SHA="$(git rev-parse --short HEAD)" \
-            -t "ghcr.io/${{ github.repository_owner }}/react-console:${{ steps.tag.outputs.tag }}" \
+            --build-arg VITE_BUILD_STAMP="${{ needs.resolve-tag.outputs.stamp }}" \
+            --build-arg VITE_BUILD_SHA="${{ needs.resolve-tag.outputs.sha }}" \
+            -t "ghcr.io/${{ github.repository_owner }}/react-console:${{ needs.resolve-tag.outputs.tag }}-${{ matrix.arch }}" \
             --push .
+
+  stitch:
+    # Runs only if BOTH arch builds succeeded — the bare <tag> is never a
+    # half-index, and both halves come from this run's single commit.
+    needs: [resolve-tag, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Stitch per-arch images into the multi-arch tag
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          TAG="${{ needs.resolve-tag.outputs.tag }}"
+          IMG="ghcr.io/${{ github.repository_owner }}/react-console"
+          # Manifest-only weld — no rebuild, no layer transfer.
+          docker buildx imagetools create \
+            -t "$IMG:$TAG" \
+            "$IMG:$TAG-amd64" \
+            "$IMG:$TAG-arm64"
+          docker buildx imagetools inspect "$IMG:$TAG" | head -30
+          echo "Done: $TAG is a multi-arch index (amd64+arm64) for react-console."
