@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import { useRegistrySearch, useWipClient, useNamespaces, useAddSynonym, useRemoveSynonym, useMergeEntries, useDeactivateEntry } from '@wip/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import type { RegistrySearchResult } from '@wip/client'
+import type { RegistryByTermHit, RegistrySearchResult } from '@wip/client'
 import JsonViewer from '@/components/common/JsonViewer'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
@@ -720,23 +720,11 @@ function SearchResults({
 // string values, reporting matched_in = primary | synonym — the "I know a
 // fragment (a vendor SKU, a legacy code) → find the canonical entry" tool.
 //
-// NOTE: @wip/client's RegistryLookupResponse type is wrong for this endpoint
-// (it declares entry_id / matched_via, but the runtime payload is
-// registry_id / matched_in / matched_composite_key / all_synonyms). We bind to
-// the real shape here; the type bug is filed separately.
+// @wip/client 0.28.0 ships the correct RegistryByTermHit type and a
+// server-side `limit` (CASE-572) — the backend bounds the fetch and reports
+// the true pre-truncation total, so we no longer cap client-side.
 
-interface ByTermHit {
-  registry_id: string
-  namespace: string
-  entity_type: string
-  matched_in: string // 'primary' | 'synonym'
-  matched_namespace: string | null
-  matched_entity_type: string | null
-  matched_composite_key: Record<string, unknown> | null
-  all_synonyms?: unknown[]
-}
-
-const BY_TERM_DISPLAY_CAP = 100
+const BY_TERM_LIMIT = 100
 
 function compositeKeySummary(k: Record<string, unknown> | null): string {
   if (!k) return ''
@@ -746,7 +734,7 @@ function compositeKeySummary(k: Record<string, unknown> | null): string {
     .join('  ')
 }
 
-function ByTermRow({ hit, isSelected, onClick }: { hit: ByTermHit; isSelected: boolean; onClick: () => void }) {
+function ByTermRow({ hit, isSelected, onClick }: { hit: RegistryByTermHit; isSelected: boolean; onClick: () => void }) {
   const viaSynonym = hit.matched_in === 'synonym'
   const summary = compositeKeySummary(hit.matched_composite_key)
   return (
@@ -802,20 +790,19 @@ function ByTermSearchResults({
 
   const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ['rc-console', 'registry-by-term', term, namespace, entityType, includeInactive],
-    queryFn: async () => {
-      const res = await client.registry.searchEntries(term, {
+    queryFn: () =>
+      client.registry.searchEntries(term, {
         namespaces: namespace ? [namespace] : undefined,
         entityTypes: entityType ? [ENTITY_TYPE_PLURAL[entityType]] : undefined,
         includeInactive,
-      })
-      return res as unknown as ByTermHit[]
-    },
+        limit: BY_TERM_LIMIT,
+      }),
     enabled,
     staleTime: 15_000,
   })
 
-  const hits = data ?? []
-  const shown = hits.slice(0, BY_TERM_DISPLAY_CAP)
+  const hits = data?.hits ?? []
+  const total = data?.total ?? 0
 
   return (
     <div className="grid grid-cols-12 gap-4">
@@ -831,16 +818,16 @@ function ByTermSearchResults({
         {enabled && !isFetching && data && (
           <>
             <div className="text-xs text-gray-400">
-              {hits.length} match{hits.length !== 1 ? 'es' : ''} for "{term}"
-              {hits.length > BY_TERM_DISPLAY_CAP && (
-                <span className="text-amber-600"> — showing first {BY_TERM_DISPLAY_CAP}; refine the term</span>
+              {total} match{total !== 1 ? 'es' : ''} for "{term}"
+              {total > hits.length && (
+                <span className="text-amber-600"> — showing first {hits.length}; refine the term</span>
               )}
             </div>
             <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
-              {shown.length === 0 ? (
+              {hits.length === 0 ? (
                 <p className="text-sm text-gray-400 p-6 text-center">No matches.</p>
               ) : (
-                shown.map(h => (
+                hits.map(h => (
                   <ByTermRow
                     key={h.registry_id}
                     hit={h}
