@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BookOpen, ChevronRight, Hash, RefreshCw, Plus } from 'lucide-react'
-import { useTerminologies, useCreateTerminology, useNamespaces } from '@wip/react'
+import { useTerminologies, useTerminology, useCreateTerminology, useNamespaces } from '@wip/react'
 import SearchInput from '@/components/common/SearchInput'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
@@ -254,9 +254,25 @@ export default function TerminologyListPage() {
     return (
       t.value?.toLowerCase().includes(s) ||
       t.label?.toLowerCase().includes(s) ||
-      t.description?.toLowerCase().includes(s)
+      t.description?.toLowerCase().includes(s) ||
+      t.terminology_id?.toLowerCase().includes(s)
     )
   }) ?? []
+
+  // The filter above only sees the current page, so a terminology_id search
+  // misses anything unpaged or in another namespace. For UUID-shaped queries,
+  // do a direct lookup (IDs are globally unique — the namespace filter is
+  // deliberately ignored) and surface it as the result.
+  const searchTrimmed = search.trim()
+  const isIdSearch = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(searchTrimmed)
+  const { data: directHit, isLoading: directLoading } = useTerminology(searchTrimmed, {
+    enabled: isIdSearch,
+    retry: false,
+    staleTime: 30_000,
+  })
+
+  const showDirectHit = isIdSearch && !!directHit
+  const displayItems = showDirectHit ? [directHit] : items
 
   return (
     <div className="space-y-4 max-w-5xl">
@@ -315,11 +331,20 @@ export default function TerminologyListPage() {
 
       {data && (
         <>
+          {showDirectHit && (
+            <p className="text-xs text-primary">
+              Matched by terminology ID{directHit?.namespace && namespace && directHit.namespace !== namespace
+                ? ` — in namespace "${directHit.namespace}", outside the current filter`
+                : ''}
+            </p>
+          )}
           <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
-            {items.length === 0 ? (
-              <p className="text-sm text-gray-400 p-6 text-center">No terminologies found.</p>
+            {displayItems.length === 0 ? (
+              <p className="text-sm text-gray-400 p-6 text-center">
+                {isIdSearch && directLoading ? 'Looking up ID...' : 'No terminologies found.'}
+              </p>
             ) : (
-              items.map((t, i) => (
+              displayItems.map((t, i) => (
                 <Link
                   key={`${t.terminology_id}-${t.namespace}-${i}`}
                   to={`/terminologies/${t.terminology_id}`}
@@ -349,15 +374,19 @@ export default function TerminologyListPage() {
             )}
           </div>
 
-          <Pagination
-            page={page}
-            totalPages={data.pages ?? 1}
-            onPageChange={setPage}
-          />
+          {!showDirectHit && (
+            <>
+              <Pagination
+                page={page}
+                totalPages={data.pages ?? 1}
+                onPageChange={setPage}
+              />
 
-          <p className="text-xs text-gray-400">
-            {data.total ?? items.length} terminolog{(data.total ?? items.length) !== 1 ? 'ies' : 'y'} total
-          </p>
+              <p className="text-xs text-gray-400">
+                {data.total ?? items.length} terminolog{(data.total ?? items.length) !== 1 ? 'ies' : 'y'} total
+              </p>
+            </>
+          )}
         </>
       )}
     </div>

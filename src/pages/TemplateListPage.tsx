@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FileCode2, ChevronRight, Hash, Layers, RefreshCw, Plus, Archive, Network } from 'lucide-react'
-import { useTemplates } from '@wip/react'
+import { useTemplates, useTemplate } from '@wip/react'
 import SearchInput from '@/components/common/SearchInput'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
@@ -38,9 +38,25 @@ export default function TemplateListPage() {
     return (
       t.value?.toLowerCase().includes(s) ||
       t.label?.toLowerCase().includes(s) ||
-      t.description?.toLowerCase().includes(s)
+      t.description?.toLowerCase().includes(s) ||
+      t.template_id?.toLowerCase().includes(s)
     )
   }) ?? []
+
+  // The filter above only sees the current page, so a template_id search
+  // misses anything unpaged or in another namespace. For UUID-shaped queries,
+  // do a direct lookup (IDs are globally unique — the namespace filter is
+  // deliberately ignored) and surface it as the result.
+  const searchTrimmed = search.trim()
+  const isIdSearch = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(searchTrimmed)
+  const { data: directHit, isLoading: directLoading } = useTemplate(searchTrimmed, {
+    enabled: isIdSearch,
+    retry: false,
+    staleTime: 30_000,
+  })
+
+  const showDirectHit = isIdSearch && !!directHit
+  const displayItems = showDirectHit ? [directHit] : items
 
   return (
     <div className="space-y-4 max-w-5xl">
@@ -102,11 +118,20 @@ export default function TemplateListPage() {
 
       {data && (
         <>
+          {showDirectHit && (
+            <p className="text-xs text-primary">
+              Matched by template ID{directHit?.namespace && namespace && directHit.namespace !== namespace
+                ? ` — in namespace "${directHit.namespace}", outside the current filter`
+                : ''}
+            </p>
+          )}
           <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
-            {items.length === 0 ? (
-              <p className="text-sm text-gray-400 p-6 text-center">No templates found.</p>
+            {displayItems.length === 0 ? (
+              <p className="text-sm text-gray-400 p-6 text-center">
+                {isIdSearch && directLoading ? 'Looking up ID...' : 'No templates found.'}
+              </p>
             ) : (
-              items.map(t => {
+              displayItems.map(t => {
                 const edge = t.usage === 'relationship'
                 return (
                   <Link
@@ -154,8 +179,12 @@ export default function TemplateListPage() {
               })
             )}
           </div>
-          <Pagination page={page} totalPages={data.pages ?? 1} onPageChange={setPage} />
-          <p className="text-xs text-gray-400">{data.total ?? items.length} template{(data.total ?? items.length) !== 1 ? 's' : ''} total</p>
+          {!showDirectHit && (
+            <>
+              <Pagination page={page} totalPages={data.pages ?? 1} onPageChange={setPage} />
+              <p className="text-xs text-gray-400">{data.total ?? items.length} template{(data.total ?? items.length) !== 1 ? 's' : ''} total</p>
+            </>
+          )}
         </>
       )}
     </div>
