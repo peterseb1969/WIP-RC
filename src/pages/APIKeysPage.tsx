@@ -21,6 +21,7 @@ import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import AnthropicKeyCard from '@/components/settings/AnthropicKeyCard'
+import { KeyEffectivePermissions } from '@/components/grants/GrantsPanel'
 import { cn } from '@/lib/cn'
 
 // ---------------------------------------------------------------------------
@@ -112,6 +113,7 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
   const [description, setDescription] = useState('')
   const [namespacesInput, setNamespacesInput] = useState('')
   const [groupsInput, setGroupsInput] = useState('')
+  const [grantPermission, setGrantPermission] = useState<'' | 'read' | 'write' | 'admin'>('write')
   const [expiresAt, setExpiresAt] = useState('')
   const [error, setError] = useState<string | null>(null)
 
@@ -142,6 +144,9 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
       namespaces: namespaces?.length ? namespaces : undefined,
       groups: groups?.length ? groups : undefined,
       expires_at: expiresAt || undefined,
+      // CASE-450: also create a grant per namespace. Without one, a scoped
+      // key resolves to read-only on its namespaces (the fallback).
+      grant_permission: namespaces?.length && grantPermission ? grantPermission : undefined,
     }
     create.mutate(req)
   }
@@ -212,14 +217,35 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
             />
           </div>
         </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Expires At</label>
-          <input
-            type="datetime-local"
-            value={expiresAt}
-            onChange={e => setExpiresAt(e.target.value)}
-            className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
-          />
+        <div className="flex items-start gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Permission on namespaces</label>
+            <select
+              value={grantPermission}
+              onChange={e => setGrantPermission(e.target.value as '' | 'read' | 'write' | 'admin')}
+              disabled={!namespacesInput.trim()}
+              className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light disabled:opacity-50 disabled:bg-gray-50"
+            >
+              <option value="">none (read-only fallback)</option>
+              <option value="read">read</option>
+              <option value="write">write</option>
+              <option value="admin">admin</option>
+            </select>
+            <p className="text-[10px] text-gray-400 mt-0.5 max-w-56">
+              {namespacesInput.trim()
+                ? 'Creates a grant per namespace above. Without one the key is read-only.'
+                : 'Applies only to namespace-scoped keys.'}
+            </p>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Expires At</label>
+            <input
+              type="datetime-local"
+              value={expiresAt}
+              onChange={e => setExpiresAt(e.target.value)}
+              className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
+            />
+          </div>
         </div>
         {error && <p className="text-xs text-danger">{error}</p>}
         <div className="flex items-center gap-2">
@@ -438,6 +464,9 @@ function APIKeyRow({
             )}
             <span>Source: {apiKey.source}</span>
           </div>
+
+          {/* Effective per-namespace permissions (scoped keys only) */}
+          <KeyEffectivePermissions apiKey={apiKey} />
 
           {/* Actions */}
           {editing ? (

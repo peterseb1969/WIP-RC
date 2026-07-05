@@ -21,6 +21,7 @@ import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import JsonViewer from '@/components/common/JsonViewer'
+import GrantsPanel from '@/components/grants/GrantsPanel'
 import { cn } from '@/lib/cn'
 
 // ---------------------------------------------------------------------------
@@ -449,6 +450,9 @@ function NamespaceRow({
               </div>
             )
           })()}
+
+          {/* Grants (CASE-450 permission model) */}
+          <GrantsPanel prefix={ns.prefix} />
 
           {/* Raw JSON */}
           <details className="group">
