@@ -16,18 +16,18 @@ describe('StatusBadge', () => {
     expect(screen.getByText('Failed')).toBeInTheDocument()
   })
 
-  it('applies green styling for healthy status', () => {
+  it('applies success styling for healthy status', () => {
     const { container } = render(<StatusBadge status="healthy" />)
     const badge = container.firstElementChild as HTMLElement
-    expect(badge.className).toContain('bg-green-100')
-    expect(badge.className).toContain('text-green-700')
+    expect(badge.className).toContain('bg-success/10')
+    expect(badge.className).toContain('text-success')
   })
 
-  it('applies red styling for error status', () => {
+  it('applies danger styling for error status', () => {
     const { container } = render(<StatusBadge status="error" />)
     const badge = container.firstElementChild as HTMLElement
-    expect(badge.className).toContain('bg-red-100')
-    expect(badge.className).toContain('text-red-700')
+    expect(badge.className).toContain('bg-danger/10')
+    expect(badge.className).toContain('text-danger')
   })
 
   it('applies yellow styling for warning status', () => {
@@ -40,7 +40,7 @@ describe('StatusBadge', () => {
     const { container } = render(<StatusBadge status="active" />)
     const dot = container.querySelector('span > span') as HTMLElement
     expect(dot.className).toContain('rounded-full')
-    expect(dot.className).toContain('bg-green-500')
+    expect(dot.className).toContain('bg-success')
   })
 })
 
