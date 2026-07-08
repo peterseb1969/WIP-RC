@@ -115,7 +115,7 @@ export const toolDefinitions: Anthropic.Tool[] = [
   {
     name: 'run_report_query',
     description:
-      'Execute a SELECT-only SQL query against the PostgreSQL reporting database. Use for aggregations, counts, JOINs, and analytics. Table names follow the pattern doc_{template_value} in lowercase (e.g., doc_ct_trial, doc_person). Use list_report_tables to discover available tables and columns.',
+      'Execute a SELECT-only SQL query against the PostgreSQL reporting database. Use for aggregations, counts, JOINs, and analytics. Tables live in one PG schema per namespace: either pass the namespace parameter so unqualified doc_{template_value} names resolve there, or schema-qualify every table as "namespace"."doc_{template_value}" (required for cross-namespace JOINs). Use list_report_tables to discover available tables — it returns each table\'s namespace and ready-to-use qualified_name.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -123,6 +123,11 @@ export const toolDefinitions: Anthropic.Tool[] = [
           type: 'string',
           description:
             'A SELECT SQL query. Only SELECT is allowed — INSERT/UPDATE/DELETE will be rejected.',
+        },
+        namespace: {
+          type: 'string',
+          description:
+            'Namespace whose schema unqualified table names resolve in. Omit only when every table in the SQL is schema-qualified.',
         },
       },
       required: ['sql'],
@@ -227,7 +232,9 @@ export async function executeTool(
       if (!trimmed.startsWith('SELECT') && !trimmed.startsWith('WITH')) {
         return { error: 'Only SELECT queries are allowed.' }
       }
-      return wipPost('/api/reporting-sync/query', { sql })
+      const body: Record<string, unknown> = { sql }
+      if (input.namespace) body.namespace = String(input.namespace)
+      return wipPost('/api/reporting-sync/query', body)
     }
 
     case 'list_report_tables': {

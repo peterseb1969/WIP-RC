@@ -6,7 +6,14 @@ import { apiUrl } from '@/lib/wip'
 // ---------------------------------------------------------------------------
 
 export interface ReportTable {
+  // Since CASE-628, reporting tables live in one PG schema per namespace;
+  // (namespace, name) identifies a table, and the same name can exist in
+  // several namespaces. qualified_name is the server-provided, ready-quoted
+  // `"<namespace>"."<name>"` form for use in SQL.
+  namespace: string
   name: string
+  template_value: string
+  qualified_name: string
   row_count: number
   column_count: number
 }
@@ -56,52 +63,59 @@ export function useReportTables() {
 }
 
 /**
- * Get column details for a specific table by running a LIMIT 0 query
- * and inspecting the result columns. The /tables endpoint only returns
- * column_count, not the actual column names/types.
+ * Get column details for a specific table by querying information_schema.
+ * The /tables endpoint only returns column_count, not names/types. The
+ * table_schema filter is load-bearing: without it, tables sharing a name
+ * across namespaces would merge their column lists.
  */
-export function useTableColumns(tableName: string | null) {
+export function useTableColumns(table: ReportTable | null) {
   return useQuery({
-    queryKey: ['rc-console', 'table-columns', tableName],
+    queryKey: ['rc-console', 'table-columns', table?.namespace, table?.name],
     queryFn: async (): Promise<TableColumns> => {
-      // Use information_schema to get actual column names and types
       const result = await fetchJson<QueryResult>('/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sql: `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tableName}' ORDER BY ordinal_position`,
+          sql: `SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = '${table!.namespace}' AND table_name = '${table!.name}' ORDER BY ordinal_position`,
         }),
       })
       return {
-        table: tableName!,
+        table: table!.name,
         columns: result.rows.map(r => ({
           name: String(r.column_name ?? ''),
           type: String(r.data_type ?? ''),
         })),
       }
     },
-    enabled: !!tableName,
+    enabled: !!table,
     staleTime: 300_000,
   })
 }
 
-export function useTablePreview(tableName: string | null) {
+export function useTablePreview(table: ReportTable | null) {
   return useQuery({
-    queryKey: ['rc-console', 'table-preview', tableName],
+    queryKey: ['rc-console', 'table-preview', table?.namespace, table?.name],
     queryFn: () =>
       fetchJson<QueryResult>('/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sql: `SELECT * FROM "${tableName}" LIMIT 10` }),
+        body: JSON.stringify({ sql: `SELECT * FROM ${table!.qualified_name} LIMIT 10` }),
       }),
-    enabled: !!tableName,
+    enabled: !!table,
     staleTime: 30_000,
   })
 }
 
+export interface RunQueryInput {
+  sql: string
+  /** When set, the server resolves unqualified doc_* names in this
+   *  namespace's schema (search_path). Omit for schema-qualified SQL. */
+  namespace?: string
+}
+
 export function useRunQuery() {
   return useMutation({
-    mutationFn: async (sql: string): Promise<QueryResult> => {
+    mutationFn: async ({ sql, namespace }: RunQueryInput): Promise<QueryResult> => {
       const trimmed = sql.trim()
       // Client-side safety: only SELECT allowed
       if (!/^\s*(SELECT|WITH)\b/i.test(trimmed)) {
@@ -110,7 +124,7 @@ export function useRunQuery() {
       return fetchJson<QueryResult>('/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sql: trimmed }),
+        body: JSON.stringify(namespace ? { sql: trimmed, namespace } : { sql: trimmed }),
       })
     },
   })

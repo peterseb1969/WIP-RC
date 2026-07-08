@@ -123,6 +123,35 @@ describe('executeTool — SQL safety', () => {
     expect(mockFetch).toHaveBeenCalledTimes(1)
   })
 
+  it('forwards namespace into the query body (CASE-628 per-namespace schemas)', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ rows: [] }),
+    })
+
+    await executeTool('run_report_query', {
+      sql: 'SELECT count(*) FROM doc_person',
+      namespace: 'clintrial',
+    })
+
+    const body = JSON.parse(mockFetch.mock.calls[0]![1]!.body as string)
+    expect(body).toEqual({ sql: 'SELECT count(*) FROM doc_person', namespace: 'clintrial' })
+  })
+
+  it('omits namespace from the body when not provided', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ rows: [] }),
+    })
+
+    await executeTool('run_report_query', {
+      sql: 'SELECT count(*) FROM "wip"."doc_namespaces"',
+    })
+
+    const body = JSON.parse(mockFetch.mock.calls[0]![1]!.body as string)
+    expect(body).toEqual({ sql: 'SELECT count(*) FROM "wip"."doc_namespaces"' })
+  })
+
   it('returns error for unknown tool', async () => {
     const result = await executeTool('nonexistent_tool', {})
     expect(result).toEqual({ error: 'Unknown tool: nonexistent_tool' })

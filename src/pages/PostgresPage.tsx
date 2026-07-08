@@ -20,6 +20,7 @@ import {
   useTablePreview,
   useRunQuery,
   type QueryResult,
+  type ReportTable,
 } from '@/hooks/use-reporting'
 import { useSyncStatus } from '@wip/react'
 import DataTable from '@/components/common/DataTable'
@@ -36,6 +37,7 @@ import { useIsServiceInactive } from '@/hooks/use-service-health'
 
 interface HistoryEntry {
   sql: string
+  namespace?: string
   timestamp: number
   rowCount: number
   executionTimeMs?: number
@@ -106,8 +108,8 @@ function TableBrowser({
   selectedTable,
   onSelectTable,
 }: {
-  selectedTable: string | null
-  onSelectTable: (name: string) => void
+  selectedTable: ReportTable | null
+  onSelectTable: (table: ReportTable) => void
 }) {
   const { data: tables, isLoading, error, refetch } = useReportTables()
 
@@ -118,37 +120,52 @@ function TableBrowser({
     return <p className="text-sm text-gray-400 p-4">No reporting tables found.</p>
   }
 
-  const handleDownloadCsv = (e: MouseEvent, tableName: string) => {
+  const handleDownloadCsv = (e: MouseEvent, table: ReportTable) => {
     e.stopPropagation()
-    window.open(`/wip/api/reporting-sync/export/csv?table=${encodeURIComponent(tableName)}`, '_blank')
+    window.open(
+      `/wip/api/reporting-sync/export/csv?table=${encodeURIComponent(table.name)}&namespace=${encodeURIComponent(table.namespace)}`,
+      '_blank'
+    )
   }
 
+  // One PG schema per namespace since CASE-628 — group the browser accordingly.
+  const namespaces = [...new Set(tables.map(t => t.namespace))].sort()
+
   return (
-    <div className="divide-y divide-gray-100">
-      {tables.map((table, i) => (
-        <button
-          key={`${table.name}-${i}`}
-          onClick={() => onSelectTable(table.name)}
-          className={cn(
-            'w-full text-left px-3 py-2.5 flex items-center gap-2 text-sm hover:bg-gray-50 transition-colors group',
-            selectedTable === table.name && 'bg-primary/5 text-primary-dark'
-          )}
-        >
-          <Table2 size={14} className="text-gray-400 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <div className="truncate font-medium">{table.name}</div>
-            <div className="text-xs text-gray-400">
-              {table.column_count} cols · {table.row_count.toLocaleString()} rows
-            </div>
+    <div>
+      {namespaces.map(ns => (
+        <div key={ns}>
+          <div className="sticky top-0 px-3 py-1.5 bg-gray-50 border-y border-gray-100 text-xs font-medium text-gray-500 first:border-t-0">
+            {ns}
           </div>
-          <Download
-            size={14}
-            className="text-gray-300 shrink-0 opacity-0 group-hover:opacity-100 hover:text-primary transition-all"
-            onClick={(e) => handleDownloadCsv(e as unknown as MouseEvent, table.name)}
-            aria-label={`Download ${table.name} as CSV`}
-          />
-          <ChevronRight size={14} className="text-gray-300 shrink-0" />
-        </button>
+          <div className="divide-y divide-gray-100">
+            {tables.filter(t => t.namespace === ns).map(table => (
+              <button
+                key={table.qualified_name}
+                onClick={() => onSelectTable(table)}
+                className={cn(
+                  'w-full text-left px-3 py-2.5 flex items-center gap-2 text-sm hover:bg-gray-50 transition-colors group',
+                  selectedTable?.qualified_name === table.qualified_name && 'bg-primary/5 text-primary-dark'
+                )}
+              >
+                <Table2 size={14} className="text-gray-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="truncate font-medium">{table.name}</div>
+                  <div className="text-xs text-gray-400">
+                    {table.column_count} cols · {table.row_count.toLocaleString()} rows
+                  </div>
+                </div>
+                <Download
+                  size={14}
+                  className="text-gray-300 shrink-0 opacity-0 group-hover:opacity-100 hover:text-primary transition-all"
+                  onClick={(e) => handleDownloadCsv(e as unknown as MouseEvent, table)}
+                  aria-label={`Download ${table.name} as CSV`}
+                />
+                <ChevronRight size={14} className="text-gray-300 shrink-0" />
+              </button>
+            ))}
+          </div>
+        </div>
       ))}
     </div>
   )
@@ -158,32 +175,27 @@ function TableBrowser({
 // Table Detail Panel
 // ---------------------------------------------------------------------------
 
-function TableDetail({ tableName }: { tableName: string }) {
-  const { data: tables } = useReportTables()
-  const { data: columnData, isLoading: columnsLoading } = useTableColumns(tableName)
-  const { data: preview, isLoading: previewLoading, error } = useTablePreview(tableName)
-
-  const table = tables?.find(t => t.name === tableName)
+function TableDetail({ table }: { table: ReportTable }) {
+  const { data: columnData, isLoading: columnsLoading } = useTableColumns(table)
+  const { data: preview, isLoading: previewLoading, error } = useTablePreview(table)
 
   return (
     <div className="space-y-4">
       {/* Table summary */}
-      {table && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-500">
-            <span className="font-mono font-medium text-gray-700">{table.name}</span>
-            {' — '}{table.column_count} columns, {table.row_count.toLocaleString()} rows
-          </div>
-          <button
-            onClick={() => window.open(`/wip/api/reporting-sync/export/csv?table=${encodeURIComponent(tableName)}`, '_blank')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:bg-gray-50 hover:text-primary transition-colors"
-            title={`Download ${tableName} as CSV`}
-          >
-            <Download size={12} />
-            Download CSV
-          </button>
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-gray-500">
+          <span className="font-mono font-medium text-gray-700">{table.qualified_name}</span>
+          {' — '}{table.column_count} columns, {table.row_count.toLocaleString()} rows
         </div>
-      )}
+        <button
+          onClick={() => window.open(`/wip/api/reporting-sync/export/csv?table=${encodeURIComponent(table.name)}&namespace=${encodeURIComponent(table.namespace)}`, '_blank')}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:bg-gray-50 hover:text-primary transition-colors"
+          title={`Download ${table.name} as CSV`}
+        >
+          <Download size={12} />
+          Download CSV
+        </button>
+      </div>
 
       {/* Column schema */}
       {columnsLoading && <LoadingState label="Loading columns..." />}
@@ -228,22 +240,26 @@ function TableDetail({ tableName }: { tableName: string }) {
 
 function QueryPad() {
   const [sql, setSql] = useState('SELECT * FROM ')
+  const [namespace, setNamespace] = useState('')
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory)
   const [showHistory, setShowHistory] = useState(false)
   const [result, setResult] = useState<QueryResult | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const runQuery = useRunQuery()
+  const { data: tables } = useReportTables()
+  const namespaces = [...new Set((tables ?? []).map(t => t.namespace))].sort()
 
   const handleExecute = useCallback(() => {
     const trimmed = sql.trim()
     if (!trimmed) return
 
-    runQuery.mutate(trimmed, {
+    runQuery.mutate({ sql: trimmed, namespace: namespace || undefined }, {
       onSuccess: (data) => {
         setResult(data)
         const entry: HistoryEntry = {
           sql: trimmed,
+          namespace: namespace || undefined,
           timestamp: Date.now(),
           rowCount: data.row_count,
           executionTimeMs: data.execution_time_ms,
@@ -256,7 +272,7 @@ function QueryPad() {
         setResult(null)
       },
     })
-  }, [sql, history, runQuery])
+  }, [sql, namespace, history, runQuery])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -271,6 +287,7 @@ function QueryPad() {
 
   const handleLoadFromHistory = (entry: HistoryEntry) => {
     setSql(entry.sql)
+    setNamespace(entry.namespace ?? '')
     setShowHistory(false)
     textareaRef.current?.focus()
   }
@@ -286,7 +303,9 @@ function QueryPad() {
       const resp = await fetch(apiUrl('/wip/api/reporting-sync/export/csv'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sql: sql.trim() }),
+        body: JSON.stringify(
+          namespace ? { sql: sql.trim(), namespace } : { sql: sql.trim() }
+        ),
       })
       if (!resp.ok) {
         const text = await resp.text().catch(() => '')
@@ -323,7 +342,7 @@ function QueryPad() {
           onChange={e => setSql(e.target.value)}
           onKeyDown={handleKeyDown}
           className="w-full font-mono text-sm bg-gray-900 text-success/60 rounded-lg border border-gray-700 p-4 resize-none focus:outline-none focus:border-primary placeholder-gray-600"
-          placeholder="SELECT * FROM doc_..."
+          placeholder={namespace ? 'SELECT * FROM doc_...' : 'SELECT * FROM "namespace"."doc_..."'}
           spellCheck={false}
         />
         <div className="absolute bottom-2 right-2 text-xs text-gray-500">
@@ -333,6 +352,22 @@ function QueryPad() {
 
       {/* Actions */}
       <div className="flex items-center gap-2">
+        {/* Tables live in per-namespace PG schemas (CASE-628). Selecting a
+            namespace lets unqualified doc_* names resolve there; the blank
+            choice requires schema-qualified names but allows cross-namespace
+            JOINs. */}
+        <select
+          value={namespace}
+          onChange={e => setNamespace(e.target.value)}
+          className="px-2 py-2 text-sm border border-gray-200 rounded-md text-gray-600 bg-white focus:outline-none focus:border-primary"
+          aria-label="Namespace for unqualified table names"
+        >
+          <option value="">All namespaces (qualify names)</option>
+          {namespaces.map(ns => (
+            <option key={ns} value={ns}>{ns}</option>
+          ))}
+        </select>
+
         <button
           onClick={handleExecute}
           disabled={runQuery.isPending || !sql.trim()}
@@ -407,6 +442,9 @@ function QueryPad() {
                   <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
                     <Clock size={10} />
                     {new Date(entry.timestamp).toLocaleString()}
+                    {entry.namespace && (
+                      <span className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-500">{entry.namespace}</span>
+                    )}
                     <span>{entry.rowCount} rows</span>
                     {entry.executionTimeMs !== undefined && <span>{entry.executionTimeMs}ms</span>}
                   </div>
@@ -433,7 +471,7 @@ function QueryPad() {
 // ---------------------------------------------------------------------------
 
 export default function PostgresPage() {
-  const [selectedTable, setSelectedTable] = useState<string | null>(null)
+  const [selectedTable, setSelectedTable] = useState<ReportTable | null>(null)
   const [activeTab, setActiveTab] = useState<'browser' | 'query' | 'sync'>('browser')
   const isInactive = useIsServiceInactive('reporting-sync')
 
@@ -524,7 +562,7 @@ export default function PostgresPage() {
           {/* Right: table detail */}
           <div className="col-span-8">
             {selectedTable ? (
-              <TableDetail tableName={selectedTable} />
+              <TableDetail table={selectedTable} />
             ) : (
               <div className="flex items-center justify-center h-48 text-sm text-gray-400">
                 Select a table to inspect its schema and data

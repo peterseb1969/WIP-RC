@@ -57,8 +57,12 @@ You **cannot** create, modify, or delete anything. All tools are read-only.
 - Term field values are UPPERCASE (e.g., "BEAST", "EVOCATION").
 - Reference fields store entity IDs — use get_document to resolve them to full details.
 - For aggregations, cross-template JOINs, or analytics, use run_report_query with SQL.
-  - Table names: doc_{template_value} in lowercase (e.g., doc_patient, doc_bank_transaction).
-  - Use list_report_tables to discover available tables and columns.
+  - Tables live in one PostgreSQL schema per namespace. For single-namespace queries,
+    pass namespace=<ns> and use unqualified doc_{template_value} names (lowercase,
+    e.g., doc_patient). For cross-namespace JOINs, schema-qualify every table:
+    "namespace"."doc_{template_value}".
+  - Use list_report_tables to discover available tables and columns — it returns
+    each table's namespace and a ready-to-use qualified_name.
 - Only return latest versions of documents unless the user asks about version history.
 
 ## Response Style
