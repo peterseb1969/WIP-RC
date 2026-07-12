@@ -31,7 +31,15 @@ import {
   useWipClient,
 } from '@wip/react'
 import { useQueryClient } from '@tanstack/react-query'
-import type { Term } from '@wip/client'
+import type { Term, CreateTermRequest } from '@wip/client'
+import {
+  parseOboText,
+  csvRowsToTerms,
+  looksLikeOboGraph,
+  summarizeBulkTerms,
+  emptySummary,
+  type ImportSummary,
+} from '@/lib/terminology-import'
 
 import SearchInput from '@/components/common/SearchInput'
 import Pagination from '@/components/common/Pagination'
@@ -574,14 +582,14 @@ function ValidatePanel({ terminologyId, terminologyValue }: { terminologyId: str
 // Import Panel
 // ---------------------------------------------------------------------------
 
-function ImportPanel({ terminologyId, namespace, onClose }: { terminologyId: string; namespace: string; onClose: () => void }) {
+function ImportPanel({ terminologyId, terminologyValue, namespace, onClose }: { terminologyId: string; terminologyValue: string; namespace: string; onClose: () => void }) {
   const client = useWipClient()
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [detectedFormat, setDetectedFormat] = useState<'json' | 'csv' | 'obo' | null>(null)
   const [importing, setImporting] = useState(false)
-  const [result, setResult] = useState<{ terms: number; errors: number; relationships: number } | null>(null)
+  const [result, setResult] = useState<ImportSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const handleFileSelect = (file: File | null) => {
@@ -595,95 +603,84 @@ function ImportPanel({ terminologyId, namespace, onClose }: { terminologyId: str
     else setDetectedFormat('json')
   }
 
+  // --- Bulk term creation shared by the CSV and JSON-array paths (CASE-674).
+  // createTerms chunks server-side via batch_size and returns per-item results.
+  const bulkCreateTerms = async (terms: CreateTermRequest[], skippedRows = 0): Promise<ImportSummary> => {
+    if (terms.length === 0) {
+      const s = emptySummary()
+      s.termsErrored = skippedRows
+      if (skippedRows > 0) s.failures.push({ value: '(rows without a value column)', error: `${skippedRows} row(s) had no usable term value` })
+      return s
+    }
+    const res = await client.defStore.createTerms(terminologyId, terms, { namespace, batch_size: 250 })
+    const s = summarizeBulkTerms(res.results, terms)
+    s.termsErrored += skippedRows
+    if (skippedRows > 0) s.failures.push({ value: '(rows without a value column)', error: `${skippedRows} row(s) had no usable term value` })
+    return s
+  }
+
+  // --- Ontology import: OBO Graph JSON or parsed plain-text OBO (CASE-672).
+  // The server creates terms AND relations, batched, idempotent on re-import.
+  const importOntology = async (graph: Record<string, unknown>): Promise<ImportSummary> => {
+    const res = await client.defStore.importOntology(graph, {
+      namespace,
+      terminology_value: terminologyValue,
+      skip_duplicates: true,
+    })
+    // The wire key is `relations` (post-2eeb872 naming); @wip/client 0.31.0's
+    // return type still says `relationships` — accept both until the type is fixed.
+    const relations = ((res as unknown as Record<string, unknown>).relations ??
+      res.relationships) as typeof res.relationships | undefined
+    const s = emptySummary()
+    s.termsCreated = res.terms.created
+    s.termsSkipped = res.terms.skipped
+    s.termsErrored = res.terms.errors
+    s.relationsCreated = relations?.created ?? 0
+    s.relationsSkipped = relations?.skipped ?? 0
+    s.relationsErrored = relations?.errors ?? 0
+    for (const sample of relations?.error_samples ?? []) {
+      if (s.failures.length < 50) s.failures.push({ value: '(relation)', error: sample })
+    }
+    return s
+  }
+
   // --- CSV import: value, label, description, aliases (pipe-separated) ---
   const importCsv = async (text: string) => {
     const Papa = (await import('papaparse')).default
     const parsed = Papa.parse<Record<string, string>>(text, { header: true, skipEmptyLines: true })
     if (parsed.errors.length > 0 && parsed.data.length === 0) throw new Error(parsed.errors[0]?.message ?? 'CSV parse failed')
-    let created = 0
-    let errors = 0
-    for (const row of parsed.data) {
-      const value = row['value'] || row['code'] || row['term'] || row['name']
-      if (!value) { errors++; continue }
-      try {
-        await client.defStore.createTerm(terminologyId, {
-          value,
-          label: row['label'] || row['display_name'] || undefined,
-          description: row['description'] || row['definition'] || undefined,
-          aliases: row['aliases'] ? row['aliases'].split('|').map(a => a.trim()).filter(Boolean) : undefined,
-          sort_order: row['sort_order'] ? Number(row['sort_order']) : undefined,
-          created_by: 'rc-console',
-        }, { namespace })
-        created++
-      } catch { errors++ }
-    }
-    return { terms: created, errors, relationships: 0 }
+    const { terms, skippedRows } = csvRowsToTerms(parsed.data)
+    return bulkCreateTerms(terms, skippedRows)
   }
 
-  // --- OBO JSON import: OBO Graph JSON with nodes + edges ---
+  // --- OBO import: OBO Graph JSON, or plain-text OBO via the stanza parser ---
   const importObo = async (text: string) => {
-    const data = JSON.parse(text)
-    const graphs = data.graphs ?? [data]
-    const graph = graphs[0]
-    if (!graph) throw new Error('No graph found in OBO JSON')
-
-    const nodes: Array<{ id: string; lbl?: string; meta?: { definition?: { val?: string }; synonyms?: Array<{ val: string }> } }> = graph.nodes ?? []
-    const edges: Array<{ sub: string; pred: string; obj: string }> = graph.edges ?? []
-
-    // Extract terms from nodes
-    let created = 0
-    let errors = 0
-    const idToValue = new Map<string, string>()
-
-    for (const node of nodes) {
-      if (node.id?.startsWith('http')) continue // skip URL-based class nodes
-      const value = node.id?.split('/').pop()?.split('#').pop() ?? node.id
-      if (!value) continue
-      idToValue.set(node.id, value)
-      try {
-        await client.defStore.createTerm(terminologyId, {
-          value,
-          label: node.lbl || undefined,
-          description: node.meta?.definition?.val || undefined,
-          aliases: node.meta?.synonyms?.map(s => s.val).filter(Boolean) || undefined,
-          created_by: 'rc-console',
-        }, { namespace })
-        created++
-      } catch { errors++ }
+    let graph: Record<string, unknown>
+    const trimmed = text.trimStart()
+    if (trimmed.startsWith('{')) {
+      graph = JSON.parse(text)
+    } else {
+      graph = parseOboText(text) as unknown as Record<string, unknown>
     }
-
-    // Note: OBO edges (relationships) require term_ids which we don't have
-    // at this point. For a full OBO import with relationships, use the
-    // importTerminology API with a pre-processed payload. This importer
-    // handles nodes (terms) only.
-    const edgeCount = edges.length
-
-    return { terms: created, errors, relationships: edgeCount > 0 ? 0 : 0 }
+    return importOntology(graph)
   }
 
-  // --- JSON import (existing logic) ---
+  // --- JSON import ---
   const importJson = async (text: string) => {
     const data = JSON.parse(text)
     if (Array.isArray(data)) {
-      let created = 0
-      let errors = 0
-      for (const term of data) {
-        try {
-          await client.defStore.createTerm(terminologyId, {
-            value: term.value,
-            label: term.label,
-            description: term.description,
-            aliases: term.aliases,
-            sort_order: term.sort_order,
-            parent_term_id: term.parent_term_id,
-            translations: term.translations,
-            metadata: term.metadata,
-            created_by: 'rc-console',
-          }, { namespace })
-          created++
-        } catch { errors++ }
-      }
-      return { terms: created, errors, relationships: 0 }
+      const terms: CreateTermRequest[] = data.map((term: Record<string, unknown>) => ({
+        value: term.value as string,
+        label: term.label as string | undefined,
+        description: term.description as string | undefined,
+        aliases: term.aliases as string[] | undefined,
+        sort_order: term.sort_order as number | undefined,
+        parent_term_id: term.parent_term_id as string | undefined,
+        translations: term.translations as CreateTermRequest['translations'],
+        metadata: term.metadata as Record<string, unknown> | undefined,
+        created_by: 'rc-console',
+      }))
+      return bulkCreateTerms(terms)
     } else if (data.terminology && data.terms) {
       // Accept either the post-rename `relations` key (with `relation_type`
       // inside each item) or the pre-rename `relationships` key (with
@@ -710,14 +707,12 @@ function ImportPanel({ terminologyId, namespace, onClose }: { terminologyId: str
         terms: data.terms,
         relations,
       })
-      const termsOk = (res.terms_result?.results ?? []).filter((r: { status: string }) => r.status === 'ok' || r.status === 'created').length
-      const termsErr = (res.terms_result?.results ?? []).filter((r: { status: string }) => r.status !== 'ok' && r.status !== 'created').length
-      return {
-        terms: termsOk,
-        errors: termsErr,
-        relationships: res.relationships_result?.created ?? 0,
-      }
-    } else if (data.graphs || data.nodes) {
+      const s = summarizeBulkTerms(res.terms_result?.results ?? [], data.terms)
+      s.relationsCreated = res.relationships_result?.created ?? 0
+      s.relationsSkipped = res.relationships_result?.skipped ?? 0
+      s.relationsErrored = res.relationships_result?.errors ?? 0
+      return s
+    } else if (looksLikeOboGraph(data)) {
       // OBO Graph JSON with .json extension
       return importObo(text)
     } else {
@@ -731,7 +726,7 @@ function ImportPanel({ terminologyId, namespace, onClose }: { terminologyId: str
     setError(null)
     try {
       const text = await selectedFile.text()
-      let res: { terms: number; errors: number; relationships: number }
+      let res: ImportSummary
       if (detectedFormat === 'csv') {
         res = await importCsv(text)
       } else if (detectedFormat === 'obo') {
@@ -748,13 +743,13 @@ function ImportPanel({ terminologyId, namespace, onClose }: { terminologyId: str
     }
   }
 
-  const formatLabel = detectedFormat === 'csv' ? 'CSV' : detectedFormat === 'obo' ? 'OBO Graph JSON' : 'JSON'
+  const formatLabel = detectedFormat === 'csv' ? 'CSV' : detectedFormat === 'obo' ? 'OBO' : 'JSON'
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
       <h3 className="text-sm font-medium text-gray-700">Import Terms</h3>
       <p className="text-xs text-gray-400">
-        Upload a file to import terms. Supported formats: JSON (array or full export), CSV (headers: value, label, description, aliases), OBO Graph JSON.
+        Upload a file to import terms and ontology relations. Supported formats: JSON (array or full export), CSV (headers: value, label, description, aliases), OBO Graph JSON, plain-text OBO. Ontology edges (is_a, part_of, …) are imported as term relations; re-imports skip existing terms.
       </p>
       <div>
         <input
@@ -778,10 +773,28 @@ function ImportPanel({ terminologyId, namespace, onClose }: { terminologyId: str
       </div>
       {error && <p className="text-xs text-danger">{error}</p>}
       {result && (
-        <div className="text-sm text-gray-700 bg-success/5 border border-success/20 rounded-lg px-4 py-2">
-          Imported {result.terms} term{result.terms !== 1 ? 's' : ''}
-          {result.relationships > 0 && `, ${result.relationships} relationship${result.relationships !== 1 ? 's' : ''}`}
-          {result.errors > 0 && <span className="text-danger"> ({result.errors} error{result.errors !== 1 ? 's' : ''})</span>}
+        <div className="text-sm text-gray-700 bg-success/5 border border-success/20 rounded-lg px-4 py-2 space-y-1">
+          <div>
+            Terms: {result.termsCreated} created
+            {result.termsSkipped > 0 && `, ${result.termsSkipped} skipped (already present)`}
+            {result.termsErrored > 0 && <span className="text-danger">, {result.termsErrored} failed</span>}
+            {(result.relationsCreated > 0 || result.relationsSkipped > 0 || result.relationsErrored > 0) && (
+              <>
+                {' · '}Relations: {result.relationsCreated} created
+                {result.relationsSkipped > 0 && `, ${result.relationsSkipped} skipped`}
+                {result.relationsErrored > 0 && <span className="text-danger">, {result.relationsErrored} failed</span>}
+              </>
+            )}
+          </div>
+          {result.failures.length > 0 && (
+            <div className="max-h-40 overflow-y-auto border-t border-success/20 pt-1">
+              {result.failures.map((f, i) => (
+                <div key={i} className="text-xs font-mono text-danger/80">
+                  {f.value}: {f.error}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
       <div className="flex items-center gap-2">
@@ -1232,7 +1245,7 @@ export default function TerminologyDetailPage() {
 
       {/* Import panel */}
       {showImport && (
-        <ImportPanel terminologyId={terminology.terminology_id} namespace={terminology.namespace} onClose={() => setShowImport(false)} />
+        <ImportPanel terminologyId={terminology.terminology_id} terminologyValue={terminology.value} namespace={terminology.namespace} onClose={() => setShowImport(false)} />
       )}
 
       {/* Metadata */}
