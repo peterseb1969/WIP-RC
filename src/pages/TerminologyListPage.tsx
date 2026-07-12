@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { BookOpen, ChevronRight, Hash, RefreshCw, Plus } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { BookOpen, ChevronRight, Hash, RefreshCw, Plus, Upload } from 'lucide-react'
 import { useTerminologies, useTerminology, useCreateTerminology, useNamespaces } from '@wip/react'
+import ImportPanel from '@/components/terminologies/ImportPanel'
 import SearchInput from '@/components/common/SearchInput'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
@@ -235,10 +236,13 @@ function CreateTerminologyForm({ defaultNamespace, onClose }: { defaultNamespace
 export default function TerminologyListPage() {
   useSyncNamespaceFromUrl()
   const { namespace } = useNamespaceFilter()
+  const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | ''>('active')
   const [showCreate, setShowCreate] = useState(false)
+  const [showImport, setShowImport] = useState(false)
+  const { data: namespaces } = useNamespaces()
 
   const { data, isLoading, error, refetch } = useTerminologies({
     status: statusFilter || undefined,
@@ -290,7 +294,14 @@ export default function TerminologyListPage() {
             <RefreshCw size={14} />
           </button>
           <button
-            onClick={() => setShowCreate(s => !s)}
+            onClick={() => { setShowImport(s => !s); setShowCreate(false) }}
+            className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-sm rounded-md text-gray-600 hover:bg-gray-50"
+          >
+            <Upload size={14} />
+            Import
+          </button>
+          <button
+            onClick={() => { setShowCreate(s => !s); setShowImport(false) }}
             className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-dark"
           >
             <Plus size={14} />
@@ -303,6 +314,16 @@ export default function TerminologyListPage() {
         <CreateTerminologyForm
           defaultNamespace={namespace}
           onClose={() => setShowCreate(false)}
+        />
+      )}
+
+      {showImport && (
+        <ImportPanel
+          mode="create-new"
+          namespace={namespace}
+          namespaces={namespaces?.map(n => n.prefix) ?? []}
+          onClose={() => setShowImport(false)}
+          onCreated={id => navigate(`/terminologies/${id}`)}
         />
       )}
 
