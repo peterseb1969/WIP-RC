@@ -588,7 +588,7 @@ function ExportDropdown({ terminology, client, loading, setLoading }: {
       const result = await client.defStore.exportTerminology(terminology.terminology_id, {
         format: 'json',
         includeInactive: true,
-        includeRelationships: true,
+        includeRelations: true,
         includeMetadata: true,
       })
 

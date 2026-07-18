@@ -166,8 +166,8 @@ function TreeNode({
     queryFn: async () => {
       const raw =
         direction === 'up'
-          ? await client.defStore.getParents(termId, namespace)
-          : await client.defStore.getChildren(termId, namespace)
+          ? await client.defStore.getParents(termId, { namespace })
+          : await client.defStore.getChildren(termId, { namespace })
       const hydrated = await Promise.all(
         raw.map(async (rel): Promise<HydratedRelationship> => {
           const isSource = rel.source_term_id === termId

@@ -133,9 +133,9 @@ export default function ImportPanel(props: ImportPanelProps) {
     })
     setCreatedId(res.terminology?.terminology_id ?? null)
     const s = summarizeBulkTerms(res.terms_result?.results ?? [], terms)
-    s.relationsCreated = res.relationships_result?.created ?? 0
-    s.relationsSkipped = res.relationships_result?.skipped ?? 0
-    s.relationsErrored = res.relationships_result?.errors ?? 0
+    s.relationsCreated = res.relations_result?.created ?? 0
+    s.relationsSkipped = res.relations_result?.skipped ?? 0
+    s.relationsErrored = res.relations_result?.errors ?? 0
     return s
   }
 
@@ -150,10 +150,7 @@ export default function ImportPanel(props: ImportPanelProps) {
       skip_duplicates: true,
     })
     setCreatedId(res.terminology?.terminology_id ?? null)
-    // The wire key is `relations` (post-2eeb872 naming); @wip/client 0.31.0's
-    // return type still says `relationships` — accept both (CASE-677).
-    const relations = ((res as unknown as Record<string, unknown>).relations ??
-      res.relationships) as typeof res.relationships | undefined
+    const relations = res.relations
     const s = emptySummary()
     s.termsCreated = res.terms.created
     s.termsSkipped = res.terms.skipped
