@@ -2,10 +2,10 @@
   "mcpServers": {
     "wip": {
       "type": "stdio",
-      "command": "/Users/peter/Development/World-in-a-Pie/.venv/bin/python",
+      "command": "/Users/peter/Development/Amrum/World-in-a-Pie/.venv/bin/python",
       "args": ["-m", "wip_mcp.server"],
       "env": {
-        "WIP_API_KEY_FILE": "/Users/peter/.wip-deploy/wip-local/secrets/api-key",
+        "WIP_API_KEY_FILE": "/Users/peter/.wip-deploy/default/secrets/api-key",
         "REGISTRY_URL": "https://localhost:8443",
         "DEF_STORE_URL": "https://localhost:8443",
         "TEMPLATE_STORE_URL": "https://localhost:8443",

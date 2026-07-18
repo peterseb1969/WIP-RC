@@ -2,13 +2,17 @@
 
 The operator-facing guide for installing, securing, and running World In a Pie. If you are deploying WIP, configuring auth or networking, packaging an app to run alongside it, or hardening a production install — this is your one stop.
 
-> **Audience.** You have a target host with Podman (or Kubernetes) installed and want WIP up and useful. You are comfortable with the shell, podman/docker, and editing config files. You do not need to read the codebase to follow this guide. Host-prep advice (Pi SSD setup, macOS Podman machine sizing, cloud VM specs) lives in the project [README's Hardware section](../README.md#hardware).
+> **Audience.** You have a target host with Podman (or Kubernetes) installed and want WIP up and useful. You are comfortable with the shell, podman/docker, and editing config files. You do not need to read the codebase to follow this guide. Host-prep advice (Pi SSD setup, macOS Podman machine sizing, cloud VM specs) lives in the [single-host quickstart's Host prep appendix](deploy/podman/README.md#appendix-host-prep-pi-ssd-podman-sizing).
 
 For the *why* — design philosophy, theses, use cases — see [Vision](Vision.md) and the FAQ section in the [README](../README.md). For the data model and APIs, see [api-conventions.md](api-conventions.md), [data-models.md](data-models.md), and the MCP `wip://` resources.
 
 ---
 
 ## 1. Quick Start
+
+> **Prefer a guided, validated walkthrough?** Pick your target:
+> **[single-host — podman + GHCR images](deploy/podman/README.md)** · **[hot-reload dev — local source](deploy/dev/README.md)** · **[Kubernetes](deploy/k8s/README.md)**.
+> Building an app on WIP → **[APP-YAC setup tutorial](app-yac-tutorial.md)**. The commands below are the condensed operator reference underneath those guides.
 
 ### Install (compose)
 
@@ -117,9 +121,9 @@ wip-deploy install \
 What changes:
 
 - Let's Encrypt issues a real cert via Caddy. You need port 443 reachable from the public internet for the ACME HTTP-01 challenge, and a hostname that resolves on the public internet.
-- HSTS and standard hardening headers are added by default.
+- HSTS and standard hardening headers (nosniff, X-Frame-Options, Referrer-Policy) are included in the rendered Caddy config for letsencrypt installs — `wip-deploy verify --security` confirms them.
 - For testing the ACME flow without burning rate limits, use `--tls letsencrypt --acme-staging` (staging cert is *not* trusted by browsers).
-- Walk the §7 *Security Hardening* checklist before exposing the host (the v1 `production-check.sh` validator is retired — CASE-383; a v2-native check is tracked in CASE-445).
+- Run `wip-deploy verify --security` and walk the §7 *Security Hardening* checklist before exposing the host.
 
 ### Tier 3: Enterprise
 
@@ -405,6 +409,45 @@ tar czf - "$WIP_DATA_DIR" \
   > "wip-backup-$(date +%Y%m%d).tar.gz.gpg"
 ```
 
+### 5.6 Logical export/import — the wip-toolkit CLI
+
+The tar backups above are physical (whole data directory, same platform
+version back). For **logical, per-namespace** data management — portable
+archives, namespace cloning, scripted/headless workflows — use the
+`wip-toolkit` CLI. It is a separate surface from the React Console's
+backup/restore (which uses document-store's engine); the CLI is for
+headless, scripted, and composable use.
+
+```bash
+# Export one namespace to a portable ZIP archive (v3 format;
+# multi-namespace archives are supported by the format)
+wip-toolkit --proxy export mylab mylab-backup.zip --include-files
+
+# See what an archive contains without touching the instance
+wip-toolkit inspect mylab-backup.zip
+
+# Clone into a NEW namespace: fresh mode re-keys every ID and rewrites
+# references (documents, files, edges) to the new IDs
+wip-toolkit --proxy import mylab-backup.zip --mode fresh \
+  --target-namespace mylab-copy
+
+# Both export and import accept --dry-run to preview
+```
+
+The full command set: `export`, `import` (fresh/restore modes), `inspect`,
+`seed` (bootstrap a namespace from seed files), `status` (§7.4),
+`update-document`, `backfill-synonyms`. Each documents its options via
+`wip-toolkit <command> --help`.
+
+Scope honesty, so you don't discover limits mid-incident: fresh-mode
+import is the verified path for cloning and disaster recovery to a new
+namespace. Restore mode (same IDs, original prefix) and full fidelity of
+edge-type templates through import have known open defects at the time of
+writing — check open cases against the toolkit before relying on either.
+There is no point-in-time snapshot (an export captures current state), no
+archive merge/diff, and archives do not carry API keys or namespace
+grants: a restore brings back data, not access.
+
 ---
 
 ## 6. Apps on WIP
@@ -649,20 +692,18 @@ Rotation cadences worth defaulting to:
 
 ### 7.3 Validate before exposing
 
-The v1 `production-check.sh` validator was retired with the v1 deployment
-shape it checked (CASE-383); a v2-native automated check is tracked in
-CASE-445. Until it lands, verify manually on the install:
+Run the automated pre-exposure checklist against the install:
 
 ```bash
-# Secret backend permissions: dir 700, files 600
-ls -ld ~/.wip-deploy/<name>/secrets && ls -l ~/.wip-deploy/<name>/secrets
-
-# API key is the generated random one, not the documented dev default
-grep -c "dev_master_key_for_testing" ~/.wip-deploy/<name>/.env   # expect 0
-
-# TLS mode matches the exposure (letsencrypt for public hostnames)
-grep -m1 -A2 "tls" ~/.wip-deploy/<name>/config/caddy/Caddyfile
+wip-deploy verify --security --name <name>
 ```
+
+Read-only. It checks secret file permissions (dir 700, files 600), API-key
+strength (not the documented dev default, not trivially short), TLS mode vs
+hostname sanity, variant vs exposure (a public-shaped install must run
+`--variant prod` so the in-service startup guards are armed), published host
+ports (no datastore/admin ports bypassing Caddy), and security headers on
+public installs. Exit 0 = safe to expose; each failure prints a fix hint.
 
 ### 7.4 Ongoing health monitoring
 
