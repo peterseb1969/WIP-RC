@@ -1,0 +1,27 @@
+name: Tests
+# Offline gate: typecheck + unit tests + production build. No WIP instance
+# needed (tests stub fetch). npm ci from the vendored libs/*.tgz doubles as
+# the tarball/lockfile consistency check (CASE-441/442): an uncommitted lib
+# refresh fails right here instead of on the next fresh clone.
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (vendored tarballs + lockfile)
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
