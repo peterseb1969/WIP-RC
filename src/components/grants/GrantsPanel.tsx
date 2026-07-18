@@ -19,6 +19,12 @@ import { cn } from '@/lib/cn'
 export const GRANTS_QUERY_KEY = (prefix: string) =>
   ['rc-console', 'grants', prefix] as const
 
+// CASE-693/CASE-694: the registry serves `grants` on config keys, but
+// @wip/client 0.34.0 does not type the field yet — remove once it does.
+export type APIKeyWithGrants = APIKeyInfo & {
+  grants?: Record<string, GrantPermission> | null
+}
+
 export function useGrants(prefix: string, enabled = true) {
   const client = useWipClient()
   return useQuery({
@@ -222,11 +228,15 @@ function GrantRow({ prefix, grant }: { prefix: string; grant: Grant }) {
 // ---------------------------------------------------------------------------
 // Effective per-namespace permissions for an API key.
 //
-// Mirrors the registry's _resolve_permission chain: superadmin bypass
-// (wip-admins group) → scope ceiling (already applied: we only look at the
-// key's own namespaces) → highest non-expired grant matching the key name
+// Runtime keys mirror the registry's _resolve_permission chain: superadmin
+// bypass (wip-admins group) → scope ceiling (already applied: we only look at
+// the key's own namespaces) → highest non-expired grant matching the key name
 // (subject_type=api_key) or one of its groups (subject_type=group) →
 // read fallback for in-scope namespaces with no grant.
+//
+// Config keys never use Registry NamespaceGrants — their grants are declared
+// on the deployment and resolve locally in wip-auth, surfaced on the key
+// record itself as `grants` (CASE-693).
 // ---------------------------------------------------------------------------
 
 function resolveKeyPermission(
@@ -254,14 +264,32 @@ function resolveKeyPermission(
   return best ?? { permission: 'read', source: 'in scope, no grant (fallback)' }
 }
 
-export function KeyEffectivePermissions({ apiKey }: { apiKey: APIKeyInfo }) {
+// Returns null when the connected registry predates the `grants` field —
+// in that case the write scope is unknowable here, and saying "read" would
+// be wrong for a key that carries config-declared write grants.
+function resolveConfigKeyPermission(
+  apiKey: APIKeyWithGrants,
+  ns: string,
+): { permission: string; source: string } | null {
+  if (apiKey.groups?.includes('wip-admins')) {
+    return { permission: 'admin', source: 'superadmin (wip-admins)' }
+  }
+  if (apiKey.grants === undefined) return null
+  const declared = apiKey.grants?.[ns]
+  if (declared) return { permission: declared, source: 'config-declared grant' }
+  return { permission: 'read', source: 'in scope, no declared grant' }
+}
+
+export function KeyEffectivePermissions({ apiKey }: { apiKey: APIKeyWithGrants }) {
   const client = useWipClient()
+  const isConfig = apiKey.source === 'config'
   const namespaces = apiKey.namespaces ?? []
   const results = useQueries({
     queries: namespaces.map(ns => ({
       queryKey: GRANTS_QUERY_KEY(ns),
       queryFn: () => client.registry.listGrants(ns),
       staleTime: 30_000,
+      enabled: !isConfig,
     })),
   })
 
@@ -276,15 +304,25 @@ export function KeyEffectivePermissions({ apiKey }: { apiKey: APIKeyInfo }) {
       <div className="bg-gray-50 border border-gray-200 rounded-lg divide-y divide-gray-100">
         {namespaces.map((ns, i) => {
           const q = results[i]
-          const resolved = q?.data ? resolveKeyPermission(apiKey, q.data) : null
+          const resolved = isConfig
+            ? resolveConfigKeyPermission(apiKey, ns)
+            : q?.data ? resolveKeyPermission(apiKey, q.data) : null
           return (
             <div key={ns} className="flex items-center gap-2 px-3 py-1.5 text-xs">
               <span className="font-mono text-gray-600">{ns}</span>
               <span className="ml-auto flex items-center gap-2">
-                {q?.isLoading && <span className="text-gray-300">…</span>}
-                {q?.error && (
+                {!isConfig && q?.isLoading && <span className="text-gray-300">…</span>}
+                {!isConfig && q?.error && (
                   <span className="text-gray-300" title={q.error.message}>
                     grants unavailable
+                  </span>
+                )}
+                {isConfig && !resolved && (
+                  <span
+                    className="text-gray-300"
+                    title="This WIP version does not expose config-declared grants (CASE-693). Read them on the install host: config/auth/api-keys.json"
+                  >
+                    grants not visible for config keys
                   </span>
                 )}
                 {resolved && (

@@ -21,8 +21,17 @@ import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import AnthropicKeyCard from '@/components/settings/AnthropicKeyCard'
-import { KeyEffectivePermissions } from '@/components/grants/GrantsPanel'
+import { KeyEffectivePermissions, type APIKeyWithGrants } from '@/components/grants/GrantsPanel'
 import { cn } from '@/lib/cn'
+
+// CASE-694: runtime keys live in MongoDB — backups don't cover them and the
+// plaintext can't be re-registered, so every restore kills them.
+const DECLARE_KEY_CMD = "wip-deploy install --api-key '<json>'"
+const RUNTIME_MORTALITY_HINT =
+  'Runtime key — not covered by backups; will not survive a restore. ' +
+  `For standing keys (agents, services), declare on the deployment: ${DECLARE_KEY_CMD}`
+const CONFIG_TIER_HINT =
+  'Config key — declared on the deployment; survives Mongo rebuilds and restores. Read-only here.'
 
 // ---------------------------------------------------------------------------
 // Query keys
@@ -101,6 +110,44 @@ function useCopyToClipboard() {
 }
 
 // ---------------------------------------------------------------------------
+// Tier advisory — shown in the create dialog so the operator picks the key
+// tier consciously. Spec-declared keys are deliberately NOT creatable here:
+// the declaration is deployer state on the install host, so the ceiling is
+// showing the CLI command as copyable guidance (CASE-694).
+// ---------------------------------------------------------------------------
+
+function TierAdvisory() {
+  const { copied, copy } = useCopyToClipboard()
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-3">
+      <p className="text-xs text-amber-700">
+        Keys created here are <span className="font-medium">runtime keys</span> — stored in the
+        backend database, not covered by backups, and lost on a wipe-and-restore. Right for
+        temporary keys, per-app provisioning, and experiments. For standing keys (agents,
+        services), declare the key on the deployment instead:
+      </p>
+      <div className="flex items-center gap-2 mt-1.5">
+        <code className="text-[11px] bg-white border border-amber-200 rounded px-2 py-1 text-amber-800 font-mono">
+          {DECLARE_KEY_CMD}
+        </code>
+        <button
+          onClick={() => copy(DECLARE_KEY_CMD)}
+          className={cn(
+            'p-1 rounded border transition-colors',
+            copied
+              ? 'bg-success/5 border-success/30 text-success'
+              : 'bg-white border-amber-200 text-amber-600 hover:bg-amber-100',
+          )}
+          title="Copy command"
+        >
+          {copied ? <Check size={12} /> : <Copy size={12} />}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Create API Key Form
 // ---------------------------------------------------------------------------
 
@@ -154,6 +201,7 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
   return (
     <div className="bg-white border border-primary/20 rounded-lg p-4 mb-4">
       <h3 className="text-sm font-medium text-gray-700 mb-3">Create API Key</h3>
+      <TierAdvisory />
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -333,7 +381,7 @@ function APIKeyRow({
   isExpanded,
   onToggle,
 }: {
-  apiKey: APIKeyInfo
+  apiKey: APIKeyWithGrants
   isExpanded: boolean
   onToggle: () => void
 }) {
@@ -413,9 +461,19 @@ function APIKeyRow({
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {isConfig && (
-            <span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded font-medium">
+          {isConfig ? (
+            <span
+              className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded font-medium"
+              title={CONFIG_TIER_HINT}
+            >
               config
+            </span>
+          ) : (
+            <span
+              className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium"
+              title={RUNTIME_MORTALITY_HINT}
+            >
+              runtime
             </span>
           )}
           {apiKey.namespaces === null ? (
@@ -464,6 +522,17 @@ function APIKeyRow({
             )}
             <span>Source: {apiKey.source}</span>
           </div>
+
+          {!isConfig && (
+            <p className="text-[11px] text-amber-600 flex items-center gap-1.5">
+              <AlertTriangle size={11} className="shrink-0" />
+              <span>
+                Not covered by backups — this key will not survive a restore. For standing
+                keys, declare it on the deployment:{' '}
+                <code className="font-mono text-amber-700">{DECLARE_KEY_CMD}</code>
+              </span>
+            </p>
+          )}
 
           {/* Effective per-namespace permissions (scoped keys only) */}
           <KeyEffectivePermissions apiKey={apiKey} />
