@@ -22,10 +22,12 @@ import {
   CheckCircle,
   Network,
   ArrowRight,
+  Eye,
+  X,
 } from 'lucide-react'
 import { useDocument, useDocumentVersions, useTemplateByValue, useWipClient, useArchiveDocument } from '@wip/react'
-import { useQueries } from '@tanstack/react-query'
-import type { FieldDefinition, TermReference, Reference, Term } from '@wip/client'
+import { useQueries, useQuery } from '@tanstack/react-query'
+import type { Document, FieldDefinition, TermReference, Reference, Term } from '@wip/client'
 import JsonViewer from '@/components/common/JsonViewer'
 import RelationshipsPanel from '@/components/documents/RelationshipsPanel'
 import TraversalPanel from '@/components/documents/TraversalPanel'
@@ -504,6 +506,114 @@ function EndpointChip({
 }
 
 // ---------------------------------------------------------------------------
+// Version inspector — historical snapshot + field-level diff vs current
+// ---------------------------------------------------------------------------
+
+function sameValue(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
+function DiffValue({ value }: { value: unknown }) {
+  if (value === undefined) return <span className="text-gray-300 italic">not set</span>
+  if (value === null) return <span className="text-gray-400">null</span>
+  if (typeof value === 'object') {
+    return (
+      <pre className="text-[11px] font-mono whitespace-pre-wrap break-all m-0">
+        {JSON.stringify(value, null, 1)}
+      </pre>
+    )
+  }
+  return <span className="break-all">{String(value)}</span>
+}
+
+function VersionInspector({
+  documentId,
+  version,
+  currentDoc,
+}: {
+  documentId: string
+  version: number
+  currentDoc: Document
+}) {
+  const client = useWipClient()
+  const { data: oldDoc, isLoading, error } = useQuery({
+    queryKey: ['rc-console', 'document-version', documentId, version],
+    queryFn: () => client.documents.getVersion(documentId, version),
+    // Explicit versions are immutable (platform caches them permanently too)
+    staleTime: Infinity,
+  })
+
+  if (isLoading) return <div className="px-4 py-3 text-xs text-gray-400">Loading version {version}…</div>
+  if (error) return <div className="px-4 py-3 text-xs text-danger">{error.message}</div>
+  if (!oldDoc) return null
+
+  const oldData = (oldDoc.data ?? {}) as Record<string, unknown>
+  const curData = (currentDoc.data ?? {}) as Record<string, unknown>
+  const allFields = Array.from(new Set([...Object.keys(oldData), ...Object.keys(curData)])).sort()
+  const changed = allFields.filter(f => !sameValue(oldData[f], curData[f]))
+  const unchangedCount = allFields.length - changed.length
+
+  return (
+    <div className="px-4 pb-3 pl-11 space-y-3 bg-gray-50/50">
+      <div className="flex items-center gap-2 text-xs text-amber-600 pt-2">
+        <AlertTriangle size={12} className="shrink-0" />
+        Viewing version {version} — not current (current is v{currentDoc.version}).
+      </div>
+
+      {/* Diff vs current */}
+      <div>
+        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+          Changes vs current
+        </div>
+        {changed.length === 0 ? (
+          <p className="text-xs text-gray-400">
+            Data is identical to the current version{unchangedCount > 0 ? ` (${unchangedCount} fields)` : ''}.
+          </p>
+        ) : (
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-gray-100 text-left text-gray-400">
+                  <th className="px-3 py-1.5 font-medium">Field</th>
+                  <th className="px-3 py-1.5 font-medium">v{version}</th>
+                  <th className="px-3 py-1.5 font-medium">v{currentDoc.version} (current)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {changed.map(f => (
+                  <tr key={f} className="align-top">
+                    <td className="px-3 py-1.5 font-mono text-gray-600 whitespace-nowrap">{f}</td>
+                    <td className="px-3 py-1.5 bg-danger/5 text-gray-700 w-[38%]">
+                      <DiffValue value={oldData[f]} />
+                    </td>
+                    <td className="px-3 py-1.5 bg-success/5 text-gray-700 w-[38%]">
+                      <DiffValue value={curData[f]} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {unchangedCount > 0 && (
+              <p className="px-3 py-1.5 text-[10px] text-gray-400 border-t border-gray-100">
+                {unchangedCount} field{unchangedCount !== 1 ? 's' : ''} unchanged
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Full snapshot */}
+      <div>
+        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+          Full snapshot (v{version})
+        </div>
+        <JsonViewer data={oldDoc} maxHeight="300px" collapsed />
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Document Detail Page
 // ---------------------------------------------------------------------------
 
@@ -518,6 +628,7 @@ export default function DocumentDetailPage() {
   const [validationResult, setValidationResult] = useState<{ valid: boolean; errors: Array<{ field: string | null; message: string }>; warnings: string[] } | null>(null)
   const [confirmArchive, setConfirmArchive] = useState(false)
   const [archiveError, setArchiveError] = useState<string | null>(null)
+  const [inspectVersion, setInspectVersion] = useState<number | null>(null)
   const archiveDoc = useArchiveDocument({
     onSuccess: () => {
       setConfirmArchive(false)
@@ -809,26 +920,48 @@ export default function DocumentDetailPage() {
       {versions && versions.versions.length > 1 && (
         <CollapsibleSection title={`Version History (${versions.versions.length} versions)`}>
           <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
-            {versions.versions.map(v => (
-              <div
-                key={v.version}
-                className={cn(
-                  'flex items-center gap-3 px-4 py-2.5',
-                  v.version === doc.version && 'bg-primary/5/50'
-                )}
-              >
-                <Layers size={14} className="text-gray-300" />
-                <span className="text-sm font-medium text-gray-700">Version {v.version}</span>
-                {v.version === doc.version && (
-                  <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">current</span>
-                )}
-                {v.created_at && (
-                  <span className="text-xs text-gray-400 ml-auto">
-                    {new Date(v.created_at).toLocaleString()}
-                  </span>
-                )}
-              </div>
-            ))}
+            {versions.versions.map(v => {
+              const isCurrent = v.version === doc.version
+              const isInspecting = inspectVersion === v.version
+              return (
+                <div key={v.version}>
+                  <button
+                    type="button"
+                    disabled={isCurrent}
+                    onClick={() => setInspectVersion(isInspecting ? null : v.version)}
+                    className={cn(
+                      'w-full flex items-center gap-3 px-4 py-2.5 text-left',
+                      isCurrent ? 'cursor-default bg-primary/5/50' : 'hover:bg-gray-50 transition-colors',
+                    )}
+                    title={isCurrent ? undefined : isInspecting ? 'Close inspector' : `Inspect version ${v.version}`}
+                  >
+                    <Layers size={14} className="text-gray-300" />
+                    <span className="text-sm font-medium text-gray-700">Version {v.version}</span>
+                    {isCurrent && (
+                      <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">current</span>
+                    )}
+                    {v.created_at && (
+                      <span className="text-xs text-gray-400 ml-auto">
+                        {new Date(v.created_at).toLocaleString()}
+                      </span>
+                    )}
+                    {!isCurrent && (
+                      <span className="inline-flex items-center gap-1 text-[10px] text-gray-400">
+                        {isInspecting ? <X size={12} /> : <Eye size={12} />}
+                        {isInspecting ? 'close' : 'inspect'}
+                      </span>
+                    )}
+                  </button>
+                  {isInspecting && !isCurrent && (
+                    <VersionInspector
+                      documentId={doc.document_id}
+                      version={v.version}
+                      currentDoc={doc}
+                    />
+                  )}
+                </div>
+              )
+            })}
           </div>
         </CollapsibleSection>
       )}
