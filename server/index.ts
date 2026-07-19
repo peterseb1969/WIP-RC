@@ -3,6 +3,7 @@ import express, { Router } from 'express'
 import cors from 'cors'
 import session from 'express-session'
 import path from 'path'
+import { readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { wipProxy } from '@wip/proxy'
 import { initAuth, requireAuth, handleCallback, handleLogout } from './auth.js'
@@ -24,6 +25,20 @@ const PORT = parseInt(process.env.PORT || '3011')
  * When unset (local dev), defaults to '/' — no prefix.
  */
 const BASE_PATH = (process.env.APP_BASE_PATH || '').replace(/\/$/, '') || '/'
+
+// WIP_API_KEY_FILE is the live wip-deploy secrets file (CASE-495); the literal
+// WIP_API_KEY is the fallback — deployer-injected in containers, where the
+// file path is host-only (CASE-714's failure shape). Mirrors wipProxy 0.4.3.
+function resolveWipApiKey(): string {
+  const file = process.env.WIP_API_KEY_FILE
+  if (file) {
+    try {
+      const key = readFileSync(file, 'utf-8').trim()
+      if (key) return key
+    } catch { /* fall back to the inline key */ }
+  }
+  return process.env.WIP_API_KEY || ''
+}
 
 const app = express()
 const router = Router()
@@ -112,7 +127,7 @@ async function probeBuild(wipBase: string, apiKey: string, buildPath: string): P
 
 router.get('/api/infra/health', async (_req, res) => {
   const wipBase = process.env.WIP_BASE_URL || 'https://localhost:8443'
-  const apiKey = process.env.WIP_API_KEY || ''
+  const apiKey = resolveWipApiKey()
 
   const results = await Promise.allSettled(
     WIP_SERVICES.map(async (svc) => {
@@ -177,7 +192,7 @@ router.get('/api/infra/health', async (_req, res) => {
 // MinIO internally) and pipes it to the browser.
 router.get('/api/file-content/:fileId', async (req, res) => {
   const wipBase = process.env.WIP_BASE_URL || 'https://localhost:8443'
-  const apiKey = process.env.WIP_API_KEY || ''
+  const apiKey = resolveWipApiKey()
   try {
     const upstream = await fetch(
       `${wipBase}/api/document-store/files/${req.params.fileId}/content`,
@@ -221,7 +236,7 @@ router.get('/api/file-content/:fileId', async (req, res) => {
 // This route pipes the response directly from WIP to the client.
 router.get('/api/backup-download/:jobId', async (req, res) => {
   const wipBase = process.env.WIP_BASE_URL || 'https://localhost:8443'
-  const apiKey = process.env.WIP_API_KEY || ''
+  const apiKey = resolveWipApiKey()
   try {
     const upstream = await fetch(
       `${wipBase}/api/document-store/backup/jobs/${req.params.jobId}/download`,
@@ -267,7 +282,7 @@ router.get('/api/backup-download/:jobId', async (req, res) => {
 // We use '_' as a placeholder — it's only for auth.
 router.post('/api/backup-restore', express.raw({ type: 'multipart/form-data', limit: '10gb' }), async (req, res) => {
   const wipBase = process.env.WIP_BASE_URL || 'https://localhost:8443'
-  const apiKey = process.env.WIP_API_KEY || ''
+  const apiKey = resolveWipApiKey()
   try {
     const contentType = req.headers['content-type'] || ''
     const upstream = await fetch(

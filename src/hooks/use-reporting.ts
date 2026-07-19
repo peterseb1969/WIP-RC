@@ -16,6 +16,30 @@ export interface ReportTable {
   qualified_name: string
   row_count: number
   column_count: number
+  // CASE-710: absent on pre-split installs — its presence doubles as the
+  // detection signal for the entity-first reporting layout.
+  kind?: 'view' | 'table'
+}
+
+// CASE-710 entity-first grouping: one entry per (namespace, template),
+// owning its per-version physical tables and derived views. The entity
+// row_count is the document count — never sum sibling relations, they
+// overlap by construction.
+export interface ReportEntity {
+  namespace: string
+  entity: string
+  default_view: string
+  default_view_present: boolean
+  entities_view: string
+  legacy_table: boolean
+  versions: Array<{ version: number; table: string; row_count: number }>
+  row_count: number
+}
+
+export interface ReportingInventory {
+  tables: ReportTable[]
+  // Empty on pre-CASE-710 installs — callers fall back to the flat list.
+  entities: ReportEntity[]
 }
 
 export interface TableColumns {
@@ -54,13 +78,66 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 // Hooks
 // ---------------------------------------------------------------------------
 
-export function useReportTables() {
+const fetchInventory = () =>
+  fetchJson<{ tables: ReportTable[]; entities?: ReportEntity[] }>('/tables')
+    .then(r => ({ tables: r.tables, entities: r.entities ?? [] }) as ReportingInventory)
+
+export function useReportingInventory() {
   return useQuery({
     queryKey: ['rc-console', 'report-tables'],
-    queryFn: () => fetchJson<{ tables: ReportTable[] }>('/tables').then(r => r.tables),
+    queryFn: fetchInventory,
     staleTime: 120_000,
   })
 }
+
+export function useReportTables() {
+  return useQuery({
+    queryKey: ['rc-console', 'report-tables'],
+    queryFn: fetchInventory,
+    select: (inv: ReportingInventory) => inv.tables,
+    staleTime: 120_000,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Parity (CASE-710 fields: version_tables / view_present / legacy_table)
+// ---------------------------------------------------------------------------
+
+export interface ParityTemplate {
+  template_value: string
+  sync_enabled: boolean
+  table_present: boolean
+  missing_columns: string[]
+  bookkeeping_row: boolean
+  counts_comparable: boolean
+  expected_documents: number
+  actual_rows: number
+  counts_match: boolean
+  error: string | null
+  version_tables?: number[]
+  view_present?: boolean
+  legacy_table?: boolean
+}
+
+export interface NamespaceParity {
+  namespace: string
+  schema_name: string
+  schema_present: boolean
+  table_count: number
+  bookkeeping_tables_ok: boolean
+  bookkeeping_error: string | null
+  templates_skipped_sync_disabled: number
+  structural_issues: number
+  count_mismatches: number
+  ok: boolean
+  templates: ParityTemplate[]
+}
+
+export const fetchNamespaceParity = (namespace: string) =>
+  fetchJson<NamespaceParity>(`/parity?namespace=${encodeURIComponent(namespace)}`)
+
+export const PARITY_QUERY_KEY = (namespace: string) =>
+  ['rc-console', 'parity', namespace] as const
 
 /**
  * Get column details for a specific table by querying information_schema.

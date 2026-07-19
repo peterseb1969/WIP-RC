@@ -10,6 +10,7 @@ import {
   XCircle,
   AlertTriangle,
   HardDrive,
+  Eye,
 } from 'lucide-react'
 import { useNamespaces } from '@wip/react'
 import StatusBadge from '@/components/common/StatusBadge'
@@ -368,7 +369,9 @@ function RestoreTab() {
 
   const [file, setFile] = useState<File | null>(null)
   const [restoring, setRestoring] = useState(false)
+  const [previewing, setPreviewing] = useState(false)
   const [activeJob, setActiveJob] = useState<BackupJob | null>(null)
+  const [previewJob, setPreviewJob] = useState<BackupJob | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
   // Set when the selected archive is positively detected as a non-v3 format —
@@ -377,18 +380,23 @@ function RestoreTab() {
   const [unsupported, setUnsupported] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const previewPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const stopPolling = () => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
   }
+  const stopPreviewPolling = () => {
+    if (previewPollRef.current) { clearInterval(previewPollRef.current); previewPollRef.current = null }
+  }
 
-  useEffect(() => () => stopPolling(), [])
+  useEffect(() => () => { stopPolling(); stopPreviewPolling() }, [])
 
   const handleFileSelect = async (f: File | null) => {
     setFile(f)
     setError(null)
     setWarning(null)
     setActiveJob(null)
+    setPreviewJob(null)
     setUnsupported(false)
     if (!f) return
     // Peek the archive's format_version client-side so an accidental v2 upload
@@ -401,11 +409,50 @@ function RestoreTab() {
     }
   }
 
+  // CASE-705/716: dry_run runs every restore precondition (archive format,
+  // empty targets, reporting schema) and reports the outcome without writing
+  // anything. Same endpoint, same form — plus the dry_run field.
+  const handlePreview = async () => {
+    if (!file || unsupported) return
+    setPreviewing(true)
+    setError(null)
+    setPreviewJob(null)
+    try {
+      const formData = new FormData()
+      formData.append('archive', file)
+      formData.append('mode', 'restore')
+      formData.append('dry_run', 'true')
+
+      const res = await fetch(apiUrl('/api/backup-restore'), {
+        method: 'POST',
+        body: formData,
+      })
+      if (!res.ok) throw new Error(await readError(res))
+      const job = await res.json() as BackupJob
+      setPreviewJob(job)
+      stopPreviewPolling()
+      previewPollRef.current = setInterval(async () => {
+        try {
+          const r = await fetch(apiUrl(`/wip/api/document-store/backup/jobs/${job.job_id}`))
+          if (!r.ok) return
+          const updated = await r.json() as BackupJob
+          setPreviewJob(updated)
+          if (updated.status === 'complete' || updated.status === 'failed') stopPreviewPolling()
+        } catch { /* ignore */ }
+      }, 2000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Preview failed')
+    } finally {
+      setPreviewing(false)
+    }
+  }
+
   const handleRestore = async () => {
     if (!file || unsupported) return
     setRestoring(true)
     setError(null)
     setWarning(null)
+    setPreviewJob(null)
     try {
       const formData = new FormData()
       formData.append('archive', file)
@@ -490,14 +537,25 @@ function RestoreTab() {
         </div>
       )}
 
-      <button
-        onClick={handleRestore}
-        disabled={restoring || !file || unsupported || (activeJob?.status === 'running')}
-        className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
-      >
-        {restoring ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-        {restoring ? 'Starting...' : 'Restore'}
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handlePreview}
+          disabled={previewing || restoring || !file || unsupported || (activeJob?.status === 'running')}
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm border border-gray-200 rounded-md text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+          title="Dry run: checks every precondition and reports the outcome without writing anything"
+        >
+          {previewing ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
+          {previewing ? 'Starting...' : 'Preview restore'}
+        </button>
+        <button
+          onClick={handleRestore}
+          disabled={restoring || !file || unsupported || (activeJob?.status === 'running')}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
+        >
+          {restoring ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+          {restoring ? 'Starting...' : 'Restore'}
+        </button>
+      </div>
 
       {error && (
         <div className="flex items-center gap-2 text-sm text-danger bg-danger/5 border border-danger/20 rounded-lg px-3 py-2">
@@ -505,7 +563,47 @@ function RestoreTab() {
         </div>
       )}
 
+      {previewJob && <PreviewResult job={previewJob} />}
+
       {activeJob && <JobProgress job={activeJob} />}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Restore Preview Result (dry run — CASE-705)
+// ---------------------------------------------------------------------------
+
+function PreviewResult({ job }: { job: BackupJob }) {
+  const terminal = job.status === 'complete' || job.status === 'failed'
+  const ok = job.status === 'complete'
+  return (
+    <div className={cn(
+      'border rounded-lg p-4 space-y-1.5',
+      !terminal ? 'bg-white border-gray-200' : ok ? 'bg-success/5 border-success/30' : 'bg-danger/5 border-danger/20',
+    )}>
+      <div className="flex items-center gap-2">
+        {!terminal
+          ? <Loader2 size={16} className="animate-spin text-primary" />
+          : ok
+            ? <CheckCircle size={16} className="text-success" />
+            : <XCircle size={16} className="text-danger" />}
+        <span className={cn('text-sm font-medium', !terminal ? 'text-primary' : ok ? 'text-success' : 'text-danger')}>
+          {!terminal ? 'Previewing restore…' : ok ? 'Preview: restore would succeed' : 'Preview: restore would not proceed'}
+        </span>
+        <span className="ml-auto text-xs font-mono text-gray-400">{job.job_id}</span>
+      </div>
+      <p className="text-xs text-gray-500">Dry run — nothing was written.</p>
+      {job.namespaces && job.namespaces.length > 0 && (
+        <p className="text-xs text-gray-500">
+          Namespace{job.namespaces.length !== 1 ? 's' : ''}: {job.namespaces.join(', ')}
+        </p>
+      )}
+      {job.message && (
+        <p className={cn('text-xs whitespace-pre-wrap', terminal && !ok ? 'text-danger' : 'text-gray-500')}>
+          {job.message}
+        </p>
+      )}
     </div>
   )
 }

@@ -6,6 +6,8 @@ import {
   Clock,
   Table2,
   ChevronRight,
+  ChevronDown,
+  ShieldCheck,
   Download,
   AlertCircle,
   History,
@@ -16,12 +18,15 @@ import {
 } from 'lucide-react'
 import {
   useReportTables,
+  useReportingInventory,
   useTableColumns,
   useTablePreview,
   useRunQuery,
   type QueryResult,
   type ReportTable,
+  type ReportEntity,
 } from '@/hooks/use-reporting'
+import ParityPanel from '@/components/reporting/ParityPanel'
 import { useSyncStatus } from '@wip/react'
 import DataTable from '@/components/common/DataTable'
 import LoadingState from '@/components/common/LoadingState'
@@ -104,6 +109,143 @@ function SyncStatusBar() {
 // Table Browser (left panel)
 // ---------------------------------------------------------------------------
 
+function KindBadge({ kind }: { kind: ReportTable['kind'] }) {
+  if (!kind) return null
+  return (
+    <span className={cn(
+      'text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0',
+      kind === 'view' ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-100 text-gray-500',
+    )}>
+      {kind}
+    </span>
+  )
+}
+
+function TableRow({
+  table,
+  label,
+  indent,
+  selected,
+  onSelect,
+}: {
+  table: ReportTable
+  label?: string
+  indent?: boolean
+  selected: boolean
+  onSelect: (table: ReportTable) => void
+}) {
+  const handleDownloadCsv = (e: MouseEvent) => {
+    e.stopPropagation()
+    window.open(
+      `/wip/api/reporting-sync/export/csv?table=${encodeURIComponent(table.name)}&namespace=${encodeURIComponent(table.namespace)}`,
+      '_blank'
+    )
+  }
+  return (
+    <button
+      onClick={() => onSelect(table)}
+      className={cn(
+        'w-full text-left px-3 py-2 flex items-center gap-2 text-sm hover:bg-gray-50 transition-colors group',
+        indent && 'pl-8',
+        selected && 'bg-primary/5 text-primary-dark'
+      )}
+    >
+      <Table2 size={14} className="text-gray-400 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <div className="truncate font-medium">
+          {table.name}
+          {label && <span className="ml-2 text-[10px] text-gray-400 font-normal">{label}</span>}
+        </div>
+        <div className="text-xs text-gray-400">
+          {table.column_count} cols · {table.row_count.toLocaleString()} rows
+        </div>
+      </div>
+      <KindBadge kind={table.kind} />
+      <Download
+        size={14}
+        className="text-gray-300 shrink-0 opacity-0 group-hover:opacity-100 hover:text-primary transition-all"
+        onClick={(e) => handleDownloadCsv(e as unknown as MouseEvent)}
+        aria-label={`Download ${table.name} as CSV`}
+      />
+      <ChevronRight size={14} className="text-gray-300 shrink-0" />
+    </button>
+  )
+}
+
+// Entity-first browser (CASE-710/716): each entity expands to its derived
+// views + per-version physical tables. Relations of one entity overlap by
+// construction, so only the entity-level row_count is a document count.
+function EntityGroup({
+  entity,
+  tableIndex,
+  selectedTable,
+  onSelectTable,
+}: {
+  entity: ReportEntity
+  tableIndex: Map<string, ReportTable>
+  selectedTable: ReportTable | null
+  onSelectTable: (table: ReportTable) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  const lookup = (name: string) => tableIndex.get(`${entity.namespace}|${name}`)
+  const relations: Array<{ table: ReportTable; label: string }> = []
+  const defaultView = lookup(entity.default_view)
+  if (defaultView) relations.push({ table: defaultView, label: 'default query surface' })
+  const entitiesView = lookup(entity.entities_view)
+  if (entitiesView) relations.push({ table: entitiesView, label: 'entities' })
+  for (const v of entity.versions) {
+    const t = lookup(v.table)
+    if (t) relations.push({ table: t, label: `v${v.version}` })
+  }
+
+  return (
+    <div>
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="w-full text-left px-3 py-2 flex items-center gap-2 text-sm hover:bg-gray-50 transition-colors"
+      >
+        {expanded
+          ? <ChevronDown size={14} className="text-gray-400 shrink-0" />
+          : <ChevronRight size={14} className="text-gray-400 shrink-0" />}
+        <div className="flex-1 min-w-0">
+          <div className="truncate font-medium text-gray-700">{entity.entity}</div>
+          <div className="text-xs text-gray-400">
+            {entity.row_count.toLocaleString()} docs · {entity.versions.length} version{entity.versions.length !== 1 ? 's' : ''}
+          </div>
+        </div>
+        {entity.legacy_table && (
+          <span
+            className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium shrink-0"
+            title="A pre-split physical table shadows the entity view — see the Parity tab for remediation."
+          >
+            legacy table
+          </span>
+        )}
+        {!entity.default_view_present && (
+          <span className="text-[10px] bg-danger/5 text-danger px-1.5 py-0.5 rounded font-medium shrink-0">
+            view missing
+          </span>
+        )}
+      </button>
+      {expanded && (
+        <div className="divide-y divide-gray-50">
+          {relations.map(({ table, label }) => (
+            <TableRow
+              key={table.qualified_name}
+              table={table}
+              label={label}
+              indent
+              selected={selectedTable?.qualified_name === table.qualified_name}
+              onSelect={onSelectTable}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function TableBrowser({
   selectedTable,
   onSelectTable,
@@ -111,62 +253,98 @@ function TableBrowser({
   selectedTable: ReportTable | null
   onSelectTable: (table: ReportTable) => void
 }) {
-  const { data: tables, isLoading, error, refetch } = useReportTables()
+  const { data: inventory, isLoading, error, refetch } = useReportingInventory()
 
   if (isLoading) return <LoadingState label="Loading tables..." />
   if (error) return <ErrorState message={error.message} onRetry={() => refetch()} />
 
-  if (!tables || tables.length === 0) {
-    return <p className="text-sm text-gray-400 p-4">No reporting tables found.</p>
-  }
+  const tables = inventory?.tables ?? []
+  const entities = inventory?.entities ?? []
 
-  const handleDownloadCsv = (e: MouseEvent, table: ReportTable) => {
-    e.stopPropagation()
-    window.open(
-      `/wip/api/reporting-sync/export/csv?table=${encodeURIComponent(table.name)}&namespace=${encodeURIComponent(table.namespace)}`,
-      '_blank'
-    )
+  if (tables.length === 0) {
+    return <p className="text-sm text-gray-400 p-4">No reporting tables found.</p>
   }
 
   // One PG schema per namespace since CASE-628 — group the browser accordingly.
   const namespaces = [...new Set(tables.map(t => t.namespace))].sort()
 
+  // Pre-CASE-710 install: no entities array — keep the flat rendering.
+  if (entities.length === 0) {
+    return (
+      <div>
+        {namespaces.map(ns => (
+          <div key={ns}>
+            <div className="sticky top-0 px-3 py-1.5 bg-gray-50 border-y border-gray-100 text-xs font-medium text-gray-500 first:border-t-0">
+              {ns}
+            </div>
+            <div className="divide-y divide-gray-100">
+              {tables.filter(t => t.namespace === ns).map(table => (
+                <TableRow
+                  key={table.qualified_name}
+                  table={table}
+                  selected={selectedTable?.qualified_name === table.qualified_name}
+                  onSelect={onSelectTable}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const tableIndex = new Map(tables.map(t => [`${t.namespace}|${t.name}`, t]))
+  const entityTableNames = new Set(
+    entities.flatMap(e => [
+      `${e.namespace}|${e.default_view}`,
+      `${e.namespace}|${e.entities_view}`,
+      ...e.versions.map(v => `${e.namespace}|${v.table}`),
+    ])
+  )
+
   return (
     <div>
-      {namespaces.map(ns => (
-        <div key={ns}>
-          <div className="sticky top-0 px-3 py-1.5 bg-gray-50 border-y border-gray-100 text-xs font-medium text-gray-500 first:border-t-0">
-            {ns}
-          </div>
-          <div className="divide-y divide-gray-100">
-            {tables.filter(t => t.namespace === ns).map(table => (
-              <button
-                key={table.qualified_name}
-                onClick={() => onSelectTable(table)}
-                className={cn(
-                  'w-full text-left px-3 py-2.5 flex items-center gap-2 text-sm hover:bg-gray-50 transition-colors group',
-                  selectedTable?.qualified_name === table.qualified_name && 'bg-primary/5 text-primary-dark'
-                )}
-              >
-                <Table2 size={14} className="text-gray-400 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="truncate font-medium">{table.name}</div>
-                  <div className="text-xs text-gray-400">
-                    {table.column_count} cols · {table.row_count.toLocaleString()} rows
-                  </div>
-                </div>
-                <Download
-                  size={14}
-                  className="text-gray-300 shrink-0 opacity-0 group-hover:opacity-100 hover:text-primary transition-all"
-                  onClick={(e) => handleDownloadCsv(e as unknown as MouseEvent, table)}
-                  aria-label={`Download ${table.name} as CSV`}
+      {namespaces.map(ns => {
+        const nsEntities = entities
+          .filter(e => e.namespace === ns)
+          .sort((a, b) => a.entity.localeCompare(b.entity))
+        const other = tables.filter(
+          t => t.namespace === ns && !entityTableNames.has(`${t.namespace}|${t.name}`)
+        )
+        return (
+          <div key={ns}>
+            <div className="sticky top-0 px-3 py-1.5 bg-gray-50 border-y border-gray-100 text-xs font-medium text-gray-500 first:border-t-0 z-10">
+              {ns}
+            </div>
+            <div className="divide-y divide-gray-100">
+              {nsEntities.map(entity => (
+                <EntityGroup
+                  key={`${entity.namespace}|${entity.entity}`}
+                  entity={entity}
+                  tableIndex={tableIndex}
+                  selectedTable={selectedTable}
+                  onSelectTable={onSelectTable}
                 />
-                <ChevronRight size={14} className="text-gray-300 shrink-0" />
-              </button>
-            ))}
+              ))}
+              {other.length > 0 && (
+                <div>
+                  <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-gray-300">
+                    other tables
+                  </div>
+                  {other.map(table => (
+                    <TableRow
+                      key={table.qualified_name}
+                      table={table}
+                      selected={selectedTable?.qualified_name === table.qualified_name}
+                      onSelect={onSelectTable}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -472,7 +650,7 @@ function QueryPad() {
 
 export default function PostgresPage() {
   const [selectedTable, setSelectedTable] = useState<ReportTable | null>(null)
-  const [activeTab, setActiveTab] = useState<'browser' | 'query' | 'sync'>('browser')
+  const [activeTab, setActiveTab] = useState<'browser' | 'query' | 'sync' | 'parity'>('browser')
   const isInactive = useIsServiceInactive('reporting-sync')
 
   if (isInactive) {
@@ -549,6 +727,20 @@ export default function PostgresPage() {
             Batch Sync
           </span>
         </button>
+        <button
+          onClick={() => setActiveTab('parity')}
+          className={cn(
+            'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+            activeTab === 'parity'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          )}
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <ShieldCheck size={14} />
+            Parity
+          </span>
+        </button>
       </div>
 
       {/* Content */}
@@ -575,6 +767,8 @@ export default function PostgresPage() {
       {activeTab === 'query' && <QueryPad />}
 
       {activeTab === 'sync' && <BatchSyncPanel />}
+
+      {activeTab === 'parity' && <ParityPanel />}
     </div>
   )
 }
