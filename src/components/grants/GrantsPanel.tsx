@@ -19,12 +19,6 @@ import { cn } from '@/lib/cn'
 export const GRANTS_QUERY_KEY = (prefix: string) =>
   ['rc-console', 'grants', prefix] as const
 
-// CASE-693/CASE-694: the registry serves `grants` on config keys, but
-// @wip/client 0.34.0 does not type the field yet — remove once it does.
-export type APIKeyWithGrants = APIKeyInfo & {
-  grants?: Record<string, GrantPermission> | null
-}
-
 export function useGrants(prefix: string, enabled = true) {
   const client = useWipClient()
   return useQuery({
@@ -268,7 +262,7 @@ function resolveKeyPermission(
 // in that case the write scope is unknowable here, and saying "read" would
 // be wrong for a key that carries config-declared write grants.
 function resolveConfigKeyPermission(
-  apiKey: APIKeyWithGrants,
+  apiKey: APIKeyInfo,
   ns: string,
 ): { permission: string; source: string } | null {
   if (apiKey.groups?.includes('wip-admins')) {
@@ -280,7 +274,7 @@ function resolveConfigKeyPermission(
   return { permission: 'read', source: 'in scope, no declared grant' }
 }
 
-export function KeyEffectivePermissions({ apiKey }: { apiKey: APIKeyWithGrants }) {
+export function KeyEffectivePermissions({ apiKey }: { apiKey: APIKeyInfo }) {
   const client = useWipClient()
   const isConfig = apiKey.source === 'config'
   const namespaces = apiKey.namespaces ?? []

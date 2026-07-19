@@ -21,7 +21,7 @@ import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import AnthropicKeyCard from '@/components/settings/AnthropicKeyCard'
-import { KeyEffectivePermissions, type APIKeyWithGrants } from '@/components/grants/GrantsPanel'
+import { KeyEffectivePermissions } from '@/components/grants/GrantsPanel'
 import { cn } from '@/lib/cn'
 
 // CASE-694: runtime keys live in MongoDB — backups don't cover them and the
@@ -381,7 +381,7 @@ function APIKeyRow({
   isExpanded,
   onToggle,
 }: {
-  apiKey: APIKeyWithGrants
+  apiKey: APIKeyInfo
   isExpanded: boolean
   onToggle: () => void
 }) {
