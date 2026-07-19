@@ -71,6 +71,9 @@ router.get('/health', (_req, res) => {
 // WIP API proxy — frontend uses @wip/client with baseUrl: '/wip'
 router.use('/wip', wipProxy({
   baseUrl: process.env.WIP_BASE_URL || 'https://localhost:8443',
+  // WIP_API_KEY_FILE is the live wip-deploy secrets file (CASE-495); a
+  // literal WIP_API_KEY is the legacy/local fallback. apiKeyFile wins.
+  apiKeyFile: process.env.WIP_API_KEY_FILE,
   apiKey: process.env.WIP_API_KEY || '',
 }))
 
