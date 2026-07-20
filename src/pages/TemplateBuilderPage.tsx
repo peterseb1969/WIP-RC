@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -31,7 +31,14 @@ import TemplateDiffView from '@/components/templates/TemplateDiffView'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import { Section } from '@/components/common/FormInputs'
-import { readCrossVersionView, parseVersionsInput, formatVersionsInput } from '@/lib/reporting-types'
+import {
+  readCrossVersionView,
+  parseVersionsInput,
+  formatVersionsInput,
+  readVersionEventDetails,
+  type VersionEventDetails,
+} from '@/lib/reporting-types'
+import VersionImpactPanel from '@/components/templates/VersionImpactPanel'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 import { cn } from '@/lib/cn'
 
@@ -167,6 +174,9 @@ export default function TemplateBuilderPage() {
   const [error, setError] = useState<string | null>(null)
   const [saveMode, setSaveMode] = useState<'draft' | 'active' | null>(null)
   const [hasBlockingWarning, setHasBlockingWarning] = useState(false)
+  type VersionEvent = { details: VersionEventDetails; version?: number; to: string }
+  const [versionEvent, setVersionEvent] = useState<VersionEvent | null>(null)
+  const versionEventRef = useRef<VersionEvent | null>(null)
 
   // Initialize form from existing template (edit mode or clone mode)
   if ((isEdit || cloneFromId) && existing && !initialized) {
@@ -208,8 +218,26 @@ export default function TemplateBuilderPage() {
   }
 
   // --- Mutations ---
+  // CASE-722: a save that mints a version reports its blast radius. Hold the
+  // user here to read it instead of navigating away; they continue explicitly.
+  // Mirrored in a ref because the activation callback reads it after its own
+  // mutation resolves, where the state value would be stale.
+  const captureVersionEvent = (result: unknown, to: string): boolean => {
+    const details = readVersionEventDetails(result)
+    const isNewVersion = (result as { is_new_version?: boolean } | null)?.is_new_version
+    if (details && isNewVersion && (details.impact || details.migration)) {
+      const event = { details, version: (result as { version?: number } | null)?.version, to }
+      versionEventRef.current = event
+      setVersionEvent(event)
+      return true
+    }
+    versionEventRef.current = null
+    return false
+  }
+
   const createTemplate = useCreateTemplate({
     onSuccess: (result) => {
+      if (result.id && captureVersionEvent(result, `/templates/${result.id}`)) return
       if (result.id) navigate(`/templates/${result.id}`)
     },
     onError: (err: Error) => setError(err.message),
@@ -217,17 +245,26 @@ export default function TemplateBuilderPage() {
 
   const updateTemplate = useUpdateTemplate({
     onSuccess: (result) => {
-      if (saveMode === 'active' && (result.id || id)) {
+      const captured = captureVersionEvent(result, `/templates/${id}`)
+      // Activation applies to DRAFT templates only. A new version of an
+      // already-active template arrives active, and calling activate on it
+      // fails with "Only draft templates can be activated" — which surfaced as
+      // a red "Save succeeded but activation failed" on every ordinary save.
+      if (saveMode === 'active' && existing?.status === 'draft' && (result.id || id)) {
         activateTemplate.mutate({ id: (result.id || id)!, namespace })
-      } else {
-        navigate(`/templates/${id}`)
+        return
       }
+      if (captured) return
+      navigate(`/templates/${id}`)
     },
     onError: (err: Error) => setError(err.message),
   })
 
   const activateTemplate = useActivateTemplate({
     onSuccess: () => {
+      // Let the impact panel stand if this save minted a version; the user
+      // continues from there.
+      if (versionEventRef.current) return
       navigate(`/templates/${id ?? ''}`)
     },
     onError: (err: Error) => setError(`Save succeeded but activation failed: ${err.message}`),
@@ -1027,6 +1064,32 @@ export default function TemplateBuilderPage() {
             namespace={namespace}
             onBlockingChange={setHasBlockingWarning}
           />
+        )}
+
+        {/* Version-event impact (CASE-722) — shown after a save minted a version */}
+        {versionEvent && (
+          <div className="space-y-2">
+            <VersionImpactPanel
+              details={versionEvent.details}
+              version={versionEvent.version}
+            />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => navigate(versionEvent.to)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-dark"
+              >
+                Continue to template
+              </button>
+              <button
+                type="button"
+                onClick={() => { versionEventRef.current = null; setVersionEvent(null) }}
+                className="px-3 py-2 border border-gray-200 text-sm rounded-md text-gray-500 hover:bg-gray-50"
+              >
+                Keep editing
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Error */}
