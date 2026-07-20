@@ -31,6 +31,7 @@ import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
 import JsonViewer from '@/components/common/JsonViewer'
 import { cn } from '@/lib/cn'
+import { readCrossVersionView, formatVersionsInput } from '@/lib/reporting-types'
 
 
 // ---------------------------------------------------------------------------
@@ -490,15 +491,41 @@ export default function TemplateDetailPage() {
       {(() => {
         const rpt = template.reporting
         if (!rpt || !rpt.sync_enabled) return null
+        const cvv = readCrossVersionView(rpt)
+        const cvvColumns = Object.entries(cvv?.columns ?? {})
         return (
-          <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
-            <span className="flex items-center gap-1">
-              <Database size={10} />
-              Reporting: {rpt.sync_strategy ?? 'default'}
-            </span>
-            {rpt.table_name && <span>Table: <span className="font-mono">{rpt.table_name}</span></span>}
-            {rpt.include_metadata && <span>+metadata</span>}
-            {rpt.flatten_arrays && <span>flatten arrays{rpt.max_array_elements ? ` (max ${rpt.max_array_elements})` : ''}</span>}
+          <div className="space-y-1">
+            <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+              <span className="flex items-center gap-1">
+                <Database size={10} />
+                Reporting: {rpt.sync_strategy ?? 'default'}
+              </span>
+              {rpt.table_name && <span>Table: <span className="font-mono">{rpt.table_name}</span></span>}
+              {rpt.include_metadata && <span>+metadata</span>}
+              {rpt.flatten_arrays && <span>flatten arrays{rpt.max_array_elements ? ` (max ${rpt.max_array_elements})` : ''}</span>}
+              {cvv && (
+                <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-medium">
+                  cross-version view
+                </span>
+              )}
+            </div>
+            {cvv && (
+              <div className="text-xs text-gray-400">
+                Versions: <span className="font-mono">{formatVersionsInput(cvv.versions)}</span>
+                {cvvColumns.length > 0 && (
+                  <span className="ml-3">
+                    Columns:{' '}
+                    {cvvColumns.map(([target, spec], i) => (
+                      <span key={target} className="font-mono">
+                        {i > 0 && ', '}
+                        {target}
+                        {spec?.from ? ` ← ${spec.from}` : ''}
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         )
       })()}

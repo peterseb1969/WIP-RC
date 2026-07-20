@@ -8,6 +8,8 @@ import {
   Network,
   FileCode2,
   Lock,
+  Trash2,
+  Plus,
 } from 'lucide-react'
 import {
   useTemplate,
@@ -29,6 +31,7 @@ import TemplateDiffView from '@/components/templates/TemplateDiffView'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import { Section } from '@/components/common/FormInputs'
+import { readCrossVersionView, parseVersionsInput, formatVersionsInput } from '@/lib/reporting-types'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 import { cn } from '@/lib/cn'
 
@@ -153,6 +156,11 @@ export default function TemplateBuilderPage() {
   const [includeMetadata, setIncludeMetadata] = useState(false)
   const [flattenArrays, setFlattenArrays] = useState(false)
   const [maxArrayElements, setMaxArrayElements] = useState<number | undefined>(undefined)
+  // cross_version_view + renames (CASE-716 slice d) — untyped in the client, see CASE-720
+  const [cvvEnabled, setCvvEnabled] = useState(false)
+  const [cvvVersions, setCvvVersions] = useState('all')
+  const [cvvColumns, setCvvColumns] = useState<Array<{ target: string; from: string }>>([])
+  const [renames, setRenames] = useState<Array<{ to: string; from: string }>>([])
 
   // UI state
   const [selectedFieldIndex, setSelectedFieldIndex] = useState<number | null>(null)
@@ -181,6 +189,12 @@ export default function TemplateBuilderPage() {
     setIncludeMetadata(existing.reporting?.include_metadata ?? false)
     setFlattenArrays(existing.reporting?.flatten_arrays ?? false)
     setMaxArrayElements(existing.reporting?.max_array_elements ?? undefined)
+    const cvv = readCrossVersionView(existing.reporting)
+    setCvvEnabled(!!cvv)
+    setCvvVersions(formatVersionsInput(cvv?.versions))
+    setCvvColumns(
+      Object.entries(cvv?.columns ?? {}).map(([target, spec]) => ({ target, from: spec?.from ?? '' })),
+    )
     // Usage class + edge-type endpoints — wire format carries them on Template
     setUsage(existing.usage ?? 'entity')
     setVersioned(existing.versioned ?? true)
@@ -328,6 +342,30 @@ export default function TemplateBuilderPage() {
       if (includeMetadata) reporting.include_metadata = true
       if (flattenArrays) reporting.flatten_arrays = true
       if (maxArrayElements != null) reporting.max_array_elements = maxArrayElements
+      // CASE-716 item 5 / CASE-720: untyped in @wip/client, accepted by the API.
+      if (cvvEnabled) {
+        const versions = parseVersionsInput(cvvVersions)
+        if (versions === null) {
+          setError('Cross-version view: versions must be "all" or a comma-separated list of version numbers')
+          return
+        }
+        const columns: Record<string, { from?: string }> = {}
+        for (const c of cvvColumns) {
+          const target = c.target.trim()
+          if (!target) continue
+          // An empty mapping is meaningful — identity-core passthrough.
+          columns[target] = c.from.trim() ? { from: c.from.trim() } : {}
+        }
+        reporting.cross_version_view = { versions, columns }
+      }
+    }
+
+    // renames ({new_field: old_field}) — only meaningful on a version-creating
+    // upsert, so it rides the create path (edit posts a new version too).
+    const renameMap: Record<string, string> = {}
+    for (const r of renames) {
+      const to = r.to.trim(), from = r.from.trim()
+      if (to && from) renameMap[to] = from
     }
 
     if (isEdit && id) {
@@ -345,6 +383,7 @@ export default function TemplateBuilderPage() {
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
         reporting: Object.keys(reporting).length > 0 ? reporting as UpdateTemplateRequest['reporting'] : undefined,
         updated_by: 'rc-console',
+        ...(Object.keys(renameMap).length > 0 ? { renames: renameMap } : {}),
       }
       updateTemplate.mutate({ id, data })
     } else {
@@ -368,6 +407,7 @@ export default function TemplateBuilderPage() {
         ...(usage === 'relationship'
           ? { source_templates: sourceTemplates, target_templates: targetTemplates }
           : {}),
+        ...(Object.keys(renameMap).length > 0 ? { renames: renameMap } : {}),
       }
       createTemplate.mutate(data)
     }
@@ -690,8 +730,123 @@ export default function TemplateBuilderPage() {
                   </div>
                 )}
               </div>
+
+              {/* Cross-version view (CASE-716 item 5) */}
+              <div className="space-y-2 pt-2 border-t border-gray-100">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={cvvEnabled}
+                    onChange={(e) => setCvvEnabled(e.target.checked)}
+                    className="rounded border-gray-300 text-primary focus:ring-primary-light"
+                  />
+                  <span className="text-sm text-gray-700">Cross-version view</span>
+                </label>
+                <p className="text-xs text-gray-400 ml-6">
+                  Upgrades this entity&apos;s bare-name view from identity-core columns to a mapped
+                  view spanning versions. Leave a column&apos;s source blank for identity passthrough.
+                </p>
+                {cvvEnabled && (
+                  <div className="ml-6 space-y-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Versions</label>
+                      <input
+                        type="text"
+                        value={cvvVersions}
+                        onChange={(e) => setCvvVersions(e.target.value)}
+                        placeholder="all"
+                        className="w-48 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary-light"
+                      />
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        <code>all</code>, or specific versions like <code>1, 2</code>
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-medium text-gray-600">Column mapping</label>
+                      {cvvColumns.map((col, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={col.target}
+                            onChange={(e) => setCvvColumns(cs => cs.map((c, j) => j === i ? { ...c, target: e.target.value } : c))}
+                            placeholder="target column"
+                            className="flex-1 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary-light"
+                          />
+                          <span className="text-xs text-gray-400 shrink-0">from</span>
+                          <input
+                            type="text"
+                            value={col.from}
+                            onChange={(e) => setCvvColumns(cs => cs.map((c, j) => j === i ? { ...c, from: e.target.value } : c))}
+                            placeholder="source field (blank = identity)"
+                            className="flex-1 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary-light"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setCvvColumns(cs => cs.filter((_, j) => j !== i))}
+                            className="p-1 text-gray-300 hover:text-danger shrink-0"
+                            aria-label="Remove column mapping"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setCvvColumns(cs => [...cs, { target: '', from: '' }])}
+                        className="text-xs text-primary hover:text-primary-dark inline-flex items-center gap-1"
+                      >
+                        <Plus size={12} /> Add column
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           )}
+        </Section>
+
+        {/* Field renames — only meaningful when this save creates a new version */}
+        <Section title="Field Renames">
+          <p className="text-xs text-gray-400">
+            Declare that a field was renamed rather than dropped and re-added, so the new version
+            carries the old column&apos;s data forward. The source must exist in the previous version.
+          </p>
+          <div className="space-y-1.5">
+            {renames.map((r, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={r.to}
+                  onChange={(e) => setRenames(rs => rs.map((x, j) => j === i ? { ...x, to: e.target.value } : x))}
+                  placeholder="new field name"
+                  className="flex-1 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary-light"
+                />
+                <span className="text-xs text-gray-400 shrink-0">was</span>
+                <input
+                  type="text"
+                  value={r.from}
+                  onChange={(e) => setRenames(rs => rs.map((x, j) => j === i ? { ...x, from: e.target.value } : x))}
+                  placeholder="previous field name"
+                  className="flex-1 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary-light"
+                />
+                <button
+                  type="button"
+                  onClick={() => setRenames(rs => rs.filter((_, j) => j !== i))}
+                  className="p-1 text-gray-300 hover:text-danger shrink-0"
+                  aria-label="Remove rename"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setRenames(rs => [...rs, { to: '', from: '' }])}
+              className="text-xs text-primary hover:text-primary-dark inline-flex items-center gap-1"
+            >
+              <Plus size={12} /> Add rename
+            </button>
+          </div>
         </Section>
 
         {/* Identity Fields */}
