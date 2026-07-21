@@ -96,6 +96,13 @@ async function readError(res: Response): Promise<string> {
 // the URL anchor and restores each namespace in the archive into itself.
 const PLACEHOLDER_NS = new Set(['_', '-', ''])
 
+// Restore uploads go straight through the shared proxy now that @wip/proxy
+// 0.5.0 streams the request body (CASE-753) — the bespoke server route that
+// used to buffer this upload was retired. `_` is the placeholder anchor: the
+// backend reads the real target(s) from the archive (or from the options we
+// attach), so the URL namespace is only there to satisfy routing + auth.
+const RESTORE_URL = '/wip/api/document-store/backup/namespaces/_/restore'
+
 // Human label for the namespace(s) a job touches. Prefers the explicit
 // `namespaces` list (combined backups, and restores once the backend
 // populates it); falls back to the single `namespace`, and never shows the
@@ -581,7 +588,7 @@ function RestoreTab() {
     setError(null)
     setPreviewJob(null)
     try {
-      const res = await fetch(apiUrl('/api/backup-restore'), {
+      const res = await fetch(apiUrl(RESTORE_URL), {
         method: 'POST',
         body: buildForm(true),
       })
@@ -614,7 +621,7 @@ function RestoreTab() {
     setWarning(null)
     setPreviewJob(null)
     try {
-      const res = await fetch(apiUrl('/api/backup-restore'), {
+      const res = await fetch(apiUrl(RESTORE_URL), {
         method: 'POST',
         body: buildForm(false),
       })

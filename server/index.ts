@@ -4,8 +4,6 @@ import cors from 'cors'
 import session from 'express-session'
 import path from 'path'
 import { readFileSync } from 'fs'
-import http from 'node:http'
-import https from 'node:https'
 import { fileURLToPath } from 'url'
 import { wipProxy } from '@wip/proxy'
 import { initAuth, requireAuth, handleCallback, handleLogout } from './auth.js'
@@ -67,11 +65,12 @@ app.use(session({
   },
 }))
 
-// Parse JSON only for our own routes — NOT for /wip, which @wip/proxy
-// needs to forward as a raw stream. express.json() consumes the body
-// stream, causing "stream is not readable" in the proxy's body-parser.
+// Parse JSON only for our own routes — NOT for /wip, which @wip/proxy consumes
+// as a raw stream (both directions, since 0.5.0). express.json() would drain
+// the body and the proxy would forward an empty stream. See the proxy's
+// "Mount order matters" note — this bypass is what keeps that ordering correct.
 router.use((req, res, next) => {
-  if (req.path.startsWith('/wip') || req.path.startsWith('/api/backup-restore')) return next()
+  if (req.path.startsWith('/wip')) return next()
   express.json()(req, res, next)
 })
 
@@ -233,9 +232,19 @@ router.get('/api/file-content/:fileId', async (req, res) => {
   }
 })
 
-// Streaming download proxy for large backup archives.
-// The standard @wip/proxy buffers responses which fails for multi-GB files.
-// This route pipes the response directly from WIP to the client.
+// Download proxy for backup archives.
+//
+// Retained after @wip/proxy 0.5.0 (CASE-753) made the shared proxy stream both
+// directions — so streaming is no longer the reason this route exists. It
+// survives to REWRITE the filename: WIP sends
+// `Content-Disposition: <namespace>-<jobid>.zip`, and this route replaces it
+// with the human-useful `<namespace>_<timestamp>.zip` the client asks for. The
+// browser's `download` attribute cannot do that alone — Content-Disposition
+// wins for same-origin responses (see archiveFilename in the client), so the
+// rewrite has to happen server-side. The manual pump keeps it streaming, which
+// @wip/proxy would now also do; the header rewrite is what @wip/proxy cannot.
+// The sibling restore-upload route was retired here — the proxy fully replaces
+// it, since its response is a small JSON snapshot with nothing to rewrite.
 router.get('/api/backup-download/:jobId', async (req, res) => {
   const wipBase = process.env.WIP_BASE_URL || 'https://localhost:8443'
   const apiKey = resolveWipApiKey()
@@ -276,103 +285,6 @@ router.get('/api/backup-download/:jobId', async (req, res) => {
       res.status(502).json({ error: err instanceof Error ? err.message : 'Download proxy failed' })
     }
   }
-})
-
-// Streaming restore proxy.
-//
-// The restore endpoint requires a namespace in the URL path for routing,
-// but since CASE-43 the endpoint reads the actual target from the archive.
-// We use '_' as a placeholder — it's only for auth.
-//
-// The upload is piped straight through to WIP rather than buffered. It used to
-// go through `express.raw({ limit: '10gb' })`, which read the whole archive
-// into a Buffer before forwarding a byte, so peak RSS tracked archive size and
-// the container died well short of that advertised 10gb. This is the
-// request-direction twin of the streaming download proxy above (CASE-28).
-//
-// Measured on this container, 808MB archive, server-process RSS:
-//   express.raw            106MB -> 2583MB   (+2478MB, 3387ms)
-//   fetch(duplex:'half')   105MB -> 1024MB   (+919MB,  2215ms)
-//   req.pipe(upstream)     104MB ->  143MB   (+39MB,   1895ms)
-// A 1.7GB archive through the pipe peaks identically (+38MB): flat in the
-// archive size, which is the whole point. Note that fetch is NOT sufficient —
-// undici buffers a streamed request body whole, because its backpressure does
-// not reach back to the source socket. Hence node:http and a real pipe.
-//
-// Not routed through the shared /wip proxy on purpose: @wip/proxy buffers both
-// directions (`raw({ limit })` in, `arrayBuffer()` out) with a 100mb default,
-// so it would be strictly worse here.
-const RESTORE_MAX_BYTES = parseInt(process.env.RESTORE_MAX_BYTES || '', 10) || 10 * 1024 ** 3
-
-router.post('/api/backup-restore', async (req, res) => {
-  const wipBase = process.env.WIP_BASE_URL || 'https://localhost:8443'
-  const apiKey = resolveWipApiKey()
-
-  // Streaming means memory no longer scales with the upload, so this guard is
-  // about refusing an obviously-wrong request clearly rather than protecting
-  // RSS. A chunked upload has no length to check — WIP is the backstop there.
-  const declared = Number(req.headers['content-length'] ?? '')
-  if (Number.isFinite(declared) && declared > RESTORE_MAX_BYTES) {
-    res.status(413).json({
-      error: `Archive is ${declared} bytes; this console accepts up to ${RESTORE_MAX_BYTES}. Set RESTORE_MAX_BYTES to raise it.`,
-    })
-    return
-  }
-
-  // node:http's `pipe`, not fetch. undici buffers a streamed request body
-  // whole — measured at ~+950MB RSS for an 808MB archive, barely better than
-  // express.raw's ~+2.5GB — because its backpressure does not reach back to
-  // the source socket. `req.pipe(upstream)` does, so RSS stays flat.
-  const target = new URL(`${wipBase}/api/document-store/backup/namespaces/_/restore`)
-  const transport = target.protocol === 'https:' ? https : http
-
-  const headers: Record<string, string> = {
-    'X-API-Key': apiKey,
-    'Content-Type': req.headers['content-type'] || '',
-  }
-  // Forward the declared length so the hop stays identical on the wire to the
-  // buffered version (no chunked re-framing for WIP's multipart parser).
-  if (Number.isFinite(declared) && declared > 0) {
-    headers['Content-Length'] = String(declared)
-  }
-
-  const upstream = transport.request(
-    {
-      protocol: target.protocol,
-      hostname: target.hostname,
-      port: target.port,
-      path: target.pathname,
-      method: 'POST',
-      headers,
-      // Dev runs against WIP's self-signed cert; dev:server already sets
-      // NODE_TLS_REJECT_UNAUTHORIZED=0, and this keeps that behaviour explicit
-      // for the one request that does not go through fetch.
-      rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0',
-    },
-    proxied => {
-      // The response is a small JSON job snapshot — collecting it is fine.
-      const chunks: Buffer[] = []
-      proxied.on('data', c => chunks.push(c as Buffer))
-      proxied.on('end', () => {
-        if (res.headersSent) return
-        res
-          .status(proxied.statusCode ?? 502)
-          .setHeader('Content-Type', 'application/json')
-          .send(Buffer.concat(chunks).toString())
-      })
-    },
-  )
-
-  upstream.on('error', err => {
-    if (res.headersSent) return
-    res.status(502).json({ error: err instanceof Error ? err.message : 'Restore proxy failed' })
-  })
-
-  // Client vanished mid-upload — drop the upstream request rather than leave
-  // WIP consuming a half-sent archive.
-  req.on('aborted', () => upstream.destroy())
-
-  req.pipe(upstream)
 })
 
 // Infrastructure routes
