@@ -44,13 +44,13 @@ export interface SelectableTemplate {
   header_fields?: string[]
   identity_fields?: string[]
   external?: boolean
-  row_count?: number
+  /** Distinct documents on this template, for external entries. */
+  document_count?: number
 }
 
 const EXTERNAL_TITLE =
-  'Owned by another namespace. Documents here are instances of it — ' +
-  'discovered via the reporting layer, so the list may lag recent writes ' +
-  'and omits templates with reporting sync disabled.'
+  'Owned by another namespace. Documents in this namespace are instances of ' +
+  'it — grouped from the documents themselves, so the list is exact and live.'
 
 // ---------------------------------------------------------------------------
 // localStorage helpers for last-used template (keyed by namespace)
@@ -380,8 +380,9 @@ function TemplateSelector({
       )}
       {unresolved.length > 0 && (
         <p className="text-xs text-amber-600">
-          {unresolved.length} reporting table{unresolved.length === 1 ? '' : 's'} in this namespace ({unresolved.join(', ')}) could not be mapped
-          back to a template — its template may have been deleted. Use <span className="font-medium">All templates</span> to see the documents.
+          {unresolved.length} template{unresolved.length === 1 ? '' : 's'} referenced by this namespace's documents ({unresolved.join(', ')})
+          no longer resolve{unresolved.length === 1 ? 's' : ''} to a definition — deleted out from under them. Use{' '}
+          <span className="font-medium">All templates</span> to see the documents.
         </p>
       )}
     </div>

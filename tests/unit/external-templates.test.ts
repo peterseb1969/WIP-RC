@@ -1,182 +1,161 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { renderHook, waitFor } from '@testing-library/react'
 import type { Template } from '@wip/client'
 
-// Both sources the hook derives from are mocked — this exercises the
-// reconciliation logic (stem matching, mirror-row exclusion, resolution),
-// not the network.
-const useReportingInventory = vi.fn()
+// The hook reconciles two sources: GET /documents/template-facets (which
+// templates this namespace's documents actually use) and the global template
+// list (their definitions). Both are mocked — what is under test is the
+// reconciliation, not the network.
+const getTemplateFacets = vi.fn()
 const useTemplates = vi.fn()
 
-vi.mock('@/hooks/use-reporting', () => ({
-  useReportingInventory: () => useReportingInventory(),
-}))
 vi.mock('@wip/react', () => ({
+  useWipClient: () => ({ documents: { getTemplateFacets } }),
   useTemplates: (params: unknown, options: unknown) => useTemplates(params, options),
 }))
 
 const { useExternalTemplates } = await import('@/hooks/use-external-templates')
 
-function tmpl(over: Partial<Template> & { value: string; namespace: string }): Template {
-  return {
-    template_id: `id-${over.value}`,
-    label: over.value,
-    version: 1,
-    fields: [],
-    identity_fields: [],
-    header_fields: [],
-    ...over,
-  } as unknown as Template
+// A real QueryClientProvider, so the facet query behaves like it does in the
+// app (enabled/disabled, caching) rather than being stubbed away.
+const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query')
+const React = await import('react')
+
+function wrapper({ children }: { children: React.ReactNode }) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return React.createElement(QueryClientProvider, { client: qc }, children)
 }
 
-function entity(namespace: string, name: string, row_count: number) {
+function tmpl(over: Partial<Template> & { value: string; namespace: string; template_id: string }): Template {
+  return { label: over.value, version: 1, fields: [], identity_fields: [], header_fields: [], ...over } as unknown as Template
+}
+
+function facet(over: { template_id: string; template_value?: string | null; template_namespace: string | null; document_count?: number }) {
   return {
-    namespace,
-    entity: name,
-    default_view: `doc_${name}`,
-    default_view_present: true,
-    entities_view: `doc_${name}__entities`,
-    legacy_table: false,
-    versions: [],
-    row_count,
+    template_id: over.template_id,
+    template_value: over.template_value ?? over.template_id.toUpperCase(),
+    template_namespace: over.template_namespace,
+    document_count: over.document_count ?? 1,
   }
-}
-
-function table(namespace: string, name: string, template_value: string, row_count: number) {
-  return {
-    namespace,
-    name,
-    template_value,
-    qualified_name: `"${namespace}"."${name}"`,
-    row_count,
-    column_count: 5,
-    kind: 'view' as const,
-  }
-}
-
-function inventory(over: { entities?: unknown[]; tables?: unknown[] }) {
-  return { data: { entities: over.entities ?? [], tables: over.tables ?? [] }, isLoading: false }
 }
 
 beforeEach(() => {
-  useReportingInventory.mockReset()
+  getTemplateFacets.mockReset()
   useTemplates.mockReset()
   useTemplates.mockReturnValue({ data: undefined, isLoading: false })
 })
 
 describe('useExternalTemplates', () => {
-  it('returns nothing when every reporting stem is an own template', () => {
-    useReportingInventory.mockReturnValue(inventory({ entities: [entity('ns-a', 'widget', 3)] }))
+  it('returns nothing when every facet is an own template', async () => {
+    getTemplateFacets.mockResolvedValue({
+      namespace: 'ns-a',
+      facets: [facet({ template_id: 't-widget', template_namespace: 'ns-a' })],
+    })
 
-    const { result } = renderHook(() =>
-      useExternalTemplates('ns-a', [tmpl({ value: 'WIDGET', namespace: 'ns-a' })]),
+    const { result } = renderHook(
+      () => useExternalTemplates('ns-a', [tmpl({ template_id: 't-widget', value: 'WIDGET', namespace: 'ns-a' })]),
+      { wrapper },
     )
 
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.externals).toEqual([])
-    expect(result.current.unresolved).toEqual([])
-    // The global template list must not be fetched when there is nothing
-    // to resolve — that fetch is the expensive part.
-    expect(useTemplates).toHaveBeenCalledWith(expect.anything(), { enabled: false })
+    // The global template list is the expensive call — it must stay off when
+    // there is nothing foreign to resolve.
+    expect(useTemplates).toHaveBeenLastCalledWith(expect.anything(), { enabled: false })
   })
 
-  it('surfaces a template owned by another namespace', () => {
-    useReportingInventory.mockReturnValue(inventory({ entities: [entity('ns-a', 'gadget', 2)] }))
+  it('surfaces a template owned by another namespace, with its live count', async () => {
+    getTemplateFacets.mockResolvedValue({
+      namespace: 'ns-a',
+      facets: [facet({ template_id: 't-gadget', template_namespace: 'ns-b', document_count: 42 })],
+    })
     useTemplates.mockReturnValue({
-      data: { items: [tmpl({ value: 'GADGET', namespace: 'ns-b' })] },
+      data: { items: [tmpl({ template_id: 't-gadget', value: 'GADGET', namespace: 'ns-b' })] },
       isLoading: false,
     })
 
-    const { result } = renderHook(() => useExternalTemplates('ns-a', []))
+    const { result } = renderHook(() => useExternalTemplates('ns-a', []), { wrapper })
 
-    expect(result.current.externals).toHaveLength(1)
+    await waitFor(() => expect(result.current.externals).toHaveLength(1))
     expect(result.current.externals[0]).toMatchObject({
       value: 'GADGET',
       namespace: 'ns-b',
-      row_count: 2,
+      document_count: 42,
       external: true,
     })
   })
 
-  it('ignores the empty mirror relation created in the template owner namespace', () => {
-    // The platform creates a row-less relation for the template in its own
-    // namespace; it must not show up there as a browsable external.
-    useReportingInventory.mockReturnValue(inventory({ entities: [entity('ns-b', 'gadget', 0)] }))
+  it('treats an unfetchable template namespace as foreign rather than hiding it', async () => {
+    getTemplateFacets.mockResolvedValue({
+      namespace: 'ns-a',
+      facets: [facet({ template_id: 't-ghost', template_value: 'GHOST', template_namespace: null })],
+    })
+    useTemplates.mockReturnValue({ data: { items: [] }, isLoading: false })
 
-    const { result } = renderHook(() => useExternalTemplates('ns-b', []))
+    const { result } = renderHook(() => useExternalTemplates('ns-a', []), { wrapper })
 
+    await waitFor(() => expect(result.current.unresolved).toEqual(['GHOST']))
     expect(result.current.externals).toEqual([])
-    expect(useTemplates).toHaveBeenCalledWith(expect.anything(), { enabled: false })
   })
 
-  it('matches a template through its custom reporting table_name', () => {
-    useReportingInventory.mockReturnValue(inventory({ entities: [entity('ns-a', 'custom_stem', 1)] }))
+  it('reports a facet whose template definition no longer exists', async () => {
+    getTemplateFacets.mockResolvedValue({
+      namespace: 'ns-a',
+      facets: [facet({ template_id: 't-deleted', template_value: 'DELETED', template_namespace: 'ns-b' })],
+    })
+    useTemplates.mockReturnValue({ data: { items: [] }, isLoading: false })
+
+    const { result } = renderHook(() => useExternalTemplates('ns-a', []), { wrapper })
+
+    await waitFor(() => expect(result.current.unresolved).toEqual(['DELETED']))
+  })
+
+  it('does not re-list an own template that the facets also report', async () => {
+    // Belt and braces: the namespace check should already exclude it, but a
+    // template_id match must win regardless of what namespace the facet claims.
+    getTemplateFacets.mockResolvedValue({
+      namespace: 'ns-a',
+      facets: [facet({ template_id: 't-widget', template_namespace: 'ns-somewhere-else' })],
+    })
+
+    const { result } = renderHook(
+      () => useExternalTemplates('ns-a', [tmpl({ template_id: 't-widget', value: 'WIDGET', namespace: 'ns-a' })]),
+      { wrapper },
+    )
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.externals).toEqual([])
+  })
+
+  it('stays inert for the all-namespaces view, which already queries unscoped', async () => {
+    const { result } = renderHook(() => useExternalTemplates('', []), { wrapper })
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.externals).toEqual([])
+    expect(getTemplateFacets).not.toHaveBeenCalled()
+  })
+
+  it('sorts externals by value for a stable dropdown', async () => {
+    getTemplateFacets.mockResolvedValue({
+      namespace: 'ns-a',
+      facets: [
+        facet({ template_id: 't-z', template_namespace: 'ns-b' }),
+        facet({ template_id: 't-a', template_namespace: 'ns-b' }),
+      ],
+    })
     useTemplates.mockReturnValue({
       data: {
         items: [
-          tmpl({
-            value: 'NOT_THE_STEM',
-            namespace: 'ns-b',
-            reporting: { table_name: 'doc_custom_stem' },
-          } as Partial<Template> & { value: string; namespace: string }),
+          tmpl({ template_id: 't-z', value: 'ZEBRA', namespace: 'ns-b' }),
+          tmpl({ template_id: 't-a', value: 'APPLE', namespace: 'ns-b' }),
         ],
       },
       isLoading: false,
     })
 
-    const { result } = renderHook(() => useExternalTemplates('ns-a', []))
+    const { result } = renderHook(() => useExternalTemplates('ns-a', []), { wrapper })
 
-    expect(result.current.externals).toHaveLength(1)
-    expect(result.current.externals[0]?.value).toBe('NOT_THE_STEM')
-    expect(result.current.unresolved).toEqual([])
-  })
-
-  it('reports a stem it cannot map back to any template', () => {
-    useReportingInventory.mockReturnValue(inventory({ entities: [entity('ns-a', 'ghost', 4)] }))
-    useTemplates.mockReturnValue({ data: { items: [] }, isLoading: false })
-
-    const { result } = renderHook(() => useExternalTemplates('ns-a', []))
-
-    expect(result.current.externals).toEqual([])
-    expect(result.current.unresolved).toEqual(['ghost'])
-  })
-
-  it('falls back to the flat table list on pre-entity installs, skipping version siblings', () => {
-    useReportingInventory.mockReturnValue(
-      inventory({
-        tables: [
-          table('ns-a', 'doc_gadget', 'gadget', 2),
-          table('ns-a', 'doc_gadget__v1', 'gadget', 2),
-          table('ns-a', 'doc_gadget__entities', 'gadget', 2),
-        ],
-      }),
-    )
-    useTemplates.mockReturnValue({
-      data: { items: [tmpl({ value: 'GADGET', namespace: 'ns-b' })] },
-      isLoading: false,
-    })
-
-    const { result } = renderHook(() => useExternalTemplates('ns-a', []))
-
-    expect(result.current.externals).toHaveLength(1)
-    expect(result.current.externals[0]?.value).toBe('GADGET')
-  })
-
-  it('stays inert for the all-namespaces view, which already queries unscoped', () => {
-    useReportingInventory.mockReturnValue(inventory({ entities: [entity('ns-a', 'gadget', 2)] }))
-
-    const { result } = renderHook(() => useExternalTemplates('', []))
-
-    expect(result.current.externals).toEqual([])
-    expect(useTemplates).toHaveBeenCalledWith(expect.anything(), { enabled: false })
-  })
-
-  it('ignores relations belonging to other namespaces', () => {
-    useReportingInventory.mockReturnValue(
-      inventory({ entities: [entity('ns-other', 'gadget', 9)] }),
-    )
-
-    const { result } = renderHook(() => useExternalTemplates('ns-a', []))
-
-    expect(result.current.externals).toEqual([])
+    await waitFor(() => expect(result.current.externals).toHaveLength(2))
+    expect(result.current.externals.map(e => e.value)).toEqual(['APPLE', 'ZEBRA'])
   })
 })

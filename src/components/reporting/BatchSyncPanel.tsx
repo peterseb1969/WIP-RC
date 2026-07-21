@@ -48,10 +48,12 @@ const ACTIVE_STATUSES = new Set<BatchSyncStatus>(['pending', 'running'])
 // page_size}, so a namespace passed through it would be silently dropped rather
 // than rejected. Call the typed client directly until @wip/react catches up.
 
+interface SyncOptions { namespace?: string; page_size?: number; force?: boolean }
+
 function useScopedBatchSyncAll(onError: (e: Error) => void) {
   const client = useWipClient()
   const queryClient = useQueryClient()
-  return useMutation<BatchSyncResponse[], Error, { namespace?: string; page_size?: number }>({
+  return useMutation<BatchSyncResponse[], Error, SyncOptions>({
     mutationFn: vars => client.reporting.triggerBatchSyncAll(vars),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: wipKeys.reporting.batchJobs() }),
     onError,
@@ -61,7 +63,7 @@ function useScopedBatchSyncAll(onError: (e: Error) => void) {
 function useScopedBatchSync(onError: (e: Error) => void) {
   const client = useWipClient()
   const queryClient = useQueryClient()
-  return useMutation<BatchSyncResponse, Error, { template_value: string; namespace?: string; page_size?: number }>({
+  return useMutation<BatchSyncResponse, Error, SyncOptions & { template_value: string }>({
     mutationFn: ({ template_value, ...opts }) =>
       client.reporting.triggerBatchSync(template_value, opts),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: wipKeys.reporting.batchJobs() }),
@@ -78,6 +80,9 @@ export default function BatchSyncPanel() {
   const [entityNs, setEntityNs] = useState('')
   const [advanced, setAdvanced] = useState(false)
   const [pageSize, setPageSize] = useState(100)
+  // Drop-and-rebuild (CASE-738). Requires a namespace scope — the backend 400s
+  // without one — so it resets whenever the scope is cleared.
+  const [force, setForce] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Live job list — poll fast while anything is running, slow otherwise.
@@ -94,9 +99,16 @@ export default function BatchSyncPanel() {
   const triggerRelations = useTriggerTermRelationSync({ onError: e => setError(e.message) })
   const clearCompleted = useClearCompletedJobs({ onError: e => setError(e.message) })
 
+  // force is only legal with a scope; never send it unscoped.
+  const effectiveForce = force && Boolean(docScopeNs)
+
   const handleSyncAll = () => {
     setError(null)
-    triggerAll.mutate({ namespace: docScopeNs || undefined, page_size: pageSize })
+    triggerAll.mutate({
+      namespace: docScopeNs || undefined,
+      page_size: pageSize,
+      ...(effectiveForce ? { force: true } : {}),
+    })
   }
   const handleSyncOne = () => {
     setError(null)
@@ -105,6 +117,7 @@ export default function BatchSyncPanel() {
       template_value: singleTemplate,
       namespace: docScopeNs || undefined,
       page_size: pageSize,
+      ...(effectiveForce ? { force: true } : {}),
     })
   }
   const handleEntitySync = (kind: 'terminologies' | 'terms' | 'term_relations') => {
@@ -150,6 +163,13 @@ export default function BatchSyncPanel() {
             {docScopeNs && (
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/5 text-primary-dark border border-primary/20">
                 scoped
+              </span>
+            )}
+            {/* Force is set in Advanced, which may be collapsed — surface it
+                where the trigger buttons are, since it drops tables. */}
+            {effectiveForce && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-danger/5 text-danger border border-danger/20">
+                force rebuild
               </span>
             )}
           </div>
@@ -235,11 +255,34 @@ export default function BatchSyncPanel() {
             {advanced ? 'Hide advanced' : 'Advanced…'}
           </button>
           {advanced && (
-            <div className="mt-2 flex items-center gap-4 text-xs">
-              {/* The `force` flag used to live here. The backend confirmed it
-                  was never read — a no-op control that claimed to re-sync
-                  already-synced documents (CASE-738 decides its fate). To
-                  restart a run, cancel the job instead. */}
+            <div className="mt-2 space-y-2 text-xs">
+              {/* CASE-738 gave `force` real semantics — it was previously
+                  accepted and never read, so this control was removed rather
+                  than left lying. It now drops the in-scope template's
+                  reporting relations and rebuilds from source, which is a
+                  recovery path for mis-shaped DDL, not a routine re-sync. */}
+              <label className={cn(
+                'flex items-start gap-1.5',
+                docScopeNs ? 'cursor-pointer' : 'cursor-not-allowed opacity-50',
+              )}>
+                <input
+                  type="checkbox"
+                  checked={effectiveForce}
+                  disabled={!docScopeNs}
+                  onChange={e => setForce(e.target.checked)}
+                  className="rounded border-gray-300 mt-0.5"
+                />
+                <span>
+                  <span className={effectiveForce ? 'text-danger font-medium' : 'text-gray-600'}>
+                    Force rebuild (drops and recreates tables)
+                  </span>
+                  <span className="block text-[11px] text-gray-400">
+                    {docScopeNs
+                      ? `Drops each in-scope template's reporting relations in ${docScopeNs} — version tables, entity views, any legacy table — then rebuilds from source. SQL readers see "relation does not exist" mid-rebuild. An already-active sync is not force-rebuilt; cancel it and re-trigger.`
+                      : 'Requires a document scope — pick a namespace above. A whole-instance force rebuild is not offered.'}
+                  </span>
+                </span>
+              </label>
               <label className="flex items-center gap-1.5">
                 <span className="text-gray-600">Page size</span>
                 <input
