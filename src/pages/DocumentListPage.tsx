@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   FileText,
@@ -18,6 +18,7 @@ import {
 import { useTemplates, useDocuments } from '@wip/react'
 import type { TemplateUsage } from '@wip/client'
 import { useNamespaceFilter, useSyncNamespaceFromUrl } from '@/hooks/use-namespace-filter'
+import { useExternalTemplates } from '@/hooks/use-external-templates'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
 import PeerHeader from '@/components/documents/PeerHeader'
@@ -27,6 +28,29 @@ import { cn } from '@/lib/cn'
 
 const CARD_THRESHOLD = 8
 const LAST_TEMPLATE_KEY = 'rc-console:last-template'
+
+// A template offered in the selector. `external: true` marks one owned by a
+// *different* namespace that this namespace's documents are nonetheless
+// instances of — discovered via the reporting inventory, see
+// use-external-templates.ts.
+export interface SelectableTemplate {
+  template_id: string
+  value: string
+  label?: string | null
+  version?: number | null
+  namespace?: string | null
+  fields?: unknown[] | null
+  usage?: TemplateUsage
+  header_fields?: string[]
+  identity_fields?: string[]
+  external?: boolean
+  row_count?: number
+}
+
+const EXTERNAL_TITLE =
+  'Owned by another namespace. Documents here are instances of it — ' +
+  'discovered via the reporting layer, so the list may lag recent writes ' +
+  'and omits templates with reporting sync disabled.'
 
 // ---------------------------------------------------------------------------
 // localStorage helpers for last-used template (keyed by namespace)
@@ -58,7 +82,7 @@ function TemplateCards({
   allMode,
   onSelectAll,
 }: {
-  templates: Array<{ template_id: string; value: string; label?: string | null; version?: number | null; namespace?: string | null; fields?: unknown[] | null }>
+  templates: SelectableTemplate[]
   selectedId: string | null
   onSelect: (id: string, value: string) => void
   allMode: boolean
@@ -94,8 +118,16 @@ function TemplateCards({
           )}
         >
           <div className="flex items-center gap-2 mb-1">
-            <Layers size={12} className="text-indigo-400" />
+            <Layers size={12} className={t.external ? 'text-amber-400' : 'text-indigo-400'} />
             <span className="text-xs font-mono text-gray-400">v{t.version ?? 1}</span>
+            {t.external && (
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100"
+                title={EXTERNAL_TITLE}
+              >
+                external
+              </span>
+            )}
           </div>
           <div className="text-sm font-medium text-gray-800 truncate">{t.label || t.value}</div>
           <div className="text-xs text-gray-400 mt-0.5 truncate">{t.value}</div>
@@ -117,7 +149,7 @@ function TemplateCombobox({
   allMode,
   onSelectAll,
 }: {
-  templates: Array<{ template_id: string; value: string; label?: string | null; version?: number | null; namespace?: string | null; fields?: unknown[] | null }>
+  templates: SelectableTemplate[]
   selectedId: string | null
   onSelect: (id: string, value: string) => void
   allMode: boolean
@@ -251,10 +283,18 @@ function TemplateCombobox({
                       : 'hover:bg-gray-50 text-gray-700'
                   )}
                 >
-                  <Layers size={12} className={t.template_id === selectedId ? 'text-primary-light' : 'text-indigo-400'} />
+                  <Layers size={12} className={t.template_id === selectedId ? 'text-primary-light' : t.external ? 'text-amber-400' : 'text-indigo-400'} />
                   <div className="flex-1 min-w-0">
                     <span className="font-medium truncate">{t.label || t.value}</span>
                     <span className="text-xs font-mono text-gray-400 ml-2">{t.value}</span>
+                    {t.external && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 ml-2 rounded bg-amber-50 text-amber-700 border border-amber-100"
+                        title={EXTERNAL_TITLE}
+                      >
+                        external
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0 text-xs text-gray-400">
                     <span>v{t.version ?? 1}</span>
@@ -288,7 +328,7 @@ function TemplateSelector({
 }: {
   selectedId: string | null
   onSelect: (id: string, value: string) => void
-  onTemplatesLoaded?: (templates: Array<{ template_id: string; value: string; label?: string | null; usage?: TemplateUsage; header_fields?: string[]; identity_fields?: string[] }>) => void
+  onTemplatesLoaded?: (templates: SelectableTemplate[]) => void
   allMode: boolean
   onSelectAll: () => void
 }) {
@@ -296,7 +336,17 @@ function TemplateSelector({
   const { data, isLoading } = useTemplates({ status: 'active', latest_only: true, namespace: namespace || undefined, page_size: 100 })
   const notifiedRef = useRef(false)
 
-  const templates = data?.items ?? []
+  const ownTemplates = data?.items ?? []
+
+  // Templates owned by other namespaces that this namespace's documents are
+  // nonetheless instances of. Without these the documents are invisible:
+  // GET /templates?namespace= only ever returns a namespace's own templates.
+  const { externals, unresolved, isLoading: externalsLoading } = useExternalTemplates(namespace, ownTemplates)
+
+  const templates: SelectableTemplate[] = useMemo(
+    () => [...ownTemplates, ...externals],
+    [ownTemplates, externals],
+  )
 
   // notify parent once when templates load (for auto-recall)
   useEffect(() => {
@@ -311,14 +361,31 @@ function TemplateSelector({
     notifiedRef.current = false
   }, [namespace])
 
-  if (isLoading) return <LoadingState label="Loading templates..." />
-  if (templates.length === 0) return <p className="text-sm text-gray-400">No templates available.</p>
+  if (isLoading || externalsLoading) return <LoadingState label="Loading templates..." />
 
-  if (templates.length < CARD_THRESHOLD) {
-    return <TemplateCards templates={templates} selectedId={selectedId} onSelect={onSelect} allMode={allMode} onSelectAll={onSelectAll} />
-  }
-
-  return <TemplateCombobox templates={templates} selectedId={selectedId} onSelect={onSelect} allMode={allMode} onSelectAll={onSelectAll} />
+  // Note the absence of an early return on an empty list: "All templates" is
+  // the only way to reach documents whose templates all live elsewhere, so
+  // the selector must render even when this namespace owns nothing.
+  return (
+    <div className="space-y-2">
+      {templates.length === 0 && (
+        <p className="text-sm text-gray-400">
+          No templates available in this namespace — use <span className="font-medium">All templates</span> to browse its documents.
+        </p>
+      )}
+      {templates.length < CARD_THRESHOLD ? (
+        <TemplateCards templates={templates} selectedId={selectedId} onSelect={onSelect} allMode={allMode} onSelectAll={onSelectAll} />
+      ) : (
+        <TemplateCombobox templates={templates} selectedId={selectedId} onSelect={onSelect} allMode={allMode} onSelectAll={onSelectAll} />
+      )}
+      {unresolved.length > 0 && (
+        <p className="text-xs text-amber-600">
+          {unresolved.length} reporting table{unresolved.length === 1 ? '' : 's'} in this namespace ({unresolved.join(', ')}) could not be mapped
+          back to a template — its template may have been deleted. Use <span className="font-medium">All templates</span> to see the documents.
+        </p>
+      )}
+    </div>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -332,14 +399,18 @@ function DocumentTable({
 }: {
   templateId: string | null
   templateValue: string | null
-  templateById: Map<string, { value: string; label?: string | null; usage?: TemplateUsage; header_fields?: string[]; identity_fields?: string[] }>
+  templateById: Map<string, { value: string; label?: string | null; usage?: TemplateUsage; header_fields?: string[]; identity_fields?: string[]; external?: boolean }>
 }) {
   const [page, setPage] = useState(1)
   const [showArchived, setShowArchived] = useState(false)
   const { namespace } = useNamespaceFilter()
+  // Both filters are applied together. WIP ANDs them — template_id alone
+  // would return the template's documents from *every* namespace, silently
+  // ignoring the namespace selector, which matters now that a template can
+  // legitimately hold documents belonging to several namespaces.
   const { data, isLoading, error, refetch } = useDocuments({
     template_id: templateId ?? undefined,
-    namespace: templateId ? undefined : (namespace || undefined),
+    namespace: namespace || undefined,
     status: showArchived ? undefined : 'active',
     page,
     page_size: 25,
@@ -453,10 +524,13 @@ function DocumentTable({
                       <span
                         className={cn(
                           'text-[10px] px-1.5 py-0.5 rounded border',
-                          isRelationship
-                            ? 'bg-purple-50 text-purple-700 border-purple-100'
-                            : 'bg-indigo-50 text-indigo-600 border-indigo-100',
+                          tmpl.external
+                            ? 'bg-amber-50 text-amber-700 border-amber-100'
+                            : isRelationship
+                              ? 'bg-purple-50 text-purple-700 border-purple-100'
+                              : 'bg-indigo-50 text-indigo-600 border-indigo-100',
                         )}
+                        title={tmpl.external ? EXTERNAL_TITLE : undefined}
                       >
                         {tmpl.label || tmpl.value}
                       </span>
@@ -514,7 +588,7 @@ export default function DocumentListPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const [selectedTemplateValue, setSelectedTemplateValue] = useState<string>(templateParam)
   const [allMode, setAllMode] = useState(false)
-  const [templateById, setTemplateById] = useState<Map<string, { value: string; label?: string | null; usage?: TemplateUsage; header_fields?: string[]; identity_fields?: string[] }>>(new Map())
+  const [templateById, setTemplateById] = useState<Map<string, { value: string; label?: string | null; usage?: TemplateUsage; header_fields?: string[]; identity_fields?: string[]; external?: boolean }>>(new Map())
 
   const nsKey = namespace || '__all__'
 
@@ -532,8 +606,8 @@ export default function DocumentListPage() {
   }
 
   // auto-recall last-used template when templates finish loading
-  const handleTemplatesLoaded = useCallback((templates: Array<{ template_id: string; value: string; label?: string | null; usage?: TemplateUsage; header_fields?: string[]; identity_fields?: string[] }>) => {
-    setTemplateById(new Map(templates.map(t => [t.template_id, { value: t.value, label: t.label, usage: t.usage, header_fields: t.header_fields, identity_fields: t.identity_fields }])))
+  const handleTemplatesLoaded = useCallback((templates: SelectableTemplate[]) => {
+    setTemplateById(new Map(templates.map(t => [t.template_id, { value: t.value, label: t.label, usage: t.usage, header_fields: t.header_fields, identity_fields: t.identity_fields, external: t.external }])))
     // don't override if already selected or in all mode
     if (selectedTemplateId || allMode) return
 
