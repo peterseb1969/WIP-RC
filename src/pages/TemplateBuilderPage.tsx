@@ -35,9 +35,8 @@ import {
   readCrossVersionView,
   parseVersionsInput,
   formatVersionsInput,
-  readVersionEventDetails,
-  type VersionEventDetails,
 } from '@/lib/reporting-types'
+import { asVersionEventDetails, type TemplateVersionEventDetails } from '@wip/client'
 import VersionImpactPanel from '@/components/templates/VersionImpactPanel'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 import { cn } from '@/lib/cn'
@@ -174,7 +173,7 @@ export default function TemplateBuilderPage() {
   const [error, setError] = useState<string | null>(null)
   const [saveMode, setSaveMode] = useState<'draft' | 'active' | null>(null)
   const [hasBlockingWarning, setHasBlockingWarning] = useState(false)
-  type VersionEvent = { details: VersionEventDetails; version?: number; to: string }
+  type VersionEvent = { details: TemplateVersionEventDetails; version?: number; to: string }
   const [versionEvent, setVersionEvent] = useState<VersionEvent | null>(null)
   const versionEventRef = useRef<VersionEvent | null>(null)
 
@@ -223,7 +222,9 @@ export default function TemplateBuilderPage() {
   // Mirrored in a ref because the activation callback reads it after its own
   // mutation resolves, where the state value would be stale.
   const captureVersionEvent = (result: unknown, to: string): boolean => {
-    const details = readVersionEventDetails(result)
+    const details = asVersionEventDetails(
+      (result as { details?: Record<string, unknown> } | null)?.details,
+    )
     const isNewVersion = (result as { is_new_version?: boolean } | null)?.is_new_version
     if (details && isNewVersion && (details.impact || details.migration)) {
       const event = { details, version: (result as { version?: number } | null)?.version, to }

@@ -1,8 +1,5 @@
 import { Layers, AlertTriangle, CheckCircle, HelpCircle, ArrowRight } from 'lucide-react'
-import {
-  normalizeImpact,
-  type VersionEventDetails,
-} from '@/lib/reporting-types'
+import type { TemplateVersionEventDetails } from '@wip/client'
 import { cn } from '@/lib/cn'
 
 // Version-event impact (CASE-711 / CASE-722). Shown after a save that minted a
@@ -25,13 +22,19 @@ export default function VersionImpactPanel({
   version,
   onDismiss,
 }: {
-  details: VersionEventDetails
+  details: TemplateVersionEventDetails
   version?: number
   onDismiss?: () => void
 }) {
-  const impact = normalizeImpact(details.impact)
+  const impact = details.impact
   const migration = details.migration
   const unavailable = impact != null && impact.status !== 'ok'
+  // changed_type carries the old/new pair per field, not a bare name — it was
+  // rendered through the plain field list until the client typed it.
+  const changedTypes = (details.changed_type ?? []).map(
+    c => `${c.name}: ${c.old_type} → ${c.new_type}`,
+  )
+  const identity = details.identity_changed
   const docsPerVersion = Object.entries(impact?.docs_per_version ?? {})
   const fieldCounts = Object.entries(impact?.field_nonempty_counts ?? {})
 
@@ -57,9 +60,17 @@ export default function VersionImpactPanel({
         <DiffLine label="Added" fields={details.added_optional} />
         <DiffLine label="Added (required)" fields={details.added_required} tone="danger" />
         <DiffLine label="Removed" fields={details.removed} tone="danger" />
-        <DiffLine label="Type changed" fields={details.changed_type} tone="danger" />
+        <DiffLine label="Type changed" fields={changedTypes} tone="danger" />
         <DiffLine label="Now required" fields={details.made_required} tone="danger" />
         <DiffLine label="Modified" fields={details.modified_existing} />
+        {identity && (
+          <div className="flex items-start gap-2 text-xs">
+            <span className="shrink-0 text-danger">Identity changed</span>
+            <span className="font-mono text-gray-600">
+              {identity.old.join(', ') || '—'} → {identity.new.join(', ') || '—'}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Impact — live documents */}
@@ -69,7 +80,7 @@ export default function VersionImpactPanel({
             <HelpCircle size={13} className="shrink-0 mt-0.5 text-gray-400" />
             <span>
               Impact could not be determined
-              {impact.error || impact.reason ? ` — ${impact.error ?? impact.reason}` : ''}.
+              {impact.reason ? ` — ${impact.reason}` : ''}.
               The version was created; the number of affected documents is unknown, not zero.
             </span>
           </div>

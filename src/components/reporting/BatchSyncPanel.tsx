@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   PlayCircle,
   RotateCw,
@@ -14,15 +15,15 @@ import {
   useBatchJobs,
   useTemplates,
   useNamespaces,
-  useTriggerBatchSyncAll,
-  useTriggerBatchSync,
   useTriggerTerminologySync,
   useTriggerTermSync,
   useTriggerTermRelationSync,
   useCancelBatchJob,
   useClearCompletedJobs,
+  useWipClient,
+  wipKeys,
 } from '@wip/react'
-import type { BatchSyncJob, BatchSyncStatus } from '@wip/client'
+import type { BatchSyncJob, BatchSyncStatus, BatchSyncResponse } from '@wip/client'
 import { cn } from '@/lib/cn'
 
 // ---------------------------------------------------------------------------
@@ -32,18 +33,50 @@ import { cn } from '@/lib/cn'
 //      entity tables: terminologies, terms, term-relations).
 //   2. Live job list (auto-polled while anything is running, otherwise idle).
 // Sync-status card is rendered above this panel by PostgresPage.
+//
+// Document sync is namespace-scopable (CASE-735/734, @wip/client 0.44.0). The
+// scope filters the *documents*, not the template list — a document may be
+// based on a template owned by another namespace, so a scoped run still
+// iterates every template and simply syncs nothing for those with no documents
+// in scope.
 // ---------------------------------------------------------------------------
 
 const ACTIVE_STATUSES = new Set<BatchSyncStatus>(['pending', 'running'])
+
+// The @wip/react 0.19.0 trigger hooks predate the namespace option: their vars
+// types omit it, and useTriggerBatchSync *destructures* {template_value, force,
+// page_size}, so a namespace passed through it would be silently dropped rather
+// than rejected. Call the typed client directly until @wip/react catches up.
+
+function useScopedBatchSyncAll(onError: (e: Error) => void) {
+  const client = useWipClient()
+  const queryClient = useQueryClient()
+  return useMutation<BatchSyncResponse[], Error, { namespace?: string; page_size?: number }>({
+    mutationFn: vars => client.reporting.triggerBatchSyncAll(vars),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: wipKeys.reporting.batchJobs() }),
+    onError,
+  })
+}
+
+function useScopedBatchSync(onError: (e: Error) => void) {
+  const client = useWipClient()
+  const queryClient = useQueryClient()
+  return useMutation<BatchSyncResponse, Error, { template_value: string; namespace?: string; page_size?: number }>({
+    mutationFn: ({ template_value, ...opts }) =>
+      client.reporting.triggerBatchSync(template_value, opts),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: wipKeys.reporting.batchJobs() }),
+    onError,
+  })
+}
 
 export default function BatchSyncPanel() {
   const { data: templates } = useTemplates({ status: 'active', latest_only: true, page_size: 200 })
   const { data: namespaces } = useNamespaces()
 
   const [singleTemplate, setSingleTemplate] = useState('')
+  const [docScopeNs, setDocScopeNs] = useState('')
   const [entityNs, setEntityNs] = useState('')
   const [advanced, setAdvanced] = useState(false)
-  const [force, setForce] = useState(false)
   const [pageSize, setPageSize] = useState(100)
   const [error, setError] = useState<string | null>(null)
 
@@ -54,8 +87,8 @@ export default function BatchSyncPanel() {
   const liveJobsQ = useBatchJobs({ refetchInterval: hasActive ? 3000 : 30_000 })
   const liveJobs = liveJobsQ.data ?? jobs
 
-  const triggerAll = useTriggerBatchSyncAll({ onError: e => setError(e.message) })
-  const triggerOne = useTriggerBatchSync({ onError: e => setError(e.message) })
+  const triggerAll = useScopedBatchSyncAll(e => setError(e.message))
+  const triggerOne = useScopedBatchSync(e => setError(e.message))
   const triggerTerminologies = useTriggerTerminologySync({ onError: e => setError(e.message) })
   const triggerTerms = useTriggerTermSync({ onError: e => setError(e.message) })
   const triggerRelations = useTriggerTermRelationSync({ onError: e => setError(e.message) })
@@ -63,12 +96,16 @@ export default function BatchSyncPanel() {
 
   const handleSyncAll = () => {
     setError(null)
-    triggerAll.mutate({ force, page_size: pageSize })
+    triggerAll.mutate({ namespace: docScopeNs || undefined, page_size: pageSize })
   }
   const handleSyncOne = () => {
     setError(null)
     if (!singleTemplate) { setError('Pick a template to sync'); return }
-    triggerOne.mutate({ template_value: singleTemplate, force, page_size: pageSize })
+    triggerOne.mutate({
+      template_value: singleTemplate,
+      namespace: docScopeNs || undefined,
+      page_size: pageSize,
+    })
   }
   const handleEntitySync = (kind: 'terminologies' | 'terms' | 'term_relations') => {
     setError(null)
@@ -96,7 +133,26 @@ export default function BatchSyncPanel() {
 
         {/* Templates */}
         <div className="space-y-2">
-          <label className="block text-xs font-medium text-gray-500">Templates</label>
+          <div className="flex items-center gap-2 flex-wrap">
+            <label className="block text-xs font-medium text-gray-500">Templates</label>
+            <span className="text-xs text-gray-400">— document scope</span>
+            <select
+              value={docScopeNs}
+              onChange={e => setDocScopeNs(e.target.value)}
+              className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-light focus:border-primary-light"
+              title="Limits which documents are synced. Templates are always iterated instance-wide, because a document may be based on a template owned by another namespace."
+            >
+              <option value="">All namespaces</option>
+              {(namespaces ?? []).map(n => (
+                <option key={n.prefix} value={n.prefix}>{n.prefix}</option>
+              ))}
+            </select>
+            {docScopeNs && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/5 text-primary-dark border border-primary/20">
+                scoped
+              </span>
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleSyncAll}
@@ -104,7 +160,7 @@ export default function BatchSyncPanel() {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
             >
               {triggerAll.isPending ? <Loader2 size={12} className="animate-spin" /> : <PlayCircle size={14} />}
-              Sync all templates
+              {docScopeNs ? `Sync all templates in ${docScopeNs}` : 'Sync all templates'}
             </button>
             <span className="text-xs text-gray-400">or</span>
             <select
@@ -180,10 +236,10 @@ export default function BatchSyncPanel() {
           </button>
           {advanced && (
             <div className="mt-2 flex items-center gap-4 text-xs">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input type="checkbox" checked={force} onChange={e => setForce(e.target.checked)} />
-                <span className="text-gray-600">Force (re-sync already-synced docs)</span>
-              </label>
+              {/* The `force` flag used to live here. The backend confirmed it
+                  was never read — a no-op control that claimed to re-sync
+                  already-synced documents (CASE-738 decides its fate). To
+                  restart a run, cancel the job instead. */}
               <label className="flex items-center gap-1.5">
                 <span className="text-gray-600">Page size</span>
                 <input
@@ -261,6 +317,20 @@ function JobRow({ job }: { job: BatchSyncJob }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-gray-700">{job.template_value}</span>
+          {/* Scope is load-bearing here: the same template can hold documents
+              from several namespaces, so two jobs on one template_value are
+              not necessarily duplicates. */}
+          <span
+            className={cn(
+              'text-[10px] px-1.5 py-0.5 rounded border',
+              job.namespace
+                ? 'bg-primary/5 text-primary-dark border-primary/20'
+                : 'bg-gray-50 text-gray-500 border-gray-200',
+            )}
+            title={job.namespace ? `Scoped to documents in ${job.namespace}` : 'All namespaces'}
+          >
+            {job.namespace || 'all namespaces'}
+          </span>
           <span className="text-gray-400">{job.status}</span>
           {pct !== null && (
             <span className="text-gray-500">
