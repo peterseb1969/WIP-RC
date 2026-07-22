@@ -940,17 +940,20 @@ const SUMMARY_LABELS: Array<[keyof NamespaceIntegrityResult['summary'], string]>
 /**
  * `BackupJobSnapshot.result` is polymorphic — a validate job stores a
  * NamespaceIntegrityResult, but a restore dry run stores its plan in the same
- * field (the terminal event's details land there verbatim). Only the former
- * has a `summary`, so structural detection is the honest test; the `kind`
- * check alone would still let a shapeless validate result through.
+ * field (the terminal event's details land there verbatim).
+ *
+ * CASE-750 gave the integrity payload a self-identifying `result_kind:
+ * "namespace_integrity"`, so the discriminator is the primary test now. The
+ * structural fallback (`summary != null`) stays for jobs written before that
+ * shipped — pre-existing validate jobs in the list carry no result_kind — and
+ * costs nothing.
  */
 function isIntegrityResult(job: BackupJob): boolean {
-  return (
-    (job.kind ?? job.type) === 'validate' &&
-    job.result != null &&
-    typeof job.result === 'object' &&
-    (job.result as { summary?: unknown }).summary != null
-  )
+  if ((job.kind ?? job.type) !== 'validate') return false
+  if (job.result == null || typeof job.result !== 'object') return false
+  const r = job.result as { result_kind?: unknown; summary?: unknown }
+  if (r.result_kind != null) return r.result_kind === 'namespace_integrity'
+  return r.summary != null
 }
 
 function IntegrityResultCard({ result }: { result: NamespaceIntegrityResult }) {
