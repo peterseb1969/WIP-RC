@@ -357,11 +357,14 @@ export default function TemplateDetailPage() {
                 Cancel
               </button>
               <button
-                onClick={() => deactivate.mutate({ id: template.template_id, force: true })}
+                // Thread the VIEWED version. Without it deleteTemplate omits
+                // version and the store defaults to LATEST, so deactivating
+                // while viewing v1 killed v2 instead (CASE-769 / CASE-766).
+                onClick={() => deactivate.mutate({ id: template.template_id, version: template.version, force: true })}
                 disabled={deactivate.isPending}
                 className="px-3 py-1 bg-danger text-white rounded hover:bg-danger text-xs disabled:opacity-50"
               >
-                {deactivate.isPending ? 'Deactivating...' : 'Confirm Deactivate'}
+                {deactivate.isPending ? 'Deactivating...' : `Confirm Deactivate v${template.version ?? 1}`}
               </button>
             </div>
           </div>
