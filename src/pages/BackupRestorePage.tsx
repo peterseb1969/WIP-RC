@@ -151,7 +151,6 @@ function BackupTab() {
   // explicit selection server-side, so the picker is disabled while it is on.
   const [allNamespaces, setAllNamespaces] = useState(false)
   const [includeFiles, setIncludeFiles] = useState(false)
-  const [includeInactive, setIncludeInactive] = useState(false)
   // Definitions-only archive: terminologies, terms, templates, no documents.
   const [skipDocuments, setSkipDocuments] = useState(false)
   const [starting, setStarting] = useState(false)
@@ -188,12 +187,12 @@ function BackupTab() {
   }, [])
 
   // Options every start shares. Deliberately NOT sent: latest_only, dry_run,
-  // skip_closure, skip_synonyms and template_prefixes — all belonged to the
-  // retired toolkit export path and the backup engine now 400s on them rather
-  // than silently producing an archive that differs from what was asked for.
+  // skip_closure, skip_synonyms, template_prefixes (retired toolkit-export
+  // fields the backup engine 400s on), and include_inactive — a no-op the
+  // platform is tombstoning (CASE-768 ruling b): the engine only excludes
+  // status=="deleted", which nothing persists, so it never dropped anything.
   const baseOptions = () => ({
     include_files: includeFiles,
-    include_inactive: includeInactive,
     skip_documents: skipDocuments,
   })
 
@@ -346,10 +345,6 @@ function BackupTab() {
         <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
           <input type="checkbox" checked={includeFiles} onChange={e => setIncludeFiles(e.target.checked)} className="rounded border-gray-300" />
           Include file blobs
-        </label>
-        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-          <input type="checkbox" checked={includeInactive} onChange={e => setIncludeInactive(e.target.checked)} className="rounded border-gray-300" />
-          Include inactive/archived entities
         </label>
         <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
           <input type="checkbox" checked={skipDocuments} onChange={e => setSkipDocuments(e.target.checked)} className="rounded border-gray-300 mt-0.5" />
