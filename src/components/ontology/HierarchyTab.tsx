@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight, ChevronDown, Tag, Loader2, ArrowUp, ArrowDown } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
@@ -43,7 +43,10 @@ interface HierarchyTabProps {
 }
 
 export default function HierarchyTab({ term }: HierarchyTabProps) {
+  const client = useWipClient()
   const [relationshipType, setRelationshipType] = useState('is_a')
+  // Track an explicit user choice so the adaptive default below never fights it.
+  const [userPicked, setUserPicked] = useState(false)
 
   // Fetch types from _ONTOLOGY_RELATIONSHIP_TYPES with fallback
   const typesQuery = useTerms('_ONTOLOGY_RELATIONSHIP_TYPES', {
@@ -55,6 +58,35 @@ export default function HierarchyTab({ term }: HierarchyTabProps) {
       ? typesQuery.data.items.map(t => t.value).sort()
       : FALLBACK_RELATIONSHIP_TYPES
 
+  // Which relation types does THIS term actually participate in? The tree
+  // filters client-side to the single selected type, so defaulting to a type
+  // the term doesn't use (the old hardcoded `is_a`) renders an empty tree that
+  // looks broken — e.g. a KB_TOPIC term whose relations are all `part_of`.
+  // Discover the present types once and steer the default toward one of them.
+  const presentQuery = useQuery({
+    queryKey: ['rc-console', 'hierarchy-present-types', term.term_id, term.namespace],
+    queryFn: async () => {
+      const res = await client.defStore.listTermRelations({
+        term_id: term.term_id,
+        direction: 'both',
+        namespace: term.namespace,
+        page_size: 200,
+      })
+      return Array.from(new Set(res.items.map(r => r.relation_type))).sort()
+    },
+    staleTime: 30_000,
+  })
+  const presentTypes = presentQuery.data ?? []
+
+  // Steer the initial selection to a type the term uses — `is_a` when present
+  // (the usual taxonomic backbone), otherwise the first present type. Only
+  // until the user picks explicitly, so their choice is never overridden.
+  useEffect(() => {
+    if (userPicked || presentTypes.length === 0) return
+    if (presentTypes.includes(relationshipType)) return
+    setRelationshipType(presentTypes.includes('is_a') ? 'is_a' : presentTypes[0]!)
+  }, [presentTypes, userPicked, relationshipType])
+
   return (
     <div className="space-y-4">
       {/* Type selector */}
@@ -62,7 +94,7 @@ export default function HierarchyTab({ term }: HierarchyTabProps) {
         <label className="text-xs font-medium text-gray-600">Relationship type</label>
         <select
           value={relationshipType}
-          onChange={e => setRelationshipType(e.target.value)}
+          onChange={e => { setUserPicked(true); setRelationshipType(e.target.value) }}
           className="border border-gray-200 rounded-md px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-light focus:border-primary-light"
           disabled={typesQuery.isLoading}
         >
@@ -74,6 +106,30 @@ export default function HierarchyTab({ term }: HierarchyTabProps) {
         </select>
         {typesQuery.isError && (
           <span className="text-[10px] text-amber-600">(using fallback list)</span>
+        )}
+        {/* Name the types the term actually uses, so an empty tree for the
+            selected type reads as "wrong filter", not "broken". */}
+        {presentTypes.length > 0 && (
+          <span className="text-[11px] text-gray-400">
+            this term uses:{' '}
+            {presentTypes.map((t, i) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => { setUserPicked(true); setRelationshipType(t) }}
+                className={cn(
+                  'font-mono hover:underline',
+                  t === relationshipType ? 'text-primary-dark' : 'text-gray-500',
+                )}
+              >
+                {i > 0 && <span className="text-gray-300 no-underline">, </span>}
+                {t}
+              </button>
+            ))}
+          </span>
+        )}
+        {presentQuery.isSuccess && presentTypes.length === 0 && (
+          <span className="text-[11px] text-gray-400">no relations on this term</span>
         )}
       </div>
 
@@ -158,16 +214,25 @@ function TreeNode({
   const client = useWipClient()
 
   // Fetch one level + hydrate the "other end" term for each relationship.
+  //
+  // relation_type is REQUIRED on the wire: /ontology/terms/{id}/parents and
+  // /children return an empty array when it is omitted, so the earlier
+  // "fetch all types, filter client-side" approach always came back empty for
+  // any term (that was the KB_TOPIC / part_of "hierarchy doesn't render" bug).
+  // Pass the selected type through and let the server scope it; the query key
+  // includes it so switching the selector re-fetches.
+  //
   // getParents/getChildren may not populate the denormalized
   // source/target_term_label fields, so we hydrate via getTerm in parallel
   // to get human-readable labels and the correct terminology_id for the link.
   const query = useQuery<HydratedRelationship[]>({
-    queryKey: ['rc-console', 'hierarchy', direction, termId, namespace],
+    queryKey: ['rc-console', 'hierarchy', direction, termId, namespace, relationshipType],
     queryFn: async () => {
+      const params = { namespace, relation_type: relationshipType }
       const raw =
         direction === 'up'
-          ? await client.defStore.getParents(termId, { namespace })
-          : await client.defStore.getChildren(termId, { namespace })
+          ? await client.defStore.getParents(termId, params)
+          : await client.defStore.getChildren(termId, params)
       const hydrated = await Promise.all(
         raw.map(async (rel): Promise<HydratedRelationship> => {
           const isSource = rel.source_term_id === termId
@@ -213,10 +278,8 @@ function TreeNode({
     staleTime: 30_000,
   })
 
-  // Filter to the selected relationship type client-side.
-  const children = (query.data ?? []).filter(
-    h => h.rel.relation_type === relationshipType
-  )
+  // The server already scoped to relationshipType, so this is the whole set.
+  const children = query.data ?? []
 
   const hasChildren = children.length > 0
   const indent = depth * 16
