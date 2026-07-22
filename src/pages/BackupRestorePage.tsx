@@ -61,21 +61,39 @@ interface BackupJob {
   validation_job_ids?: string[]
 }
 
-// Build a human-useful archive filename: <namespace>_<YYYY-MM-DD_HHMMSS>.zip
-// (e.g. clintrial_2026-05-23_191405.zip). Timestamp prefers the job's
-// completion time, falling back to creation time. Both the server's
-// Content-Disposition header and the anchor's download attribute use this —
-// the server header wins in browsers, so they must agree.
-function archiveFilename(job: Pick<BackupJob, 'namespace' | 'namespaces' | 'completed_at' | 'created_at'>): string {
+// Build a human-useful archive filename: <namespaces>_<YYYY-MM-DD_HHMMSS>.zip
+// (e.g. clintrial_2026-05-23_191405.zip, or kb_library_… for a combined
+// archive). Timestamp prefers the job's completion time, falling back to
+// creation time. Both the server's Content-Disposition header and the anchor's
+// download attribute use this — the server header wins in browsers, so they
+// must agree.
+export function archiveFilename(job: Pick<BackupJob, 'namespace' | 'namespaces' | 'completed_at' | 'created_at'>): string {
   const iso = (job.completed_at || job.created_at || '').slice(0, 19) // YYYY-MM-DDTHH:MM:SS
   const stamp = iso ? iso.replace('T', '_').replace(/:/g, '') : 'unknown'
-  // Combined archive (CASE-542) spans several namespaces — name it
-  // <anchor>+<n>ns so the file isn't mislabelled as a single-namespace backup.
-  const base = job.namespaces && job.namespaces.length > 1
-    ? `${job.namespace || 'wip'}+${job.namespaces.length - 1}ns`
-    : (job.namespace || 'wip')
-  const ns = base.replace(/[^A-Za-z0-9_-]/g, '_')
+  const names = job.namespaces && job.namespaces.length > 0
+    ? job.namespaces
+    : [job.namespace || 'wip']
+  // Namespace prefixes are lowercase [a-z0-9-], so `_` cleanly separates them.
+  // Anything unexpected collapses to `_`; the server download route keeps `_`.
+  const ns = joinNamespacesForFilename(names).replace(/[^A-Za-z0-9_-]/g, '_')
   return `${ns}_${stamp}.zip`
+}
+
+// List every namespace a combined archive contains (Peter's request), kept
+// bounded so a whole-instance backup doesn't yield a 300-char filename: list
+// them all while they fit, otherwise name the leading ones and count the rest.
+function joinNamespacesForFilename(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? 'wip'
+  const joined = names.join('_')
+  if (joined.length <= 72) return joined
+  const kept: string[] = []
+  let len = 0
+  for (const n of names) {
+    if (len + n.length + 1 > 60) break
+    kept.push(n)
+    len += n.length + 1
+  }
+  return `${kept.join('_')}_and_${names.length - kept.length}_more`
 }
 
 // Extract a clean message from a non-ok response: prefer the backend's JSON
