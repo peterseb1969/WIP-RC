@@ -2,7 +2,7 @@
   "mcpServers": {
     "wip": {
       "type": "stdio",
-      "command": "/Users/peter/Development/Amrum/World-in-a-Pie/.venv/bin/python",
+      "command": "/Users/peter/Development/Amrum/WIP-TC01/.venv/bin/python",
       "args": ["-m", "wip_mcp.server"],
       "env": {
         "WIP_API_KEY_FILE": "/Users/peter/.wip-deploy/default/secrets/api-key",
