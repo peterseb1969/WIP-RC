@@ -183,6 +183,28 @@ export function useTablePreview(table: ReportTable | null) {
   })
 }
 
+// Server-paginated page of a reporting table (CASE-812 follow-up: parity with
+// the document Table View). qualified_name is already `"ns"."name"`-quoted;
+// page/pageSize are numbers, so the interpolation is injection-safe. Total row
+// count comes from the inventory (table.row_count), so no extra COUNT query.
+export function useTablePage(table: ReportTable | null, page: number, pageSize: number) {
+  return useQuery({
+    queryKey: ['rc-console', 'table-page', table?.namespace, table?.name, page, pageSize],
+    queryFn: () =>
+      fetchJson<QueryResult>('/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sql: `SELECT * FROM ${table!.qualified_name} LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
+        }),
+      }),
+    enabled: !!table,
+    staleTime: 30_000,
+    // Keep the previous page on screen while the next one loads (smoother paging).
+    placeholderData: previous => previous,
+  })
+}
+
 export interface RunQueryInput {
   sql: string
   /** When set, the server resolves unqualified doc_* names in this

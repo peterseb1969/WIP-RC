@@ -4,6 +4,7 @@ import {
   tablePasses,
   nameMatches,
   visibleEntityRelations,
+  formatPgCell,
   VERSION_TABLE_RE,
   type BrowserFilters,
 } from '@/pages/PostgresPage'
@@ -62,6 +63,38 @@ describe('tablePasses', () => {
     expect(tablePasses(legacy, F({ kind: 'view' }))).toBe(false) // missing kind => table
     expect(tablePasses(legacy, F({ kind: 'table' }))).toBe(true)
     expect(tablePasses(table, F({ kind: 'all' }))).toBe(true)
+  })
+})
+
+describe('formatPgCell', () => {
+  it('renders null/undefined as an em dash', () => {
+    expect(formatPgCell(null)).toBe('—')
+    expect(formatPgCell(undefined)).toBe('—')
+  })
+
+  it('renders booleans as Yes/No', () => {
+    expect(formatPgCell(true, 'boolean')).toBe('Yes')
+    expect(formatPgCell(false, 'boolean')).toBe('No')
+  })
+
+  it('localizes timestamp/date strings and passes junk through untouched', () => {
+    // A real ISO timestamp round-trips through Date; assert it changed shape
+    // rather than pinning a locale-specific string.
+    const out = formatPgCell('2026-07-26T10:00:00Z', 'timestamp with time zone')
+    expect(out).not.toBe('2026-07-26T10:00:00Z')
+    expect(formatPgCell('not-a-date', 'date')).toBe('not-a-date')
+  })
+
+  it('truncates JSON objects to 60 chars with an ellipsis', () => {
+    expect(formatPgCell({ a: 1 }, 'jsonb')).toBe('{"a":1}')
+    const big = formatPgCell({ note: 'x'.repeat(100) }, 'jsonb')
+    expect(big.endsWith('…')).toBe(true)
+    expect(big.length).toBe(61)
+  })
+
+  it('stringifies plain scalars', () => {
+    expect(formatPgCell(42, 'integer')).toBe('42')
+    expect(formatPgCell('hello', 'text')).toBe('hello')
   })
 })
 

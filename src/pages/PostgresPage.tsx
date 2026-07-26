@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo, type MouseEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import {
   Database,
   Play,
@@ -24,7 +24,7 @@ import {
   useReportTables,
   useReportingInventory,
   useTableColumns,
-  useTablePreview,
+  useTablePage,
   useRunQuery,
   type QueryResult,
   type ReportTable,
@@ -33,6 +33,7 @@ import {
 import ParityPanel from '@/components/reporting/ParityPanel'
 import { useSyncStatus } from '@wip/react'
 import DataTable from '@/components/common/DataTable'
+import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import BatchSyncPanel from '@/components/reporting/BatchSyncPanel'
@@ -113,6 +114,49 @@ function SyncStatusBar() {
 // Table Browser (left panel)
 // ---------------------------------------------------------------------------
 
+const TABLE_PAGE_SIZES = [25, 50, 100] as const
+
+// Download the whole reporting table as CSV via a blob + <a download>, matching
+// the document Table View's export UX (client-controlled filename) rather than
+// opening a raw server response in a new tab.
+async function downloadTableCsv(table: ReportTable): Promise<void> {
+  const res = await fetch(
+    apiUrl(
+      `/wip/api/reporting-sync/export/csv?table=${encodeURIComponent(table.name)}&namespace=${encodeURIComponent(table.namespace)}`
+    )
+  )
+  if (!res.ok) throw new Error(`CSV export failed: HTTP ${res.status}`)
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${table.namespace}_${table.name}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+// Typed cell rendering for a PostgreSQL row, mirroring the document Table View's
+// formatCell but keyed on information_schema data_type (not WIP field types).
+export function formatPgCell(value: unknown, pgType?: string): string {
+  if (value === null || value === undefined) return '—'
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  const t = (pgType ?? '').toLowerCase()
+  if (typeof value === 'string' && (t.includes('timestamp') || t === 'date')) {
+    // new Date(junk) yields an Invalid Date rather than throwing, so guard on
+    // the parsed time and fall back to the raw string.
+    const d = new Date(value)
+    if (!Number.isNaN(d.getTime())) {
+      return t === 'date' ? d.toLocaleDateString() : d.toLocaleString()
+    }
+    return value
+  }
+  if (typeof value === 'object') {
+    const s = JSON.stringify(value)
+    return s.length > 60 ? s.slice(0, 60) + '…' : s
+  }
+  return String(value)
+}
+
 function KindBadge({ kind }: { kind: ReportTable['kind'] }) {
   if (!kind) return null
   return (
@@ -140,10 +184,7 @@ function TableRow({
 }) {
   const handleDownloadCsv = (e: MouseEvent) => {
     e.stopPropagation()
-    window.open(
-      `/wip/api/reporting-sync/export/csv?table=${encodeURIComponent(table.name)}&namespace=${encodeURIComponent(table.namespace)}`,
-      '_blank'
-    )
+    downloadTableCsv(table).catch(err => console.error('CSV export failed:', err))
   }
   return (
     <button
@@ -660,7 +701,32 @@ function TableBrowser({
 
 function TableDetail({ table }: { table: ReportTable }) {
   const { data: columnData, isLoading: columnsLoading } = useTableColumns(table)
-  const { data: preview, isLoading: previewLoading, error } = useTablePreview(table)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState<number>(25)
+  const [exporting, setExporting] = useState(false)
+  const { data: pageData, isLoading: rowsLoading, error, isPlaceholderData } = useTablePage(table, page, pageSize)
+
+  // pg data_type per column name, for typed cell rendering.
+  const typeByName = useMemo(
+    () => new Map((columnData?.columns ?? []).map(c => [c.name, c.type])),
+    [columnData]
+  )
+
+  const totalRows = table.row_count
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize))
+  const columns = pageData?.columns ?? []
+  const rows = pageData?.rows ?? []
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      await downloadTableCsv(table)
+    } catch (err) {
+      console.error('CSV export failed:', err)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -668,15 +734,16 @@ function TableDetail({ table }: { table: ReportTable }) {
       <div className="flex items-center justify-between">
         <div className="text-sm text-gray-500">
           <span className="font-mono font-medium text-gray-700">{table.qualified_name}</span>
-          {' — '}{table.column_count} columns, {table.row_count.toLocaleString()} rows
+          {' — '}{table.column_count} columns, {totalRows.toLocaleString()} rows
         </div>
         <button
-          onClick={() => window.open(`/wip/api/reporting-sync/export/csv?table=${encodeURIComponent(table.name)}&namespace=${encodeURIComponent(table.namespace)}`, '_blank')}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:bg-gray-50 hover:text-primary transition-colors"
+          onClick={handleExport}
+          disabled={exporting}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:bg-gray-50 hover:text-primary transition-colors disabled:opacity-50"
           title={`Download ${table.name} as CSV`}
         >
           <Download size={12} />
-          Download CSV
+          {exporting ? 'Exporting…' : 'CSV'}
         </button>
       </div>
 
@@ -701,16 +768,77 @@ function TableDetail({ table }: { table: ReportTable }) {
         </div>
       )}
 
-      {/* Sample data */}
+      {/* Data — full paginated table (parity with the document Table View) */}
       <div>
-        <h3 className="text-sm font-medium text-gray-700 mb-2">Sample Data (first 10 rows)</h3>
-        {previewLoading && <LoadingState label="Loading preview..." />}
-        {error && <ErrorState message={error.message} />}
-        {preview && preview.rows.length > 0 && (
-          <DataTable columns={preview.columns} rows={preview.rows} maxHeight="300px" />
-        )}
-        {preview && preview.rows.length === 0 && (
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-medium text-gray-700">Data</h3>
+          <select
+            value={pageSize}
+            onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }}
+            className="border border-gray-200 rounded-md px-2 py-1 text-xs bg-white"
+          >
+            {TABLE_PAGE_SIZES.map(s => <option key={s} value={s}>{s} rows</option>)}
+          </select>
+        </div>
+        {rowsLoading && !pageData ? (
+          <LoadingState label="Loading rows..." />
+        ) : error ? (
+          <ErrorState message={error.message} />
+        ) : rows.length === 0 ? (
           <p className="text-sm text-gray-400">Table is empty.</p>
+        ) : (
+          <>
+            <div className={cn('overflow-x-auto border border-gray-200 rounded-lg bg-white', isPlaceholderData && 'opacity-60')}>
+              <table className="text-sm w-full">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    {columns.map(col => (
+                      <th
+                        key={col}
+                        className="px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap"
+                      >
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {rows.map((row, ri) => (
+                    <tr key={ri} className="hover:bg-gray-50">
+                      {columns.map(col => {
+                        const val = row[col]
+                        const isDocLink =
+                          col === 'document_id' && !!table.template_value && typeof val === 'string'
+                        return (
+                          <td
+                            key={col}
+                            className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap truncate max-w-[300px]"
+                            title={typeof val === 'string' ? val : undefined}
+                          >
+                            {isDocLink ? (
+                              <Link
+                                to={`/documents/${table.template_value}/${val as string}`}
+                                className="text-primary hover:text-primary-dark font-mono"
+                              >
+                                {(val as string).slice(0, 12)}…
+                              </Link>
+                            ) : (
+                              formatPgCell(val, typeByName.get(col))
+                            )}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {totalPages > 1 && (
+              <div className="mt-3">
+                <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -1059,7 +1187,7 @@ export default function PostgresPage() {
           {/* Right: table detail */}
           <div className="col-span-8">
             {selectedTable ? (
-              <TableDetail table={selectedTable} />
+              <TableDetail key={selectedTable.qualified_name} table={selectedTable} />
             ) : (
               <div className="flex items-center justify-center h-48 text-sm text-gray-400">
                 Select a table to inspect its schema and data
