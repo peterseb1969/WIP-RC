@@ -1,4 +1,5 @@
-import { useState, useCallback, useRef, useEffect, type MouseEvent } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo, type MouseEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Database,
   Play,
@@ -15,6 +16,9 @@ import {
   CheckCircle,
   XCircle,
   RefreshCw,
+  Search,
+  X,
+  ListFilter,
 } from 'lucide-react'
 import {
   useReportTables,
@@ -172,22 +176,46 @@ function TableRow({
   )
 }
 
-// Entity-first browser (CASE-710/716): each entity expands to its derived
-// views + per-version physical tables. Relations of one entity overlap by
-// construction, so only the entity-level row_count is a document count.
-function EntityGroup({
-  entity,
-  tableIndex,
-  selectedTable,
-  onSelectTable,
-}: {
-  entity: ReportEntity
-  tableIndex: Map<string, ReportTable>
-  selectedTable: ReportTable | null
-  onSelectTable: (table: ReportTable) => void
-}) {
-  const [expanded, setExpanded] = useState(false)
+// ---------------------------------------------------------------------------
+// Table Browser filtering (CASE-812) — namespace multiselect, name search,
+// kind + per-version + empty toggles. State lives in the URL query string so a
+// filtered view is shareable and survives reload; defaults are omitted from the
+// URL, so an unfiltered browser has a clean address. The two "hide" toggles
+// default ON — the noisy states (per-version physical tables, empty mirror
+// relations) are opt-in to see, not opt-out.
+// ---------------------------------------------------------------------------
 
+export interface BrowserFilters {
+  namespaces: string[] // empty = all namespaces
+  query: string
+  hideVersions: boolean // hide doc_*__vN per-version physical tables
+  hideEmpty: boolean // hide row_count === 0 tables (drains, empty mirror relations)
+  kind: 'all' | 'view' | 'table'
+}
+
+export const VERSION_TABLE_RE = /__v\d+$/
+
+// A pre-split table carries no `kind`; treat it as a physical table so the kind
+// filter behaves sensibly on legacy installs (no views exist there).
+function effectiveKind(t: ReportTable): 'view' | 'table' {
+  return t.kind ?? 'table'
+}
+
+export function tablePasses(t: ReportTable, f: BrowserFilters): boolean {
+  if (f.hideEmpty && t.row_count === 0) return false
+  if (f.hideVersions && VERSION_TABLE_RE.test(t.name)) return false
+  if (f.kind !== 'all' && effectiveKind(t) !== f.kind) return false
+  return true
+}
+
+export function nameMatches(name: string, q: string): boolean {
+  return q === '' || name.toLowerCase().includes(q)
+}
+
+export function buildRelations(
+  entity: ReportEntity,
+  tableIndex: Map<string, ReportTable>
+): Array<{ table: ReportTable; label: string }> {
   const lookup = (name: string) => tableIndex.get(`${entity.namespace}|${name}`)
   const relations: Array<{ table: ReportTable; label: string }> = []
   const defaultView = lookup(entity.default_view)
@@ -198,6 +226,177 @@ function EntityGroup({
     const t = lookup(v.table)
     if (t) relations.push({ table: t, label: `v${v.version}` })
   }
+  return relations
+}
+
+// Relations of an entity that survive the active filters. When the query hits
+// the entity name, all filter-passing relations show; when it only hits a child
+// table, just the matching children show.
+export function visibleEntityRelations(
+  entity: ReportEntity,
+  tableIndex: Map<string, ReportTable>,
+  f: BrowserFilters
+): { entityHit: boolean; relations: Array<{ table: ReportTable; label: string }> } {
+  const q = f.query.trim().toLowerCase()
+  const entityHit = nameMatches(entity.entity, q)
+  let relations = buildRelations(entity, tableIndex).filter(r => tablePasses(r.table, f))
+  if (q && !entityHit) {
+    relations = relations.filter(r => nameMatches(r.table.name, q))
+  }
+  return { entityHit, relations }
+}
+
+function FilterBar({
+  filters,
+  allNamespaces,
+  shownTables,
+  totalTables,
+  shownNamespaces,
+  onToggleNamespace,
+  onClearNamespaces,
+  onSetQuery,
+  onToggleHideVersions,
+  onToggleHideEmpty,
+  onSetKind,
+  onClearAll,
+}: {
+  filters: BrowserFilters
+  allNamespaces: string[]
+  shownTables: number
+  totalTables: number
+  shownNamespaces: number
+  onToggleNamespace: (ns: string) => void
+  onClearNamespaces: () => void
+  onSetQuery: (q: string) => void
+  onToggleHideVersions: () => void
+  onToggleHideEmpty: () => void
+  onSetKind: (k: BrowserFilters['kind']) => void
+  onClearAll: () => void
+}) {
+  const anyActive =
+    filters.namespaces.length > 0 ||
+    filters.query.trim() !== '' ||
+    !filters.hideVersions ||
+    !filters.hideEmpty ||
+    filters.kind !== 'all'
+
+  return (
+    <div className="shrink-0 border-b border-gray-200 bg-white p-2 space-y-2">
+      {/* Name search */}
+      <div className="relative">
+        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        <input
+          type="text"
+          value={filters.query}
+          onChange={e => onSetQuery(e.target.value)}
+          placeholder="Filter tables by name…"
+          className="w-full pl-8 pr-7 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary placeholder-gray-400"
+        />
+        {filters.query && (
+          <button
+            onClick={() => onSetQuery('')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            aria-label="Clear search"
+          >
+            <X size={13} />
+          </button>
+        )}
+      </div>
+
+      {/* Namespace multiselect chips */}
+      {allNamespaces.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1">
+          {allNamespaces.map(ns => {
+            const active = filters.namespaces.includes(ns)
+            return (
+              <button
+                key={ns}
+                onClick={() => onToggleNamespace(ns)}
+                className={cn(
+                  'text-[11px] px-2 py-0.5 rounded-full border transition-colors',
+                  active
+                    ? 'bg-primary/10 border-primary/30 text-primary-dark font-medium'
+                    : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
+                )}
+                title={active ? `Showing ${ns} — click to remove` : `Add ${ns} to the filter`}
+              >
+                {ns}
+              </button>
+            )
+          })}
+          {filters.namespaces.length > 0 && (
+            <button
+              onClick={onClearNamespaces}
+              className="text-[11px] px-1.5 py-0.5 text-gray-400 hover:text-gray-600"
+            >
+              clear
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Toggles + kind */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
+        <label className="inline-flex items-center gap-1 cursor-pointer select-none">
+          <input type="checkbox" checked={filters.hideVersions} onChange={onToggleHideVersions} className="accent-primary" />
+          Hide per-version tables
+        </label>
+        <label className="inline-flex items-center gap-1 cursor-pointer select-none">
+          <input type="checkbox" checked={filters.hideEmpty} onChange={onToggleHideEmpty} className="accent-primary" />
+          Hide empty
+        </label>
+        <span className="inline-flex items-center rounded-md border border-gray-200 overflow-hidden">
+          {(['all', 'view', 'table'] as const).map(k => (
+            <button
+              key={k}
+              onClick={() => onSetKind(k)}
+              className={cn(
+                'px-1.5 py-0.5 capitalize transition-colors',
+                filters.kind === k ? 'bg-primary/10 text-primary-dark font-medium' : 'text-gray-500 hover:bg-gray-50'
+              )}
+            >
+              {k === 'all' ? 'all' : k + 's'}
+            </button>
+          ))}
+        </span>
+      </div>
+
+      {/* Result count */}
+      <div className="flex items-center justify-between text-[11px] text-gray-400">
+        <span className="inline-flex items-center gap-1">
+          <ListFilter size={11} />
+          {shownTables} of {totalTables} tables · {shownNamespaces}/{allNamespaces.length} namespaces
+        </span>
+        {anyActive && (
+          <button onClick={onClearAll} className="text-gray-400 hover:text-primary underline decoration-dotted">
+            reset filters
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Entity-first browser (CASE-710/716): each entity expands to its derived
+// views + per-version physical tables. Relations of one entity overlap by
+// construction, so only the entity-level row_count is a document count.
+// Relations arrive pre-filtered (CASE-812); forceExpanded opens the group while
+// a name filter is active so matching children are visible without a click.
+function EntityGroup({
+  entity,
+  relations,
+  forceExpanded,
+  selectedTable,
+  onSelectTable,
+}: {
+  entity: ReportEntity
+  relations: Array<{ table: ReportTable; label: string }>
+  forceExpanded: boolean
+  selectedTable: ReportTable | null
+  onSelectTable: (table: ReportTable) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const isOpen = forceExpanded || expanded
 
   return (
     <div>
@@ -205,7 +404,7 @@ function EntityGroup({
         onClick={() => setExpanded(e => !e)}
         className="w-full text-left px-3 py-2 flex items-center gap-2 text-sm hover:bg-gray-50 transition-colors"
       >
-        {expanded
+        {isOpen
           ? <ChevronDown size={14} className="text-gray-400 shrink-0" />
           : <ChevronRight size={14} className="text-gray-400 shrink-0" />}
         <div className="flex-1 min-w-0">
@@ -228,7 +427,7 @@ function EntityGroup({
           </span>
         )}
       </button>
-      {expanded && (
+      {isOpen && relations.length > 0 && (
         <div className="divide-y divide-gray-50">
           {relations.map(({ table, label }) => (
             <TableRow
@@ -254,6 +453,49 @@ function TableBrowser({
   onSelectTable: (table: ReportTable) => void
 }) {
   const { data: inventory, isLoading, error, refetch } = useReportingInventory()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const filters: BrowserFilters = useMemo(() => {
+    const rawKind = searchParams.get('kind')
+    return {
+      namespaces: (searchParams.get('ns') ?? '').split(',').map(s => s.trim()).filter(Boolean),
+      query: searchParams.get('find') ?? '',
+      hideVersions: searchParams.get('vers') !== '1', // default true; vers=1 reveals them
+      hideEmpty: searchParams.get('empty') !== '1', // default true; empty=1 reveals them
+      kind: rawKind === 'view' || rawKind === 'table' ? rawKind : 'all',
+    }
+  }, [searchParams])
+
+  const patchParams = useCallback(
+    (patch: Record<string, string | null>) => {
+      setSearchParams(
+        prev => {
+          for (const [k, v] of Object.entries(patch)) {
+            if (v === null || v === '') prev.delete(k)
+            else prev.set(k, v)
+          }
+          return prev
+        },
+        { replace: true }
+      )
+    },
+    [setSearchParams]
+  )
+
+  const toggleNamespace = useCallback(
+    (ns: string) => {
+      const next = filters.namespaces.includes(ns)
+        ? filters.namespaces.filter(n => n !== ns)
+        : [...filters.namespaces, ns]
+      patchParams({ ns: next.length ? next.join(',') : null })
+    },
+    [filters.namespaces, patchParams]
+  )
+
+  const clearAll = useCallback(
+    () => patchParams({ ns: null, find: null, vers: null, empty: null, kind: null }),
+    [patchParams]
+  )
 
   if (isLoading) return <LoadingState label="Loading tables..." />
   if (error) return <ErrorState message={error.message} onRetry={() => refetch()} />
@@ -266,32 +508,10 @@ function TableBrowser({
   }
 
   // One PG schema per namespace since CASE-628 — group the browser accordingly.
-  const namespaces = [...new Set(tables.map(t => t.namespace))].sort()
-
-  // Pre-CASE-710 install: no entities array — keep the flat rendering.
-  if (entities.length === 0) {
-    return (
-      <div>
-        {namespaces.map(ns => (
-          <div key={ns}>
-            <div className="sticky top-0 px-3 py-1.5 bg-gray-50 border-y border-gray-100 text-xs font-medium text-gray-500 first:border-t-0">
-              {ns}
-            </div>
-            <div className="divide-y divide-gray-100">
-              {tables.filter(t => t.namespace === ns).map(table => (
-                <TableRow
-                  key={table.qualified_name}
-                  table={table}
-                  selected={selectedTable?.qualified_name === table.qualified_name}
-                  onSelect={onSelectTable}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    )
-  }
+  const allNamespaces = [...new Set(tables.map(t => t.namespace))].sort()
+  const nsAllowed = (ns: string) => filters.namespaces.length === 0 || filters.namespaces.includes(ns)
+  const q = filters.query.trim().toLowerCase()
+  const isFlat = entities.length === 0 // pre-CASE-710 install: no entity structure
 
   const tableIndex = new Map(tables.map(t => [`${t.namespace}|${t.name}`, t]))
   const entityTableNames = new Set(
@@ -302,49 +522,134 @@ function TableBrowser({
     ])
   )
 
+  // Build the filtered, render-ready structure once so the result count and the
+  // tree agree by construction.
+  type FlatSection = { ns: string; mode: 'flat'; tables: ReportTable[] }
+  type EntitySection = {
+    ns: string
+    mode: 'entity'
+    entities: Array<{ entity: ReportEntity; relations: Array<{ table: ReportTable; label: string }> }>
+    other: ReportTable[]
+  }
+  const sections: Array<FlatSection | EntitySection> = allNamespaces
+    .filter(nsAllowed)
+    .map((ns): FlatSection | EntitySection => {
+      if (isFlat) {
+        return {
+          ns,
+          mode: 'flat',
+          tables: tables.filter(t => t.namespace === ns && tablePasses(t, filters) && nameMatches(t.name, q)),
+        }
+      }
+      const nsEntities = entities
+        .filter(e => e.namespace === ns)
+        .sort((a, b) => a.entity.localeCompare(b.entity))
+        .map(e => {
+          const { entityHit, relations } = visibleEntityRelations(e, tableIndex, filters)
+          return { entity: e, relations, show: entityHit || relations.length > 0 }
+        })
+        .filter(x => x.show)
+        .map(({ entity, relations }) => ({ entity, relations }))
+      const other = tables.filter(
+        t =>
+          t.namespace === ns &&
+          !entityTableNames.has(`${t.namespace}|${t.name}`) &&
+          tablePasses(t, filters) &&
+          nameMatches(t.name, q)
+      )
+      return { ns, mode: 'entity', entities: nsEntities, other }
+    })
+    .filter(s =>
+      s.mode === 'flat' ? s.tables.length > 0 : s.entities.length > 0 || s.other.length > 0
+    )
+
+  const shownTables = sections.reduce(
+    (sum, s) =>
+      sum +
+      (s.mode === 'flat'
+        ? s.tables.length
+        : s.entities.reduce((n, e) => n + e.relations.length, 0) + s.other.length),
+    0
+  )
+
+  const filterBar = (
+    <FilterBar
+      filters={filters}
+      allNamespaces={allNamespaces}
+      shownTables={shownTables}
+      totalTables={tables.length}
+      shownNamespaces={sections.length}
+      onToggleNamespace={toggleNamespace}
+      onClearNamespaces={() => patchParams({ ns: null })}
+      onSetQuery={query => patchParams({ find: query || null })}
+      onToggleHideVersions={() => patchParams({ vers: filters.hideVersions ? '1' : null })}
+      onToggleHideEmpty={() => patchParams({ empty: filters.hideEmpty ? '1' : null })}
+      onSetKind={k => patchParams({ kind: k === 'all' ? null : k })}
+      onClearAll={clearAll}
+    />
+  )
+
   return (
-    <div>
-      {namespaces.map(ns => {
-        const nsEntities = entities
-          .filter(e => e.namespace === ns)
-          .sort((a, b) => a.entity.localeCompare(b.entity))
-        const other = tables.filter(
-          t => t.namespace === ns && !entityTableNames.has(`${t.namespace}|${t.name}`)
-        )
-        return (
-          <div key={ns}>
-            <div className="sticky top-0 px-3 py-1.5 bg-gray-50 border-y border-gray-100 text-xs font-medium text-gray-500 first:border-t-0 z-10">
-              {ns}
-            </div>
-            <div className="divide-y divide-gray-100">
-              {nsEntities.map(entity => (
-                <EntityGroup
-                  key={`${entity.namespace}|${entity.entity}`}
-                  entity={entity}
-                  tableIndex={tableIndex}
-                  selectedTable={selectedTable}
-                  onSelectTable={onSelectTable}
-                />
-              ))}
-              {other.length > 0 && (
-                <div>
-                  <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-gray-300">
-                    other tables
-                  </div>
-                  {other.map(table => (
-                    <TableRow
-                      key={table.qualified_name}
-                      table={table}
-                      selected={selectedTable?.qualified_name === table.qualified_name}
-                      onSelect={onSelectTable}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+    <div className="flex flex-col h-full min-h-0">
+      {filterBar}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        {sections.length === 0 ? (
+          <div className="p-4 text-sm text-gray-400">
+            No tables match the current filters.{' '}
+            <button onClick={clearAll} className="text-primary hover:underline">
+              Reset
+            </button>
           </div>
-        )
-      })}
+        ) : (
+          sections.map(section => (
+            <div key={section.ns}>
+              <div className="sticky top-0 px-3 py-1.5 bg-gray-50 border-y border-gray-100 text-xs font-medium text-gray-500 first:border-t-0 z-10">
+                {section.ns}
+              </div>
+              <div className="divide-y divide-gray-100">
+                {section.mode === 'flat'
+                  ? section.tables.map(table => (
+                      <TableRow
+                        key={table.qualified_name}
+                        table={table}
+                        selected={selectedTable?.qualified_name === table.qualified_name}
+                        onSelect={onSelectTable}
+                      />
+                    ))
+                  : (
+                    <>
+                      {section.entities.map(({ entity, relations }) => (
+                        <EntityGroup
+                          key={`${entity.namespace}|${entity.entity}`}
+                          entity={entity}
+                          relations={relations}
+                          forceExpanded={q !== ''}
+                          selectedTable={selectedTable}
+                          onSelectTable={onSelectTable}
+                        />
+                      ))}
+                      {section.other.length > 0 && (
+                        <div>
+                          <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-gray-300">
+                            other tables
+                          </div>
+                          {section.other.map(table => (
+                            <TableRow
+                              key={table.qualified_name}
+                              table={table}
+                              selected={selectedTable?.qualified_name === table.qualified_name}
+                              onSelect={onSelectTable}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   )
 }
@@ -747,7 +1052,7 @@ export default function PostgresPage() {
       {activeTab === 'browser' && (
         <div className="grid grid-cols-12 gap-4">
           {/* Left: table list */}
-          <div className="col-span-4 bg-white border border-gray-200 rounded-lg overflow-hidden max-h-[calc(100vh-280px)] overflow-y-auto">
+          <div className="col-span-4 bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col max-h-[calc(100vh-280px)]">
             <TableBrowser selectedTable={selectedTable} onSelectTable={setSelectedTable} />
           </div>
 
