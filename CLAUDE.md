@@ -1,6 +1,6 @@
 # WIP ReactConsole
 
-<!-- last reviewed: 2026-05-07 / CASE-301 -->
+<!-- last reviewed: 2026-05-07 -->
 
 ## What This App Does
 
@@ -12,11 +12,24 @@ RC-Console is a React + TypeScript replacement for WIP's existing Vue 3 admin co
 
 WIP is the backend. This app is a frontend that maps a domain onto WIP's primitives (terminologies, templates, documents) and presents them to users.
 
-**Verify before asserting any factual claim.** Any factual claim a cheap check could falsify — a file's contents, a function's location, a date, a count, a previous case's content — must be checked, not asserted from memory. "I'm pretty sure" is fabrication if you haven't run the check. The pattern has been observed in BE-YAC (CASE-141, CASE-290) and FRanC (CASE-300); it is agent-agnostic.
+**Verify before asserting any factual claim.** Any factual claim a cheap check could falsify — a file's contents, a function's location, a date, a count, a previous case's content — must be checked, not asserted from memory. "I'm pretty sure" is fabrication if you haven't run the check. The pattern has been observed across BE-YAC and FRanC; it is agent-agnostic.
+
+- **Wake-up reading has a quality bar and a ceiling.** A wake-load reading must describe behavior that is **present, current, generally-scoped, and enforced**, with a **reconciliation path** for when reality moves. Five ways it drifts, each with its own fix — name the mode before choosing the fix:
+  - **MISSING** — the reading isn't in the wake-load → add it.
+  - **STALE** — the reading contradicts reality, with no way to notice → give it a reconciliation path.
+  - **TOO-NARROW** — the rule is present but phrased to miss the case → re-scope the wording.
+  - **ASPIRATIONAL** — the contract describes intended, not enforced, behavior → back it with a real check.
+  - **NOT-RETAINED** — the reading is present, current, scoped, and enforced, and still gets lost to mid-session salience decay under delivery pressure.
+
+  The first four are reading-list fixes. **The fifth is not** — no wake-load change reaches a rule that decays mid-session. It needs an **action-triggered gate**: a check that fires on the risky action itself (the write, the model change), not at the session boundary. When a drift instance appears in the wild, classify it against these five first; if it's NOT-RETAINED, do not reach for a reading-list patch.
+
+**Case numbers in code comments are provenance, never substance.** A comment must state the constraint or invariant in full prose; a `CASE-NNN` token may prefix it as history, but the comment must survive the deletion test: remove the token — does it still explain the code? "See CASE-NNN" as the whole explanation is a dead link to every reader without KB access, and case-pointer comments rot because the pointer never gets re-verified against the code around it. Anything user-facing or generated (UI copy, served API descriptions, docs your app publishes) carries no case tokens at all — those readers have no KB.
 
 ## Dev Namespace
 
 Your development namespace is `dev-wip-reactconsole`. Use it for all data modeling during development.
+
+**A missing namespace is never a setup failure.** The namespace is created at *bootstrap* — when you actually have data to put in it — not as a setup precondition. `/wip-setup` does not check for it, and its absence at session start is expected and non-blocking. If you have no data model yet (or this app is a cross-namespace console that owns no namespace of its own), there is simply nothing to create now — do **not** treat an absent `dev-wip-reactconsole` as an error, fail setup over it, or go hunting for a namespace that was never provisioned.
 
 **Why:** Terminologies and templates are hard to delete cleanly once documents reference them. A dev namespace lets you iterate freely — create, modify, delete, start over — without polluting production data.
 
@@ -33,36 +46,43 @@ Your development namespace is `dev-wip-reactconsole`. Use it for all data modeli
    honours each namespace's deletion mode (`retain` vs `full`) — no
    `--force` flag needed.
 
-**Important:** MCP tool calls use the privileged admin key, so always pass `namespace=dev-wip-reactconsole` explicitly. Your app's runtime key (scoped to one namespace) gets automatic namespace derivation — no `namespace` parameter needed in app code.
+**Important:** MCP tool calls use the privileged admin key, so always pass `namespace=dev-wip-reactconsole` explicitly when modeling. Your app's runtime key comes from `WIP_API_KEY_FILE` in `.env` (the wip-deploy secrets file) — see **API Key** below.
 
 ## API Key
 
-The MCP server uses a privileged admin key (from WIP's `.env`). This is fine for data modeling via MCP tools.
+The MCP server resolves its key from `WIP_API_KEY_FILE` (the live wip-deploy secrets file) — see `.mcp.json`. This is fine for data modeling via MCP tools.
 
-**For your app's runtime API calls**, use the namespace-scoped key in `.env`.
-No key was auto-provisioned by this script. If WIP is running locally and you have an admin key, create a runtime key via `mcp__wip__create_api_key` (or `POST /api/registry/api-keys`). If a key was already provisioned out-of-band (e.g. for a non-localhost target like `kb.internal`), check `.env` and `~/.wip-deploy/<deployment>/secrets/`.
+**For your app's runtime API calls**, `.env` carries `WIP_API_KEY_FILE` pointing at that same live file. Resolve the key from the file at startup — the `@wip/proxy` `apiKeyFile` option does this for you, mirroring the MCP server — rather than baking a plaintext key. A key rotation or target-redeploy is then picked up on restart instead of stranding a stale `.env`. This is the deployment's admin/proxy key and spans all namespaces, which a cross-namespace console needs as-is.
+`.env` carries `WIP_API_KEY_FILE` pointing at the wip-deploy secrets file (`~/.wip-deploy/<deployment>/secrets/api-key`) — no plaintext key is baked in. The runtime reads the file at startup, so rotating the deploy key or redeploying the target needs no edit here.
 
-Save the `plaintext_key` from the response to `.env`:
 ```bash
-WIP_API_KEY=<plaintext_key from response>
+# .env (already created)
+WIP_API_KEY_FILE=~/.wip-deploy/<deployment>/secrets/api-key
 ```
 
-Because this key is scoped to a single namespace (`dev-wip-reactconsole`), WIP derives the namespace automatically when you omit the `namespace` parameter. This means synonym resolution works without passing `namespace` on every API call.
+**Least-privilege (optional).** The deploy key is admin-scoped. If this app owns a single namespace and you want a least-privilege key, provision one and repoint `WIP_API_KEY_FILE` at its own secrets file:
+```bash
+curl -k -X POST https://localhost:8443/api/registry/api-keys \
+  -H 'X-API-Key: <admin-key>' -H 'Content-Type: application/json' \
+  -d '{"name": "wip-reactconsole", "namespaces": ["dev-wip-reactconsole"], "grant_permission": "write"}'
+```
 
-**Grants (CASE-450):** namespace *scoping* gives a key read visibility only — **writes need an explicit namespace grant**. The scaffold provisioned this key with `grant_permission: write`, so it works out of the box. If you ever create a key by hand, pass `grant_permission` on `create_api_key` / `POST /api/registry/api-keys`, or add a grant afterwards (`create_grant` MCP tool, `registry.createGrants` in @wip/client, or `POST /api/registry/namespaces/<ns>/grants`). Grant subject for api keys is the bare key name.
+**Multi-namespace key → pass `namespace` explicitly.** The deploy admin/proxy key spans all namespaces, so WIP cannot derive one for you — pass `namespace=dev-wip-reactconsole` on API calls that need scoping, or set `defaultNamespace` on `@wip/proxy` to scope reads. A single-namespace key (the least-privilege opt-in above) gets automatic derivation instead.
+
+**Grants:** writes need an explicit namespace grant. If you provision a least-privilege key, pass `grant_permission` on `create_api_key` / `POST /api/registry/api-keys`, or add a grant afterwards (`create_grant` MCP tool, `registry.createGrants` in @wip/client, or `POST /api/registry/namespaces/<ns>/grants`). Grant subject for api keys is the bare key name.
 
 **Key management:** Runtime keys can be listed, updated, and revoked via the Registry API. See WIP's `docs/api-key-management.md` for details.
 
 ## The wip-deployable app contract
 
-**Read this before scaffolding any app code:** `FR-YAC/papers/wip-deployable-app-contract.md`. Four-line summary:
+**Read this before scaffolding any app code:** `docs/wip-deployable-app-contract.md` (bundled into this project by the scaffold). Four-line summary:
 
 1. **Source repo** needs `Dockerfile.dev` + correct `vite.config.ts` (`server.host: '0.0.0.0'`, dev proxy targets *your* Express port, not 3001). Client fetches use `import.meta.env.BASE_URL`, never bare paths.
 2. **WIP repo `apps/<name>/wip-app.yaml`** declares both http and dev ports, `WIP_BASE_URL` via `from_component: router`, `APP_BASE_PATH` literal, and a healthcheck that doesn't depend on WIP being reachable.
 3. **Verify** with `wip-deploy install --target dev --app <name> --app-source <name>=~/Development/WIP-<name>` — SPA must load at `https://localhost:8443/apps/<name>/` on the first try, container healthy, no manual env patching.
-4. **If something breaks**, find the failure signature in the paper's "What breaks when you skip step N" annex. Once `/check-app-deployability` ships (CASE-379 deliverable C), run it before considering your scaffold done.
+4. **If something breaks**, find the failure signature in the paper's "What breaks when you skip step N" annex. Once `/check-app-deployability` ships, run it before considering your scaffold done.
 
-The contract is target-agnostic — compose, k8s, and apps-only installs satisfy the same contract. Synthesized 2026-05-14 from cases CASE-358/CASE-359/CASE-360/CASE-361/CASE-366/CASE-374/CASE-375/CASE-377/CASE-378.
+The contract is target-agnostic — compose, k8s, and apps-only installs satisfy the same contract.
 
 ## Process
 
@@ -93,18 +113,18 @@ Otherwise start with:
 - `/wip-add-app` — Add a second app that cross-references the first
 - `/wip-wake` — Recover context after compaction or at start of a new session
 - `/wip-report` — Capture fireside chat or trigger session summary
-- `/wip-deploy redeploy|verify` — Redeploy this YAC's own source to the running dev install (or smoke-only). Subset of BE-YAC's `/wip-deploy` — install is BE-YAC's territory (CASE-300)
-- `/wip-case file|list|read|respond|comment|close|implement` — Cross-agent case management. **Every case write is ONE gateway call** (CASE-464): `POST <kb_app_url>/apps/kb/server-api/kb/cases[…]` per the served playbook (`~/.cache/wip-kb-client/case-workflow.md`). The server owns allocation (atomic `CASE-<n>` synonym claim — race-safe by construction), the status machine, and edges. Never `Write` a case file with a hand-picked number. Flat case files are optional write-staging; there is no mirror step (the loaders were retired by CASE-464 and refuse with a pointer).
+- `/wip-deploy redeploy|verify` — Redeploy this YAC's own source to the running dev install (or smoke-only). Subset of BE-YAC's `/wip-deploy` — install is BE-YAC's territory
+- `/wip-case file|list|read|respond|comment|close|implement` — Cross-agent case management. **All KB reads/writes go through the served client — never a raw gateway curl:** `kbc kb-write.py <TYPE> …` (writes) / `kbc case-fetch.py …` (reads); the served playbook (`~/.cache/wip-kb-client/case-workflow.md`) is the version-matched source of truth for each verb. The gateway mints the `CASE-<n>` number + synonym and persists edges, but status-transition validity is enforced caller-side and a respond/close/implement is two writes (response doc + `CASE_RECORD --patch status=…`). Cases live in the KB, not on disk — never `Write` a case file with a hand-picked number; never reason about "the next number".
 
 **Context management:** When context reaches ~70-80%, the human should tell you to run `/wip-wake` or save state (DESIGN.md, memory files) before compaction hits.
 
 ## Namespace Bootstrap on Launch
 
-Every WIP-consuming app must follow the **offer-on-empty / use-on-exists** discipline at runtime. Three rules:
+Every WIP-consuming app must follow the **offer-on-empty / use-on-exists** discipline at runtime. This is a **runtime** discipline (triggered at app launch, when a user is present to act), **not a setup precondition** — a namespace absent at `/wip-setup` time is expected and creates no obligation; it is created here, at bootstrap, only when there is data to put in it. Three rules:
 
 1. **Namespace missing on launch** → show the user an explicit bootstrap offer. Do **not** auto-bootstrap silently. The user can either (a) confirm bootstrap or (b) restore from a backup via the WIP console / `wip-deploy` first and reload.
 2. **Namespace exists on launch** → use it as-is. **No** schema reconciliation, **no** "templates differ" check, **no** merge logic. Rolling redeploys against an existing namespace must come up clean. A partially-bootstrapped namespace is the user's signal to use the console, not the app's signal to silently re-bootstrap.
-3. **On user-initiated bootstrap** → write one **`BOOTSTRAP_RECORD`** audit doc capturing: `bootstrap_id`, `app_version`, `bootstrapped_at`, `commit_sha`, `templates_created`, `edge_types_created`, `terminologies_created`. This is the provenance trail any future YAC reading the namespace can rely on.
+3. **On user-initiated bootstrap** → write one **`<NS_PREFIX>_BOOTSTRAP_RECORD`** audit doc (the template value is namespace-prefixed, e.g. `KB_BOOTSTRAP_RECORD` — derived from your namespace in the server template's `BOOTSTRAP_RECORD_VALUE`; a shared literal value made every app-to-app merge collide on this one template, and the prefix also makes a merged-in record self-labeling about its origin) capturing: `bootstrap_id`, `app_version`, `bootstrapped_at`, `commit_sha`, `templates_created`, `edge_types_created`, `terminologies_created`. This is the provenance trail any future YAC reading the namespace can rely on.
 
 **Restore is not an app concern.** The bootstrap UI mentions restore as an alternative the user may prefer; it does not provide UI for it. Restore is console-initiated.
 
@@ -113,11 +133,12 @@ Every WIP-consuming app must follow the **offer-on-empty / use-on-exists** disci
 - `bootstrap.routes.ts.template` — Express `GET /server-api/bootstrap/status` and `POST /server-api/bootstrap/run` (SSE streaming for progress)
 - `BootstrapGate.tsx.template` — React component that wraps the app and renders the four states (checking / unreachable / needs-bootstrap / bootstrapping / error / ready)
 
-Read each template's header comment, fill in the TODO markers (namespace, app title), drop a `BOOTSTRAP_RECORD` template into `server/seed/templates/`, and you're done. The seed-file convention (`server/seed/terminologies/<VALUE>.json`, `server/seed/templates/<NN>_<VALUE>.json`) is documented in the server template's header.
+Read each template's header comment, fill in the TODO markers (namespace, app title), drop a `<NS_PREFIX>_BOOTSTRAP_RECORD` template into `server/seed/templates/` (value must match the server template's derived `BOOTSTRAP_RECORD_VALUE`), and you're done. The seed-file convention (`server/seed/terminologies/<VALUE>.json`, `server/seed/templates/<NN>_<VALUE>.json`) is documented in the server template's header.
 
 ## Reference Documentation
 
 Read these before starting:
+- `docs/Vision.md` — WIP's theses and design principles; the drift-correction mechanism when work bends toward a use case at the expense of the generic engine. Read first.
 - `docs/AI-Assisted-Development.md` — 4-phase process, data model design guide, PoNIFs quick reference
 - `docs/WIP_PoNIFs.md` — Full guide to WIP's 8 non-intuitive behaviours
 - `docs/WIP_DevGuardrails.md` — UI stack, app skeleton, testing conventions
@@ -125,14 +146,15 @@ Read these before starting:
 - `docs/technology-stack.md` — **Canonical** v1 stack (React 19 + TS + Vite + TanStack Query + Tailwind 3 + Inter); required @wip/* libraries; forbidden choices. Read before any architecture call.
 - `docs/ui-guidance.md` — **Canonical** v1 visual anchor: brand palette tokens (primary/accent/success/danger), typography hierarchy (text-2xl page titles, NOT text-3xl), component shapes (cards, modals, tinted callouts), accessibility floor. `tailwind.config.js` ships pre-extended with these tokens — use the named classes (`bg-primary`, `text-text-muted`), not inline hex.
 - `docs/ontology-support.md` — Term relations, polyhierarchy, typed relations, traversal queries
+- `docs/wip-deployable-app-contract.md` — what your app must satisfy to ship under `wip-deploy install` (Dockerfile.dev, vite.config, `apps/<name>/wip-app.yaml` ports, WIP-independent healthcheck). Read before scaffolding.
 - `templates/bootstrap/*.template` — Bootstrap pattern starting points (see "Namespace Bootstrap on Launch" above)
 
 ## Key Identity Concepts
 
 - **Identity hash ≠ canonical ID.** Identity hash = uniqueness key for upsert *within a specific template* — same field values under two different templates are two different documents. Canonical ID / synonyms = deterministic identification of exactly one entity across the entire system (Registry-resolved). When calling `createDocumentsBulk`, the identity hash is scoped to the template you pass — never assume it is unique across templates.
 - **The Registry is the identity authority.** All identity resolution goes through the Registry. Do not implement app-side identity resolution by hash lookups — use the document_id returned by the API.
-- **`metadata.*` is caller-attached context, never logic-driving data.** `metadata.custom.<field>` is for loader hints, source-system tags, audit traces — anything your app stashes for later introspection. It is NOT a home for fields the platform commits to a meaning for: identity, sortable axes, FTS-indexed text, dedup keys. Logic-driving fields live in `data.<field>` declared on the template's schema, with `identity_fields` / `full_text_indexed` / etc. referencing them. If a field your app needs has no home in `data`, file a case asking the template owner (often APP-KB-YAC for the kb namespace, BE-YAC for shared templates) to update the schema — do not stash in `metadata.custom` as a workaround. The platform will hard-reject `metadata.*` in declarative slots once CASE-317 lands. Filters on `POST /documents/query` stay free — those are ad-hoc reads, not declarative commitments.
-- **Empty `identity_fields` is a first-class append-only mode**, not a degenerate config. The schema declares the contract: empty list = "every doc is its own logical entity, version-by-document_id-only." Use this deliberately for event logs and audit traces where every write is a fresh entity. Don't use it as a way to skip thinking about identity — if your records have a stable atomic identifier (case_number, ISBN, lot_id, tracking_id), declare it in `data` and reference it in `identity_fields`.
+- **WIP's primitives are your only data model — `metadata.*` is a throwaway scratchpad, never a model.** Namespaces, terminologies, terms, templates, documents, files, relationships are the toolkit; if a value needs structure or meaning, it has a home among them. `metadata.custom.<field>` is caller-attached context (loader hints, source-system tags, audit traces) the platform makes no commitments about — NOT a home for anything the platform commits to a meaning for (identity, sortable axes, FTS-indexed text, dedup keys), and NOT a place to persist app state your code reads back. The moment your code branches on metadata, sorts by it, queries it as identity, or treats its shape as a schema, you have built a **sidecar model** — the failure this discipline exists to stop. Logic-driving fields live in `data.<field>` declared on the template's schema, with `identity_fields` / `full_text_indexed` / etc. referencing them; config that matters is a config *document* (create the config template first); a controlled vocabulary is **terms**. If a field your app needs has no home in `data`, that is a design event — file a case asking the template owner (often APP-KB-YAC for the kb namespace, BE-YAC for shared templates) to update the schema; do not stash it in `metadata.custom` as a workaround, and if you're unsure where it belongs, discuss it rather than inventing a shape. The platform hard-rejects `metadata.*` in declarative slots (`identity_fields`, `full_text_indexed`, `sort_by`), but **deliberately leaves the free-form path open**: filters on `POST /documents/query` stay free (ad-hoc reads, not declarative commitments), so the sidecar route is *not* blocked by the platform — the discipline is the guard. Enforced as a checkpoint in `/wip-implement` Step 0 and `/wip-improve` Rule 6.
+- **Empty `identity_fields` is a first-class append-only mode**, not a degenerate config. The schema declares the contract: empty list = "every doc is its own logical entity, version-by-document_id-only." Use this deliberately for event logs and audit traces where every write is a fresh entity. Don't use it as a way to skip thinking about identity — if your records have a stable atomic identifier (case_number, ISBN, lot_id, tracking_id), declare it in `data` and reference it in `identity_fields`. **PATCH on an identity-less template fails with `append_only`** — you cannot update a document with no logical identity; create a new one instead. Relatedly, `versioned: false` templates (edge types included) must declare `identity_fields` explicitly (e.g. `[source_ref, target_ref]`) — there is no implicit default.
 
 ## MCP
 
@@ -143,6 +165,8 @@ WIP is accessed exclusively via MCP tools (94 tools, 5 resources). Before starti
 
 `wip://development-guide` provides the full 4-phase workflow reference if needed.
 `wip://query-assistant-prompt` provides a complete system prompt for NL query agents (used by --preset query apps).
+
+**Query preset — runtime Anthropic key.** The `--preset query` agent resolves its Anthropic key in priority order: a key set at runtime via the admin `/settings` page → `ANTHROPIC_API_KEY_FILE` (0600, survives restart) → `ANTHROPIC_API_KEY` (frozen at process start). So an operator can set/rotate the key from the UI with no redeploy. Two deploy requirements for this to persist: (1) declare `ANTHROPIC_API_KEY_FILE` in `apps/<name>/wip-app.yaml` pointing at a **writable, persistent mount** (otherwise a UI-set key reverts on restart); (2) the `/settings` config endpoint is admin-gated via `ADMIN_GROUPS` (default `wip-admins`) — open only in dev mode (no `OIDC_ISSUER`). The key is a secret: never put it in a WIP document, and the server returns only configured/source/last-4, never the value.
 
 ## Client Libraries
 
@@ -167,8 +191,9 @@ The WIP libs are tarballs in `libs/`. `@tanstack/react-query` is the peer depend
 
 ## Tool use — Bash timeouts and waits
 
-- **Never set Bash `timeout > 60000` ms.** Use `run_in_background: true` for any command that may exceed 60 s. Use `Monitor` for streaming output, or wait for the auto-completion notification when the background task finishes. A user-scoped PreToolUse hook (`~/.claude/hooks/block-long-bash-timeout.sh`) mechanically rejects calls with `timeout > 60000` — the discipline rule still applies even if the hook is disabled or absent. *Origin: CASE-319, where this rule lived in feedback memory and failed to prevent recurrence twice in 90 minutes within one session.*
-- **Verify-before-wait.** Before scheduling any wait on a long-running command, verify the prerequisites that command depends on can succeed. For npm/test runs that hit a backend cluster: check the host-bound port (e.g., `nc -z localhost 8443`) before kicking the wait off. The class of failure is *waiting on an action that depends on unverified state* — the wait then can't complete and burns wall time on a hang. *Origin: CASE-319 / CASE-320 — agent waited 10 minutes for tests that couldn't finish because the deployer no longer exposed the relevant port.*
+- **Never set Bash `timeout > 60000` ms.** Use `run_in_background: true` for any command that may exceed 60 s. Use `Monitor` for streaming output, or wait for the auto-completion notification when the background task finishes. A user-scoped PreToolUse hook (`~/.claude/hooks/block-long-bash-timeout.sh`) mechanically rejects calls with `timeout > 60000` — the discipline rule still applies even if the hook is disabled or absent. *Origin: this rule once lived only in feedback memory and still failed to prevent recurrence twice in 90 minutes within one session — hence the mechanical hook.*
+- **Verify-before-wait.** Before scheduling any wait on a long-running command, verify the prerequisites that command depends on can succeed. For npm/test runs that hit a backend cluster: check the host-bound port (e.g., `nc -z localhost 8443`) before kicking the wait off. The class of failure is *waiting on an action that depends on unverified state* — the wait then can't complete and burns wall time on a hang. *Origin: an agent once waited 10 minutes for tests that couldn't finish because the deployer no longer exposed the relevant port.*
+- **Bash hygiene — don't prefix commands with `cd`.** Your commands already run from the project root, so a `cd` prefix is unnecessary *and* trips approval prompts: `cd "${CLAUDE_PROJECT_DIR:-$PWD}" && …` forces an *expansion* prompt (shell expansion can't be statically verified against the allowlist), and `cd dir && … > file` forces a *path-bypass* prompt (the redirect could land outside an allowlisted path). Both are avoidable — use explicit / relative-to-root paths for reading **and** writing. Keeps inspection and file writes prompt-free *and* safer.
 
 ## WIP Toolkit
 
@@ -298,7 +323,7 @@ For session-meaningful work that is **neither a change, an end-state, nor a fire
 2. **Scope-trim decisions mid-session** — why you're doing less than originally pitched, when the rationale matters for reading the resulting commit but isn't architectural enough for a fireside.
 3. **Block/unblock state and pre-`/compact` snapshots** — written when context is filling so the post-compaction same-agent self has more than just the last commit message and a stale session.md.
 
-**`/compact` vs `/clear`:** before `/compact` (same agent continues, conversation just summarized) write a running-log entry — this mode. Before `/clear` or end-of-day (next agent starts cold from durable artifacts) run `/wip-report session-end`. The two events look similar but have different recovery semantics.
+**`/compact` vs `/clear`:** before `/compact` (same agent continues, conversation just summarized) write a running-log entry — this mode. Before `/clear` (next agent starts cold from durable artifacts) run `/wip-report session-end`. The two events look similar but have different recovery semantics. A session is bounded by context usage, not by the calendar: it does not end because a day ended or because the human stopped for the night — a session ID several days old means the context lasted, which is the good outcome. `/clear` is the human's call, made when the window nears full; never propose it on a schedule.
 
 Append-only — distinct from `session.md` (overwritten at end) and `report-<slug>.md` (per-decision). Each entry is **timestamp + short headline + one paragraph**.
 

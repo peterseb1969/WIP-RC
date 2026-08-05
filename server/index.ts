@@ -3,6 +3,7 @@ import express, { Router } from 'express'
 import cors from 'cors'
 import session from 'express-session'
 import path from 'path'
+import { readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { wipProxy } from '@wip/proxy'
 import { initAuth, requireAuth, handleCallback, handleLogout } from './auth.js'
@@ -24,6 +25,20 @@ const PORT = parseInt(process.env.PORT || '3011')
  * When unset (local dev), defaults to '/' — no prefix.
  */
 const BASE_PATH = (process.env.APP_BASE_PATH || '').replace(/\/$/, '') || '/'
+
+// WIP_API_KEY_FILE is the live wip-deploy secrets file (CASE-495); the literal
+// WIP_API_KEY is the fallback — deployer-injected in containers, where the
+// file path is host-only (CASE-714's failure shape). Mirrors wipProxy 0.4.3.
+function resolveWipApiKey(): string {
+  const file = process.env.WIP_API_KEY_FILE
+  if (file) {
+    try {
+      const key = readFileSync(file, 'utf-8').trim()
+      if (key) return key
+    } catch { /* fall back to the inline key */ }
+  }
+  return process.env.WIP_API_KEY || ''
+}
 
 const app = express()
 const router = Router()
@@ -50,11 +65,12 @@ app.use(session({
   },
 }))
 
-// Parse JSON only for our own routes — NOT for /wip, which @wip/proxy
-// needs to forward as a raw stream. express.json() consumes the body
-// stream, causing "stream is not readable" in the proxy's body-parser.
+// Parse JSON only for our own routes — NOT for /wip, which @wip/proxy consumes
+// as a raw stream (both directions, since 0.5.0). express.json() would drain
+// the body and the proxy would forward an empty stream. See the proxy's
+// "Mount order matters" note — this bypass is what keeps that ordering correct.
 router.use((req, res, next) => {
-  if (req.path.startsWith('/wip') || req.path.startsWith('/api/backup-restore')) return next()
+  if (req.path.startsWith('/wip')) return next()
   express.json()(req, res, next)
 })
 
@@ -112,7 +128,7 @@ async function probeBuild(wipBase: string, apiKey: string, buildPath: string): P
 
 router.get('/api/infra/health', async (_req, res) => {
   const wipBase = process.env.WIP_BASE_URL || 'https://localhost:8443'
-  const apiKey = process.env.WIP_API_KEY || ''
+  const apiKey = resolveWipApiKey()
 
   const results = await Promise.allSettled(
     WIP_SERVICES.map(async (svc) => {
@@ -177,7 +193,7 @@ router.get('/api/infra/health', async (_req, res) => {
 // MinIO internally) and pipes it to the browser.
 router.get('/api/file-content/:fileId', async (req, res) => {
   const wipBase = process.env.WIP_BASE_URL || 'https://localhost:8443'
-  const apiKey = process.env.WIP_API_KEY || ''
+  const apiKey = resolveWipApiKey()
   try {
     const upstream = await fetch(
       `${wipBase}/api/document-store/files/${req.params.fileId}/content`,
@@ -216,12 +232,22 @@ router.get('/api/file-content/:fileId', async (req, res) => {
   }
 })
 
-// Streaming download proxy for large backup archives.
-// The standard @wip/proxy buffers responses which fails for multi-GB files.
-// This route pipes the response directly from WIP to the client.
+// Download proxy for backup archives.
+//
+// Retained after @wip/proxy 0.5.0 (CASE-753) made the shared proxy stream both
+// directions — so streaming is no longer the reason this route exists. It
+// survives to REWRITE the filename: WIP sends
+// `Content-Disposition: <namespace>-<jobid>.zip`, and this route replaces it
+// with the human-useful `<namespace>_<timestamp>.zip` the client asks for. The
+// browser's `download` attribute cannot do that alone — Content-Disposition
+// wins for same-origin responses (see archiveFilename in the client), so the
+// rewrite has to happen server-side. The manual pump keeps it streaming, which
+// @wip/proxy would now also do; the header rewrite is what @wip/proxy cannot.
+// The sibling restore-upload route was retired here — the proxy fully replaces
+// it, since its response is a small JSON snapshot with nothing to rewrite.
 router.get('/api/backup-download/:jobId', async (req, res) => {
   const wipBase = process.env.WIP_BASE_URL || 'https://localhost:8443'
-  const apiKey = process.env.WIP_API_KEY || ''
+  const apiKey = resolveWipApiKey()
   try {
     const upstream = await fetch(
       `${wipBase}/api/document-store/backup/jobs/${req.params.jobId}/download`,
@@ -258,33 +284,6 @@ router.get('/api/backup-download/:jobId', async (req, res) => {
     if (!res.headersSent) {
       res.status(502).json({ error: err instanceof Error ? err.message : 'Download proxy failed' })
     }
-  }
-})
-
-// Streaming restore proxy.
-// The restore endpoint requires a namespace in the URL path for routing,
-// but since CASE-43 the endpoint reads the actual target from the archive.
-// We use '_' as a placeholder — it's only for auth.
-router.post('/api/backup-restore', express.raw({ type: 'multipart/form-data', limit: '10gb' }), async (req, res) => {
-  const wipBase = process.env.WIP_BASE_URL || 'https://localhost:8443'
-  const apiKey = process.env.WIP_API_KEY || ''
-  try {
-    const contentType = req.headers['content-type'] || ''
-    const upstream = await fetch(
-      `${wipBase}/api/document-store/backup/namespaces/_/restore`,
-      {
-        method: 'POST',
-        headers: {
-          'X-API-Key': apiKey,
-          'Content-Type': contentType,
-        },
-        body: req.body as unknown as BodyInit,
-      },
-    )
-    const data = await upstream.text()
-    res.status(upstream.status).setHeader('Content-Type', 'application/json').send(data)
-  } catch (err) {
-    res.status(502).json({ error: err instanceof Error ? err.message : 'Restore proxy failed' })
   }
 })
 

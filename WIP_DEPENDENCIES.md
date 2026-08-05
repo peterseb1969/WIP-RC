@@ -14,7 +14,7 @@ RC-Console is a WIP admin console — it **inspects and manages WIP itself** rat
 | registry | @wip/proxy | Entry search, namespace stats, API key management, backup/restore jobs |
 | reporting-sync | @wip/proxy | SQL queries, table browser, sync status, integrity, search |
 | ingest-gateway | @wip/proxy (health only) | Health check on dashboard |
-| files | @wip/proxy | File listing, metadata, upload, download (streaming proxy for backup archives) |
+| files | @wip/proxy | File listing, metadata, upload, download (0.5.0 streams both directions — backup archives and file content) |
 
 ## Client libraries
 
@@ -35,7 +35,9 @@ These bypass WIP's API layer because WIP does not expose infrastructure metrics 
 
 ## Backup & restore
 
-The backup/restore page uses WIP's registry API to start backup/restore jobs and poll their status. Completed backup archives are downloaded via a streaming proxy in the Express backend (`/api/backup/download/:jobId`) — this avoids buffering multi-GB archives in browser memory. The proxy streams the response directly from WIP to the browser with appropriate `Content-Disposition` and `Content-Length` headers.
+The backup/restore page uses WIP's document-store backup API to start backup, restore and validate jobs and poll their status — proxied through `@wip/proxy` (0.5.0+), which streams request and response bodies both ways, so archive uploads and downloads no longer buffer in the Express backend. Restore uploads post straight to `/wip/api/document-store/backup/namespaces/_/restore`.
+
+One bespoke route remains: `GET /api/backup-download/:jobId`. Not for streaming (the proxy does that now) but to rewrite the archive filename — WIP sends `Content-Disposition: <namespace>-<jobid>.zip`, and the route replaces it with the human-useful `<namespace>_<timestamp>.zip` the client requests. The browser's `download` attribute cannot override `Content-Disposition` for same-origin responses, so the rewrite is server-side.
 
 ## WIP databases inspected (MongoDB)
 

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   PlayCircle,
   RotateCw,
@@ -14,15 +15,15 @@ import {
   useBatchJobs,
   useTemplates,
   useNamespaces,
-  useTriggerBatchSyncAll,
-  useTriggerBatchSync,
   useTriggerTerminologySync,
   useTriggerTermSync,
   useTriggerTermRelationSync,
   useCancelBatchJob,
   useClearCompletedJobs,
+  useWipClient,
+  wipKeys,
 } from '@wip/react'
-import type { BatchSyncJob, BatchSyncStatus } from '@wip/client'
+import type { BatchSyncJob, BatchSyncStatus, BatchSyncResponse } from '@wip/client'
 import { cn } from '@/lib/cn'
 
 // ---------------------------------------------------------------------------
@@ -32,19 +33,56 @@ import { cn } from '@/lib/cn'
 //      entity tables: terminologies, terms, term-relations).
 //   2. Live job list (auto-polled while anything is running, otherwise idle).
 // Sync-status card is rendered above this panel by PostgresPage.
+//
+// Document sync is namespace-scopable (CASE-735/734, @wip/client 0.44.0). The
+// scope filters the *documents*, not the template list — a document may be
+// based on a template owned by another namespace, so a scoped run still
+// iterates every template and simply syncs nothing for those with no documents
+// in scope.
 // ---------------------------------------------------------------------------
 
 const ACTIVE_STATUSES = new Set<BatchSyncStatus>(['pending', 'running'])
+
+// The @wip/react 0.19.0 trigger hooks predate the namespace option: their vars
+// types omit it, and useTriggerBatchSync *destructures* {template_value, force,
+// page_size}, so a namespace passed through it would be silently dropped rather
+// than rejected. Call the typed client directly until @wip/react catches up.
+
+interface SyncOptions { namespace?: string; page_size?: number; force?: boolean }
+
+function useScopedBatchSyncAll(onError: (e: Error) => void) {
+  const client = useWipClient()
+  const queryClient = useQueryClient()
+  return useMutation<BatchSyncResponse[], Error, SyncOptions>({
+    mutationFn: vars => client.reporting.triggerBatchSyncAll(vars),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: wipKeys.reporting.batchJobs() }),
+    onError,
+  })
+}
+
+function useScopedBatchSync(onError: (e: Error) => void) {
+  const client = useWipClient()
+  const queryClient = useQueryClient()
+  return useMutation<BatchSyncResponse, Error, SyncOptions & { template_value: string }>({
+    mutationFn: ({ template_value, ...opts }) =>
+      client.reporting.triggerBatchSync(template_value, opts),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: wipKeys.reporting.batchJobs() }),
+    onError,
+  })
+}
 
 export default function BatchSyncPanel() {
   const { data: templates } = useTemplates({ status: 'active', latest_only: true, page_size: 200 })
   const { data: namespaces } = useNamespaces()
 
   const [singleTemplate, setSingleTemplate] = useState('')
+  const [docScopeNs, setDocScopeNs] = useState('')
   const [entityNs, setEntityNs] = useState('')
   const [advanced, setAdvanced] = useState(false)
-  const [force, setForce] = useState(false)
   const [pageSize, setPageSize] = useState(100)
+  // Drop-and-rebuild (CASE-738). Requires a namespace scope — the backend 400s
+  // without one — so it resets whenever the scope is cleared.
+  const [force, setForce] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Live job list — poll fast while anything is running, slow otherwise.
@@ -54,21 +92,33 @@ export default function BatchSyncPanel() {
   const liveJobsQ = useBatchJobs({ refetchInterval: hasActive ? 3000 : 30_000 })
   const liveJobs = liveJobsQ.data ?? jobs
 
-  const triggerAll = useTriggerBatchSyncAll({ onError: e => setError(e.message) })
-  const triggerOne = useTriggerBatchSync({ onError: e => setError(e.message) })
+  const triggerAll = useScopedBatchSyncAll(e => setError(e.message))
+  const triggerOne = useScopedBatchSync(e => setError(e.message))
   const triggerTerminologies = useTriggerTerminologySync({ onError: e => setError(e.message) })
   const triggerTerms = useTriggerTermSync({ onError: e => setError(e.message) })
   const triggerRelations = useTriggerTermRelationSync({ onError: e => setError(e.message) })
   const clearCompleted = useClearCompletedJobs({ onError: e => setError(e.message) })
 
+  // force is only legal with a scope; never send it unscoped.
+  const effectiveForce = force && Boolean(docScopeNs)
+
   const handleSyncAll = () => {
     setError(null)
-    triggerAll.mutate({ force, page_size: pageSize })
+    triggerAll.mutate({
+      namespace: docScopeNs || undefined,
+      page_size: pageSize,
+      ...(effectiveForce ? { force: true } : {}),
+    })
   }
   const handleSyncOne = () => {
     setError(null)
     if (!singleTemplate) { setError('Pick a template to sync'); return }
-    triggerOne.mutate({ template_value: singleTemplate, force, page_size: pageSize })
+    triggerOne.mutate({
+      template_value: singleTemplate,
+      namespace: docScopeNs || undefined,
+      page_size: pageSize,
+      ...(effectiveForce ? { force: true } : {}),
+    })
   }
   const handleEntitySync = (kind: 'terminologies' | 'terms' | 'term_relations') => {
     setError(null)
@@ -96,7 +146,33 @@ export default function BatchSyncPanel() {
 
         {/* Templates */}
         <div className="space-y-2">
-          <label className="block text-xs font-medium text-gray-500">Templates</label>
+          <div className="flex items-center gap-2 flex-wrap">
+            <label className="block text-xs font-medium text-gray-500">Templates</label>
+            <span className="text-xs text-gray-400">— document scope</span>
+            <select
+              value={docScopeNs}
+              onChange={e => setDocScopeNs(e.target.value)}
+              className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-light focus:border-primary-light"
+              title="Limits which documents are synced. Templates are always iterated instance-wide, because a document may be based on a template owned by another namespace."
+            >
+              <option value="">All namespaces</option>
+              {(namespaces ?? []).map(n => (
+                <option key={n.prefix} value={n.prefix}>{n.prefix}</option>
+              ))}
+            </select>
+            {docScopeNs && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/5 text-primary-dark border border-primary/20">
+                scoped
+              </span>
+            )}
+            {/* Force is set in Advanced, which may be collapsed — surface it
+                where the trigger buttons are, since it drops tables. */}
+            {effectiveForce && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-danger/5 text-danger border border-danger/20">
+                force rebuild
+              </span>
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleSyncAll}
@@ -104,7 +180,7 @@ export default function BatchSyncPanel() {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
             >
               {triggerAll.isPending ? <Loader2 size={12} className="animate-spin" /> : <PlayCircle size={14} />}
-              Sync all templates
+              {docScopeNs ? `Sync all templates in ${docScopeNs}` : 'Sync all templates'}
             </button>
             <span className="text-xs text-gray-400">or</span>
             <select
@@ -179,10 +255,33 @@ export default function BatchSyncPanel() {
             {advanced ? 'Hide advanced' : 'Advanced…'}
           </button>
           {advanced && (
-            <div className="mt-2 flex items-center gap-4 text-xs">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input type="checkbox" checked={force} onChange={e => setForce(e.target.checked)} />
-                <span className="text-gray-600">Force (re-sync already-synced docs)</span>
+            <div className="mt-2 space-y-2 text-xs">
+              {/* CASE-738 gave `force` real semantics — it was previously
+                  accepted and never read, so this control was removed rather
+                  than left lying. It now drops the in-scope template's
+                  reporting relations and rebuilds from source, which is a
+                  recovery path for mis-shaped DDL, not a routine re-sync. */}
+              <label className={cn(
+                'flex items-start gap-1.5',
+                docScopeNs ? 'cursor-pointer' : 'cursor-not-allowed opacity-50',
+              )}>
+                <input
+                  type="checkbox"
+                  checked={effectiveForce}
+                  disabled={!docScopeNs}
+                  onChange={e => setForce(e.target.checked)}
+                  className="rounded border-gray-300 mt-0.5"
+                />
+                <span>
+                  <span className={effectiveForce ? 'text-danger font-medium' : 'text-gray-600'}>
+                    Force rebuild (drops and recreates tables)
+                  </span>
+                  <span className="block text-[11px] text-gray-400">
+                    {docScopeNs
+                      ? `Drops each in-scope template's reporting relations in ${docScopeNs} — version tables, entity views, any legacy table — then rebuilds from source. SQL readers see "relation does not exist" mid-rebuild. An already-active sync is not force-rebuilt; cancel it and re-trigger.`
+                      : 'Requires a document scope — pick a namespace above. A whole-instance force rebuild is not offered.'}
+                  </span>
+                </span>
               </label>
               <label className="flex items-center gap-1.5">
                 <span className="text-gray-600">Page size</span>
@@ -261,6 +360,20 @@ function JobRow({ job }: { job: BatchSyncJob }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-gray-700">{job.template_value}</span>
+          {/* Scope is load-bearing here: the same template can hold documents
+              from several namespaces, so two jobs on one template_value are
+              not necessarily duplicates. */}
+          <span
+            className={cn(
+              'text-[10px] px-1.5 py-0.5 rounded border',
+              job.namespace
+                ? 'bg-primary/5 text-primary-dark border-primary/20'
+                : 'bg-gray-50 text-gray-500 border-gray-200',
+            )}
+            title={job.namespace ? `Scoped to documents in ${job.namespace}` : 'All namespaces'}
+          >
+            {job.namespace || 'all namespaces'}
+          </span>
           <span className="text-gray-400">{job.status}</span>
           {pct !== null && (
             <span className="text-gray-500">
