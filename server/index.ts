@@ -86,7 +86,7 @@ const WIP_SERVICES = [
   { name: 'Registry', slug: 'registry', path: '/api/registry/namespaces', buildPath: '/api/registry/' },
   { name: 'Def-Store', slug: 'def-store', path: '/api/def-store/terminologies?page_size=1', buildPath: '/api/def-store/' },
   { name: 'Template-Store', slug: 'template-store', path: '/api/template-store/templates?page_size=1', buildPath: '/api/template-store/' },
-  { name: 'Document-Store', slug: 'document-store', path: '/api/document-store/documents?page_size=1', buildPath: '/api/document-store/' },
+  { name: 'Document-Store', slug: 'document-store', path: '/api/document-store/health', buildPath: '/api/document-store/' },
   { name: 'Reporting-Sync', slug: 'reporting-sync', path: '/api/reporting-sync/status', buildPath: '/api/reporting-sync/' },
   { name: 'Ingest-Gateway', slug: 'ingest-gateway', path: '/api/ingest-gateway/health' },
   { name: 'File-Store', slug: 'file-store', path: '/api/document-store/files?page_size=1' },
