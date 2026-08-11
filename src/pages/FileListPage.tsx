@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { FileIcon, Calendar, Hash, RefreshCw, HardDrive, ChevronRight, AlertTriangle, Upload, Plus, X, Trash2, Search as SearchIcon, Loader2 } from 'lucide-react'
 import { useFiles, useUploadFile, useNamespaces, useWipClient } from '@wip/react'
 import type { FileEntity } from '@wip/client'
+import SortSelect, { loadSort, saveSort } from '@/components/common/SortSelect'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
@@ -146,11 +147,14 @@ export default function FileListPage() {
   // filter would hide. The per-row orphan badge calls them out visually.
   const [status, setStatus] = useState<'active' | 'inactive' | ''>('')
   const [showUpload, setShowUpload] = useState(false)
+  const [sort, setSort] = useState(() => loadSort('files', 'uploaded_at', 'desc'))
   const { data, isLoading, error, refetch } = useFiles({
     namespace: namespace || undefined,
     status: status || undefined,
     page,
     page_size: 25,
+    sort_by: sort.sortBy,
+    sort_order: sort.sortOrder,
   })
 
   const items = data?.items ?? []
@@ -170,6 +174,17 @@ export default function FileListPage() {
             <Plus size={14} />
             Upload
           </button>
+          <SortSelect
+            options={[
+              { value: 'uploaded_at', label: 'Uploaded' },
+              { value: 'filename', label: 'Filename' },
+              { value: 'content_type', label: 'Type' },
+              { value: 'size_bytes', label: 'Size' },
+            ]}
+            sortBy={sort.sortBy}
+            sortOrder={sort.sortOrder}
+            onChange={(by, order) => { setSort({ sortBy: by, sortOrder: order }); saveSort('files', by, order); setPage(1) }}
+          />
           <select
             value={status}
             onChange={e => { setStatus(e.target.value as typeof status); setPage(1) }}

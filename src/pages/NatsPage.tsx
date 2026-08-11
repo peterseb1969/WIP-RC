@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   Radio,
   Wifi,
@@ -14,6 +15,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
+  RefreshCw,
 } from 'lucide-react'
 import {
   useNatsStatus,
@@ -72,10 +74,11 @@ function NatsStatusBar() {
 // Stream Card
 // ---------------------------------------------------------------------------
 
-function StreamCard({ stream, isExpanded, onToggle }: {
+function StreamCard({ stream, isExpanded, onToggle, onRefresh }: {
   stream: NatsStream
   isExpanded: boolean
   onToggle: () => void
+  onRefresh: () => void
 }) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -111,6 +114,16 @@ function StreamCard({ stream, isExpanded, onToggle }: {
       {/* Expanded detail */}
       {isExpanded && (
         <div className="border-t border-gray-100 px-4 py-3 space-y-4">
+          <div className="flex items-center justify-end">
+            <button
+              onClick={e => { e.stopPropagation(); onRefresh() }}
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+              title="Refresh stream stats and consumers"
+            >
+              <RefreshCw size={12} />
+              Refresh
+            </button>
+          </div>
           {/* Config */}
           <div>
             <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1">
@@ -147,7 +160,7 @@ function StreamCard({ stream, isExpanded, onToggle }: {
 // Consumer List (loaded when stream is expanded)
 // ---------------------------------------------------------------------------
 
-function StreamConsumers({ streamName }: { streamName: string }) {
+function StreamConsumers({ streamName }: { streamName: string; }) {
   const { data: consumers, isLoading, error } = useNatsConsumers(streamName)
 
   if (isLoading) return <LoadingState label="Loading consumers..." className="py-4" />
@@ -290,9 +303,15 @@ function IngestGatewayPanel() {
 
 export default function NatsPage() {
   const [expandedStream, setExpandedStream] = useState<string | null>(null)
+  const queryClient = useQueryClient()
   const { data: status } = useNatsStatus()
   const isInactive = status && !status.connected && /ECONNREFUSED|ENOTFOUND|getaddrinfo|timeout|no servers available/i.test(status.error ?? '')
   const { data: streams, isLoading, error, refetch } = useNatsStreams()
+
+  const refreshAll = () => {
+    refetch()
+    queryClient.invalidateQueries({ queryKey: ['rc-console', 'nats', 'consumers'] })
+  }
 
   const toggleStream = (name: string) => {
     setExpandedStream(prev => prev === name ? null : name)
@@ -336,6 +355,7 @@ export default function NatsPage() {
                   stream={stream}
                   isExpanded={expandedStream === stream.name}
                   onToggle={() => toggleStream(stream.name)}
+                  onRefresh={refreshAll}
                 />
               ))
             )}

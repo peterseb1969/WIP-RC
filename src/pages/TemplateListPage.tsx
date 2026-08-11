@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { FileCode2, ChevronRight, Hash, Layers, RefreshCw, Plus, Archive, Network } from 'lucide-react'
 import { useTemplates, useTemplate } from '@wip/react'
 import SearchInput from '@/components/common/SearchInput'
+import SortSelect, { loadSort, saveSort } from '@/components/common/SortSelect'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
@@ -18,6 +19,7 @@ export default function TemplateListPage() {
   const [page, setPage] = useState(1)
   const [showAll, setShowAll] = useState(false)
   const [usageFilter, setUsageFilter] = useState<UsageFilter>('all')
+  const [sort, setSort] = useState(() => loadSort('templates', 'updated_at', 'desc'))
 
   const { data, isLoading, error, refetch } = useTemplates({
     status: showAll ? undefined : 'active',
@@ -25,6 +27,8 @@ export default function TemplateListPage() {
     namespace: namespace || undefined,
     page,
     page_size: 25,
+    sort_by: sort.sortBy,
+    sort_order: sort.sortOrder,
   })
 
   const items = data?.items?.filter(t => {
@@ -92,6 +96,17 @@ export default function TemplateListPage() {
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
         <SearchInput value={search} onChange={setSearch} placeholder="Search templates..." className="flex-1 max-w-sm" />
+        <SortSelect
+          options={[
+            { value: 'updated_at', label: 'Last modified' },
+            { value: 'created_at', label: 'Created' },
+            { value: 'value', label: 'Value' },
+            { value: 'label', label: 'Label' },
+          ]}
+          sortBy={sort.sortBy}
+          sortOrder={sort.sortOrder}
+          onChange={(by, order) => { setSort({ sortBy: by, sortOrder: order }); saveSort('templates', by, order); setPage(1) }}
+        />
         <button
           type="button"
           onClick={() => { setShowAll(v => !v); setPage(1) }}

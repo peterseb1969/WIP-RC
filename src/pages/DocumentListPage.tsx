@@ -19,6 +19,7 @@ import { useTemplates, useDocuments } from '@wip/react'
 import type { TemplateUsage } from '@wip/client'
 import { useNamespaceFilter, useSyncNamespaceFromUrl } from '@/hooks/use-namespace-filter'
 import { useExternalTemplates } from '@/hooks/use-external-templates'
+import SortSelect, { loadSort, saveSort } from '@/components/common/SortSelect'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
 import PeerHeader from '@/components/documents/PeerHeader'
@@ -404,6 +405,7 @@ function DocumentTable({
 }) {
   const [page, setPage] = useState(1)
   const [showArchived, setShowArchived] = useState(false)
+  const [sort, setSort] = useState(() => loadSort('documents', 'updated_at', 'desc'))
   const { namespace } = useNamespaceFilter()
   // Both filters are applied together. WIP ANDs them — template_id alone
   // would return the template's documents from *every* namespace, silently
@@ -415,6 +417,8 @@ function DocumentTable({
     status: showArchived ? undefined : 'active',
     page,
     page_size: 25,
+    sort_by: sort.sortBy,
+    sort_order: sort.sortOrder,
   })
   const isAll = !templateId
 
@@ -430,6 +434,15 @@ function DocumentTable({
           {data?.total ?? 0} document{(data?.total ?? 0) !== 1 ? 's' : ''}
         </h2>
         <div className="flex items-center gap-1">
+          <SortSelect
+            options={[
+              { value: 'updated_at', label: 'Last modified' },
+              { value: 'created_at', label: 'Created' },
+            ]}
+            sortBy={sort.sortBy}
+            sortOrder={sort.sortOrder}
+            onChange={(by, order) => { setSort({ sortBy: by, sortOrder: order }); saveSort('documents', by, order); setPage(1) }}
+          />
           <button
             type="button"
             onClick={() => { setShowArchived(v => !v); setPage(1) }}
