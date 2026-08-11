@@ -137,6 +137,8 @@ export default function BatchSyncPanel() {
     triggerRelations.isPending
 
   const completedCount = liveJobs.filter(j => j.status === 'completed' || j.status === 'failed' || j.status === 'cancelled').length
+  const withWork = liveJobs.filter(j => j.documents_synced > 0 || j.documents_failed > 0 || ACTIVE_STATUSES.has(j.status))
+  const noopCount = liveJobs.length - withWork.length
 
   return (
     <div className="space-y-4">
@@ -312,7 +314,9 @@ export default function BatchSyncPanel() {
           <h3 className="text-sm font-semibold text-gray-700">
             Jobs
             <span className="ml-2 text-xs text-gray-400">
-              {liveJobs.length} total{hasActive ? ' · polling' : ''}
+              {liveJobs.length} total
+              {noopCount > 0 && ` · ${liveJobs.length - noopCount} synced, ${noopCount} no-ops`}
+              {hasActive ? ' · polling' : ''}
             </span>
           </h3>
           {completedCount > 0 && (
