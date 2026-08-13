@@ -3,7 +3,7 @@ import { Home, User, LogOut, Shield, FolderTree } from 'lucide-react'
 import { useNamespaces } from '@wip/react'
 import { useAuth } from '@/hooks/use-auth'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
-import { apiUrl } from '@/lib/wip'
+import { apiUrl, basePath } from '@/lib/wip'
 
 // Routes where the namespace filter has no effect — infrastructure
 // inspection pages read across the whole WIP instance.
@@ -66,7 +66,9 @@ export default function TopBar() {
               </div>
             )}
             <a
-              href={user.method === 'gateway' ? '/auth/logout' : apiUrl('/auth/logout')}
+              href={user.method === 'gateway'
+                ? `/auth/logout?return_to=${encodeURIComponent(basePath + '/')}`
+                : apiUrl(`/auth/logout?return_to=${encodeURIComponent(basePath + '/')}`)}
               className="flex items-center gap-1 text-gray-400 hover:text-danger transition-colors"
               title="Logout"
             >

@@ -229,7 +229,10 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
  * Handle logout — destroy session and optionally redirect to Dex end-session.
  */
 export function handleLogout(req: Request, res: Response): void {
+  const returnTo = typeof req.query.return_to === 'string' && req.query.return_to.startsWith('/')
+    ? req.query.return_to
+    : (process.env.APP_BASE_PATH || '/') + '/'
   req.session.destroy(() => {
-    res.redirect('/')
+    res.redirect(returnTo)
   })
 }
