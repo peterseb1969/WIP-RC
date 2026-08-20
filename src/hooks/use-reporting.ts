@@ -110,8 +110,8 @@ export interface ParityTemplate {
   missing_columns: string[]
   bookkeeping_row: boolean
   counts_comparable: boolean
-  expected_documents: number
-  actual_rows: number
+  expected_documents: number | null
+  actual_rows: number | null
   counts_match: boolean
   error: string | null
   version_tables?: number[]

@@ -113,13 +113,12 @@ export default function VersionWarnings({
     if (docCount === 0) {
       result.push({
         level: 'info',
-        message: `This will create version ${version + 1}. No documents are affected.`,
+        message: `Schema changes will create version ${version + 1}. No documents are affected.`,
       })
     } else {
-      // Documents exist — warn about version bump
       result.push({
         level: 'warning',
-        message: `${docCount} document${docCount !== 1 ? 's' : ''} use this template. Saving will create version ${version + 1}.`,
+        message: `${docCount} document${docCount !== 1 ? 's' : ''} use this template. Schema changes will create version ${version + 1}; reporting-only changes will not.`,
       })
     }
 

@@ -40,20 +40,32 @@ async function fetchNats<T>(path: string): Promise<T> {
   return res.json()
 }
 
+async function fetchNatsStatus(): Promise<NatsStatus> {
+  try {
+    const res = await fetch(apiUrl('/api/infra/nats/status'))
+    const body = await res.json()
+    if (!res.ok) return { connected: false, error: body.error ?? `HTTP ${res.status}` }
+    return body
+  } catch (err) {
+    return { connected: false, error: err instanceof Error ? err.message : 'Unreachable' }
+  }
+}
+
 export function useNatsStatus() {
   return useQuery({
     queryKey: ['rc-console', 'nats', 'status'],
-    queryFn: () => fetchNats<NatsStatus>('/status'),
+    queryFn: fetchNatsStatus,
     staleTime: 30_000,
     refetchInterval: 60_000,
   })
 }
 
-export function useNatsStreams() {
+export function useNatsStreams(enabled = true) {
   return useQuery({
     queryKey: ['rc-console', 'nats', 'streams'],
     queryFn: () => fetchNats<{ streams: NatsStream[] }>('/streams').then(r => r.streams),
     staleTime: 30_000,
+    enabled,
   })
 }
 

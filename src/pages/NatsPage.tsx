@@ -305,8 +305,8 @@ export default function NatsPage() {
   const [expandedStream, setExpandedStream] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const { data: status } = useNatsStatus()
-  const isInactive = status && !status.connected && /ECONNREFUSED|ENOTFOUND|getaddrinfo|timeout|no servers available/i.test(status.error ?? '')
-  const { data: streams, isLoading, error, refetch } = useNatsStreams()
+  const isInactive = !!status && !status.connected
+  const { data: streams, isLoading, error, refetch } = useNatsStreams(!isInactive)
 
   const refreshAll = () => {
     refetch()

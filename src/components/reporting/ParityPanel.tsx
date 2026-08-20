@@ -1,5 +1,5 @@
-import { useQueries } from '@tanstack/react-query'
-import { CheckCircle, XCircle, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
+import { CheckCircle, XCircle, AlertTriangle, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import {
   useReportingInventory,
@@ -37,7 +37,7 @@ function TemplateIssueRow({ t }: { t: ParityTemplate }) {
             v{t.version_tables.join(', v')}
           </span>
         )}
-        {t.counts_comparable && (
+        {t.counts_comparable && t.actual_rows != null && t.expected_documents != null && (
           <span className={cn(t.counts_match ? 'text-gray-400' : 'text-danger')}>
             {t.actual_rows.toLocaleString()} rows / {t.expected_documents.toLocaleString()} docs
           </span>
@@ -140,7 +140,7 @@ function NamespaceParityCard({ parity }: { parity: NamespaceParity }) {
               )}
               {!t.sync_enabled && <span className="text-gray-300">sync disabled</span>}
               <span className="ml-auto text-gray-400">
-                {t.counts_comparable
+                {t.counts_comparable && t.actual_rows != null
                   ? `${t.actual_rows.toLocaleString()} rows`
                   : 'counts not comparable'}
               </span>
@@ -153,6 +153,7 @@ function NamespaceParityCard({ parity }: { parity: NamespaceParity }) {
 }
 
 export default function ParityPanel() {
+  const queryClient = useQueryClient()
   const { data: inventory, isLoading } = useReportingInventory()
   const namespaces = [...new Set((inventory?.tables ?? []).map(t => t.namespace))].sort()
 
@@ -164,6 +165,14 @@ export default function ParityPanel() {
     })),
   })
 
+  const anyLoading = isLoading || results.some(q => q.isLoading)
+
+  const handleRefresh = () => {
+    for (const ns of namespaces) {
+      queryClient.invalidateQueries({ queryKey: PARITY_QUERY_KEY(ns) })
+    }
+  }
+
   if (isLoading) return <LoadingState label="Loading namespaces..." />
   if (namespaces.length === 0) {
     return <p className="text-sm text-gray-400">No reporting namespaces found.</p>
@@ -171,10 +180,21 @@ export default function ParityPanel() {
 
   return (
     <div className="space-y-3 max-w-4xl">
-      <p className="text-xs text-gray-400">
-        Compares document counts against the reporting layer per template, and flags
-        structural gaps (missing views, legacy pre-split tables, column drift).
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-400">
+          Compares document counts against the reporting layer per template, and flags
+          structural gaps (missing views, legacy pre-split tables, column drift).
+        </p>
+        <button
+          onClick={handleRefresh}
+          disabled={anyLoading}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          title="Re-check parity for all namespaces"
+        >
+          <RefreshCw size={12} className={anyLoading ? 'animate-spin' : ''} />
+          Check parity
+        </button>
+      </div>
       {namespaces.map((ns, i) => {
         const q = results[i]
         if (q?.isLoading) return <LoadingState key={ns} label={`Checking ${ns}...`} />
