@@ -184,4 +184,107 @@ describe('executeTool — list_terms', () => {
     const url = mockFetch.mock.calls[0]![0] as string
     expect(url).toContain('/terminologies/T-001/terms')
   })
+
+  it('resolves terminology_value through the list endpoint\'s items/terminology_id', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ items: [{ terminology_id: 'tid-1', value: 'SHAPES' }], total: 1 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ items: [], total: 0 }),
+      })
+
+    await executeTool('list_terms', { terminology_value: 'SHAPES', namespace: 'dev' })
+    expect(mockFetch).toHaveBeenCalledTimes(2)
+    expect(mockFetch.mock.calls[0]![0]).toContain('/terminologies?value=SHAPES&namespace=dev')
+    expect(mockFetch.mock.calls[1]![0]).toContain('/terminologies/tid-1/terms?page_size=1000')
+  })
+
+  it('reports not found when the lookup returns no items', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ items: [], total: 0 }),
+    })
+    const result = await executeTool('list_terms', { terminology_value: 'NOPE' })
+    expect(result).toEqual({ error: 'Terminology "NOPE" not found' })
+  })
+})
+
+describe('executeTool — query_by_template', () => {
+  const mockFetch = vi.fn()
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', mockFetch)
+    mockFetch.mockReset()
+    mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ items: [] }) })
+  })
+
+  it('sends the documents/query wire shape with namespace as a query param', async () => {
+    await executeTool('query_by_template', {
+      template_value: 'PERSON',
+      namespace: 'hr',
+      filters: { status: 'ACTIVE', 'data.city': 'Bern' },
+      limit: 5,
+      page: 2,
+    })
+    const [url, init] = mockFetch.mock.calls[0]!
+    expect(url).toContain('/api/document-store/documents/query?namespace=hr')
+    expect(JSON.parse(init.body as string)).toEqual({
+      template_id: 'PERSON',
+      filters: [
+        { field: 'data.status', operator: 'eq', value: 'ACTIVE' },
+        { field: 'data.city', operator: 'eq', value: 'Bern' },
+      ],
+      page: 2,
+      page_size: 5,
+    })
+  })
+
+  it('defaults to page 1 / 20 per page and caps page_size at 100', async () => {
+    await executeTool('query_by_template', { template_value: 'PERSON', namespace: 'hr', limit: 500 })
+    const body = JSON.parse(mockFetch.mock.calls[0]![1]!.body as string)
+    expect(body).toMatchObject({ filters: [], page: 1, page_size: 100 })
+
+    await executeTool('query_by_template', { template_value: 'PERSON', namespace: 'hr' })
+    const body2 = JSON.parse(mockFetch.mock.calls[1]![1]!.body as string)
+    expect(body2).toMatchObject({ page: 1, page_size: 20 })
+  })
+})
+
+describe('executeTool — describe_data_model', () => {
+  const mockFetch = vi.fn()
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', mockFetch)
+    mockFetch.mockReset()
+  })
+
+  it('reads list items and maps template_id / terminology_id', async () => {
+    mockFetch.mockImplementation((url: string) =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve(
+            url.includes('/template-store/')
+              ? { items: [{ template_id: 'tpl-1', value: 'PERSON', namespace: 'hr', version: 3, fields: [{}, {}], identity_fields: ['email'] }] }
+              : { items: [{ terminology_id: 'trm-1', value: 'COUNTRY', namespace: 'wip', term_count: 250 }] },
+          ),
+      }),
+    )
+
+    const result = (await executeTool('describe_data_model', {})) as {
+      templates: Array<Record<string, unknown>>
+      terminologies: Array<Record<string, unknown>>
+    }
+    const urls = mockFetch.mock.calls.map((c) => c[0] as string)
+    expect(urls.some((u) => u.includes('latest_only=true') && u.includes('page_size=1000'))).toBe(true)
+    expect(result.templates).toEqual([
+      expect.objectContaining({ id: 'tpl-1', value: 'PERSON', namespace: 'hr', field_count: 2 }),
+    ])
+    expect(result.terminologies).toEqual([
+      expect.objectContaining({ id: 'trm-1', value: 'COUNTRY', term_count: 250 }),
+    ])
+  })
 })

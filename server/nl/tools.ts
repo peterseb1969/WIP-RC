@@ -93,23 +93,24 @@ export const toolDefinitions: Anthropic.Tool[] = [
         filters: {
           type: 'object',
           description:
-            'Optional field-value filters. Keys are field names, values are the filter values. Term fields must be UPPERCASE.',
+            'Optional field-value filters (exact match, AND). Keys are data field names, values are the filter values. Term fields must be UPPERCASE.',
           additionalProperties: true,
         },
         namespace: {
           type: 'string',
-          description: 'Optional namespace to scope the query',
+          description:
+            'Namespace the template lives in (from describe_data_model). Required: template values are only unique within a namespace.',
         },
         limit: {
           type: 'number',
-          description: 'Max documents to return (default 20, max 100)',
+          description: 'Max documents per page (default 20, max 100)',
         },
-        offset: {
+        page: {
           type: 'number',
-          description: 'Offset for pagination (default 0)',
+          description: 'Page number for pagination, starting at 1 (default 1)',
         },
       },
-      required: ['template_value'],
+      required: ['template_value', 'namespace'],
     },
   },
   {
@@ -215,14 +216,25 @@ export async function executeTool(
     }
 
     case 'query_by_template': {
-      const body: Record<string, unknown> = {
-        template_value: input.template_value,
+      // The query endpoint takes the template value in template_id (resolved
+      // within ?namespace=), paginates by page/page_size, and wants filters as
+      // a list of {field, operator, value} on data.* paths.
+      const filters =
+        input.filters && typeof input.filters === 'object'
+          ? Object.entries(input.filters as Record<string, unknown>).map(([field, value]) => ({
+              field: field.startsWith('data.') ? field : `data.${field}`,
+              operator: 'eq',
+              value,
+            }))
+          : []
+      const body = {
+        template_id: String(input.template_value ?? ''),
+        filters,
+        page: Math.max(1, Number(input.page) || 1),
+        page_size: Math.min(100, Math.max(1, Number(input.limit) || 20)),
       }
-      if (input.filters) body.filters = input.filters
-      if (input.namespace) body.namespace = input.namespace
-      body.limit = input.limit ?? 20
-      body.offset = input.offset ?? 0
-      return wipPost('/api/document-store/documents/query', body)
+      const params = new URLSearchParams({ namespace: String(input.namespace ?? '') })
+      return wipPost(`/api/document-store/documents/query?${params}`, body)
     }
 
     case 'run_report_query': {
@@ -248,7 +260,7 @@ export async function executeTool(
     case 'list_terms': {
       if (input.terminology_id) {
         return wipGet(
-          `/api/def-store/terminologies/${input.terminology_id}/terms?limit=500`
+          `/api/def-store/terminologies/${input.terminology_id}/terms?page_size=1000`
         )
       }
       if (input.terminology_value) {
@@ -258,31 +270,26 @@ export async function executeTool(
         if (input.namespace) params.set('namespace', String(input.namespace))
         const terminologies = (await wipGet(
           `/api/def-store/terminologies?${params}`
-        )) as { terminologies?: Array<{ id: string }> }
-        const tList = terminologies.terminologies ?? []
-        if (tList.length === 0) {
-          return { error: `Terminology "${input.terminology_value}" not found` }
-        }
-        const first = tList[0]
+        )) as { items?: Array<{ terminology_id: string }> }
+        const first = terminologies.items?.[0]
         if (!first) return { error: `Terminology "${input.terminology_value}" not found` }
-        const tid = first.id
-        return wipGet(`/api/def-store/terminologies/${tid}/terms?limit=500`)
+        return wipGet(`/api/def-store/terminologies/${first.terminology_id}/terms?page_size=1000`)
       }
       return { error: 'Provide either terminology_id or terminology_value' }
     }
 
     case 'describe_data_model': {
       const [templates, terminologies] = await Promise.all([
-        wipGet('/api/template-store/templates?status=active&limit=100') as Promise<{
-          templates?: Array<Record<string, unknown>>
+        wipGet('/api/template-store/templates?status=active&latest_only=true&page_size=1000') as Promise<{
+          items?: Array<Record<string, unknown>>
         }>,
-        wipGet('/api/def-store/terminologies?status=active&limit=200') as Promise<{
-          terminologies?: Array<Record<string, unknown>>
+        wipGet('/api/def-store/terminologies?status=active&page_size=1000') as Promise<{
+          items?: Array<Record<string, unknown>>
         }>,
       ])
       return {
-        templates: (templates.templates ?? []).map((t) => ({
-          id: t.id,
+        templates: (templates.items ?? []).map((t) => ({
+          id: t.template_id,
           value: t.value,
           label: t.label,
           namespace: t.namespace,
@@ -290,8 +297,8 @@ export async function executeTool(
           field_count: Array.isArray(t.fields) ? t.fields.length : 0,
           identity_fields: t.identity_fields,
         })),
-        terminologies: (terminologies.terminologies ?? []).map((t) => ({
-          id: t.id,
+        terminologies: (terminologies.items ?? []).map((t) => ({
+          id: t.terminology_id,
           value: t.value,
           label: t.label,
           namespace: t.namespace,
