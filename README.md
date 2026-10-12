@@ -80,7 +80,7 @@ docker build --build-arg VITE_BASE_PATH=/apps/rc/ -t rc-console .
 docker run -p 3011:3011 --env-file .env rc-console
 ```
 
-The image's healthcheck hits `${APP_BASE_PATH}/health`. CI: `.gitea/workflows/test.yaml` runs tsc, the test suite and a production build. `.github/workflows/build.yaml` builds and pushes a dual-arch image to GHCR on manual trigger.
+The image's healthcheck hits `${APP_BASE_PATH}/health` (public even in OIDC mode; `/api/health` is an alias for the deployable-app contract, and `/api/app-config` serves `{"namespace": null}`). CI: `.gitea/workflows/test.yaml` runs tsc, the test suite and a production build. `.github/workflows/build.yaml` builds and pushes a dual-arch image to GHCR on manual trigger.
 
 ## Environment variables
 

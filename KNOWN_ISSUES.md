@@ -38,20 +38,17 @@
 **Description:** The Source/Target template pickers in the template builder list only entity and reference templates in the edge type's namespace.
 **Context:** An edge document's `source_ref`/`target_ref` must resolve within the edge's own namespace (the platform rejects cross-namespace edges), and a bare value resolves only there. Endpoints that don't exist in the selected namespace (e.g. a duplicate retargeted to another namespace) are listed ticked with "not in <ns>" so they can be removed.
 
-### Document form: reference picker queries only the first target, from a 100-template list
+### Document form: reference picker queries only the first target, at most 50 candidates
 **Status:** known
-**Severity:** medium
-**Description:** `DocumentRefPicker` (`src/components/documents/ReferenceFieldInput.tsx`) has three limits:
-- It only queries the first entry in `target_templates`. Templates allowing several target templates only offer candidates from the first.
-- It resolves that target against `useTemplates({ status: 'active', latest_only: true, page_size: 100 })` across all namespaces. wip-local has more than 100 templates, so a target outside that page resolves to nothing and the picker offers no candidates.
-- It loads at most 50 candidate documents.
-**Context:** Merging results from several `useDocuments` queries, resolving the target through a scoped or by-value lookup, and adding search are the fixes. Not yet done.
+**Severity:** low
+**Description:** `DocumentRefPicker` (`src/components/documents/ReferenceFieldInput.tsx`) only queries the first entry in `target_templates` — templates allowing several targets offer candidates from the first only — and loads at most 50 candidate documents.
+**Context:** Merging several `useDocuments` queries and adding search are the fixes. (Target resolution used to run against a 100-template list and could find nothing on installs with more templates; fixed 2026-10-12 — every all-templates list now fetches the API maximum of 1000.)
 
 ### Document form: term fields load at most 1000 terms
 **Status:** deferred
 **Severity:** low
 **Description:** `TermFieldInput` loads up to 1000 active terms from the referenced terminology (the API's page maximum). Larger terminologies have unreachable terms in the picker.
-**Context:** The cap was raised from 100. Beyond 1000 a debounced scoped search is needed; the pattern exists in `TermSearchPicker`. The header comment in `TermFieldInput.tsx` still says 100.
+**Context:** The cap was raised from 100 (comment and the "showing the first N" notice now match, 2026-10-12). Beyond 1000 a debounced scoped search is needed; the pattern exists in `TermSearchPicker`.
 
 ### Document form: nested-object arrays are read-only placeholders
 **Status:** deferred

@@ -10,7 +10,8 @@ Browser (React SPA)
 Vite dev server :5174 (dev, proxies to Express) / Express static (prod)
     ↓
 Express backend :3011 — every route mounted under APP_BASE_PATH (e.g. /apps/rc)
-    ├── /health                      → liveness, no WIP dependency
+    ├── /health, /api/health         → liveness, public, no WIP dependency
+    ├── /api/app-config              → runtime client config ({namespace: null})
     ├── /auth/callback, /auth/logout → standalone OIDC flow (server/auth.ts)
     ├── /wip/*                       → @wip/proxy → WIP gateway (key injected)
     ├── /api/me                      → identity: gateway headers → OIDC session → anonymous

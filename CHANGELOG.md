@@ -20,6 +20,16 @@ Session APP-RC-20261012-143854. The clone was 37 commits behind origin. It was r
 - Fixed: the edge-type endpoint pickers listed templates from every namespace, so a value present in several namespaces appeared and ticked once per namespace. They now list the edge type's own namespace only, which is the only place endpoints resolve. Reference-usage templates are now offered (only relationship templates are excluded). A selected endpoint with no template in the namespace is shown ticked with "not in <ns>" so it can be removed.
 - Fixed: the template list feeding the field reference pickers was capped at 100 templates. It now uses 1000, the API maximum.
 
+### Fixes found during the documentation pass
+- Fixed: every other "all templates" list (document list selector, document import, reference field picker target resolution, template detail, batch sync, traversal, cross-namespace template resolution) was capped at 100 or 200; all now fetch 1000. On wip-local (155 templates) the reference picker could resolve no target and offer no candidates.
+- Fixed: the term picker said "Showing first 100 terms" from 100 terms on, although it loads up to 1000.
+- Fixed: terminology CSV import sent a non-numeric `sort_order` as `NaN`; blank or non-integer values are now omitted.
+- Fixed: in standalone OIDC mode the container healthcheck (`/health`) redirected to Dex — the public-path list named `/api/health`. Both are public now. Added the deployable-app contract's `/api/health` alias and `/api/app-config` (`{"namespace": null}`).
+- Changed: `.env.example` brought current (port 3011, `WIP_API_KEY_FILE`, optional auth/admin/model variables).
+
+### Documentation
+- README, ARCHITECTURE, WIP_DEPENDENCIES, KNOWN_ISSUES and this changelog caught up with everything since 2026-04-11; new IMPORT_FORMATS.md; JSDoc on every exported component, hook and helper.
+
 ## 2026-08-20 — Sorting, logout, parity and NATS robustness
 
 - Added: server-side sorting (`sort_by`/`sort_order`, default `updated_at` desc) on the Templates, Terminologies, Documents and Files list pages. The choice persists per page. Adopted @wip/client 0.51.0 / @wip/react 0.20.0.

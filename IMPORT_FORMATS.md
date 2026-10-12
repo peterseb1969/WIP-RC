@@ -126,7 +126,7 @@ Code: `src/components/terminologies/ImportPanel.tsx`, `src/lib/terminology-impor
 - **Namespace:** the top-bar namespace is required, and the wizard warns until one is selected.
 - **Results:** total rows / succeeded / failed / skipped counts, each successful row tagged new or updated (`is_new`), and up to 50 row-level errors (`row`, `error`).
 - **Known issues:**
-  - The template step's list is capped at 100 templates. Beyond that, a template is only reachable via `?template=`.
+  - The template step lists up to 1000 templates (the API page maximum); beyond that, a template is only reachable via `?template=`.
   - Arrays, objects, and file fields have no CSV encoding defined client-side, so they depend on the server's conversion.
 - **Sample** (template with fields `name`, `email`, `country` [term]):
   ```csv
