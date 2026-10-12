@@ -2,89 +2,132 @@
 
 ## Open Issues
 
-### Document form: term fields capped at 100 entries
+### Platform: first query after a column-changing view replace fails (CASE-859)
+**Status:** known (upstream, open)
+**Severity:** medium
+**Description:** After a registered view is replaced with a definition that has a different column set, the next `POST /api/reporting-sync/query` against it returns 400 "cached statement plan is invalid due to a database schema or configuration change". The query after that succeeds. This reproduces deterministically: one failure per replace on wip-local.
+**Context:** reporting-sync reuses a pooled connection's prepared plan across the view's DROP + CREATE. RC's view row preview (`useQueryRows` in `src/hooks/use-reporting.ts`) retries exactly this error once. The Query Pad, the NL agent's `run_report_query` and MCP callers still see it. Remove the retry once CASE-859 ships.
+
+### Platform: `ReportQueryResult.rows` is mistyped in @wip/client (CASE-861)
+**Status:** known (upstream, open)
+**Severity:** low
+**Description:** @wip/client types query rows as `unknown[][]`, but reporting-sync returns objects keyed by column (`{"rows":[{"n":1}]}`). A query that returns no rows also comes back with `columns: []`, because the server derives column names from the first row.
+**Context:** RC calls `/query` directly (`useRunQuery` / `useQueryRows`) with its own `Record<string, unknown>[]` type rather than `client.reporting.runQuery`. Empty results therefore render "returns no rows" with no column headers.
+
+### Platform: legacy edge-type endpoints serve `resolved: null` (CASE-858)
+**Status:** known (upstream, open)
+**Severity:** cosmetic for RC
+**Description:** Edge types created before the two-half endpoint shape (CASE-830) still serve `{lookup_value, resolved: null}` on every endpoint. That is 99 entries across kb, library, dev-wip-song and restore-rerun.
+**Context:** RC reads `lookup_value` everywhere (template detail, builder pickers), which is also a valid write input, so it is unaffected. Don't switch RC to `resolved` until CASE-858 is fixed.
+
+### Registered views: edits to app-owned views are overwritten by the app
+**Status:** known (by design)
+**Severity:** low
+**Description:** Apps re-register their views on every bootstrap. Replacing an app-registered view from the Views tab lasts only until that app next starts.
+**Context:** This is the platform's intended lifecycle. The Views tab detects views whose `registered_by` isn't this console and shows a warning in both the detail and edit views. RC stamps its own saves `rc-console:<user>`.
+
+### Registered views: listing can be stale after a Vite hot-reload (dev only)
+**Status:** known
+**Severity:** cosmetic
+**Description:** In `npm run dev`, a hot-reload of the views hooks module can leave the Views tab's listing showing the previous definition after a save, while the row preview is current. A normal page load does not reproduce it, and it was verified clean on reload.
+**Context:** A development artifact of module hot replacement, not a production issue.
+
+### Edge-type endpoint picker offers only the edge's own namespace
+**Status:** known (by design)
+**Severity:** low
+**Description:** The Source/Target template pickers in the template builder list only entity and reference templates in the edge type's namespace.
+**Context:** An edge document's `source_ref`/`target_ref` must resolve within the edge's own namespace (the platform rejects cross-namespace edges), and a bare value resolves only there. Endpoints that don't exist in the selected namespace (e.g. a duplicate retargeted to another namespace) are listed ticked with "not in <ns>" so they can be removed.
+
+### Document form: reference picker queries only the first target, from a 100-template list
+**Status:** known
+**Severity:** medium
+**Description:** `DocumentRefPicker` (`src/components/documents/ReferenceFieldInput.tsx`) has three limits:
+- It only queries the first entry in `target_templates`. Templates allowing several target templates only offer candidates from the first.
+- It resolves that target against `useTemplates({ status: 'active', latest_only: true, page_size: 100 })` across all namespaces. wip-local has more than 100 templates, so a target outside that page resolves to nothing and the picker offers no candidates.
+- It loads at most 50 candidate documents.
+**Context:** Merging results from several `useDocuments` queries, resolving the target through a scoped or by-value lookup, and adding search are the fixes. Not yet done.
+
+### Document form: term fields load at most 1000 terms
 **Status:** deferred
 **Severity:** low
-**Description:** `TermFieldInput` loads up to 100 active terms from the referenced terminology. Terminologies with more than 100 active terms will have some terms unreachable via the picker.
-**Context:** Almost all practical terminologies fit well under this cap. Beyond that we'd need a debounced scoped search (pattern exists in `TermSearchPicker`). Tracked for v2. File a CASE to BE-YAC if encountered in practice.
+**Description:** `TermFieldInput` loads up to 1000 active terms from the referenced terminology (the API's page maximum). Larger terminologies have unreachable terms in the picker.
+**Context:** The cap was raised from 100. Beyond 1000 a debounced scoped search is needed; the pattern exists in `TermSearchPicker`. The header comment in `TermFieldInput.tsx` still says 100.
 
 ### Document form: nested-object arrays are read-only placeholders
 **Status:** deferred
 **Severity:** low
-**Description:** Array fields whose items are nested template objects (`array_template_ref` set, `array_item_type` null or `object`) render as a gray "not editable in the form view yet" notice. The form view does not currently support per-item sub-forms. Encountered on `aa.AA_CHARACTER.relationships`.
-**Context:** Editing these fields requires a nested FieldInput-per-subfield UI that cleanly handles dirty tracking and validation per row. v2 work. Until then, nested-object arrays can be edited via the API, MCP tools, or a JSON scratchpad.
-
-### Document form: reference pickers query first target only
-**Status:** known
-**Severity:** low
-**Description:** `ReferenceFieldInput` for document references only queries the first entry in `target_templates`. Templates with multiple allowed target templates will only show candidates from the first.
-**Context:** Rare in practice. Fix requires merging results from multiple `useDocuments` queries. Low priority.
+**Description:** Array fields whose items are nested template objects (`array_template_ref` set, `array_item_type` unset) render a gray "Nested object arrays aren't editable in the form view yet" notice (`ArrayFieldInput.tsx`). Encountered on `aa.AA_CHARACTER.relationships`.
+**Context:** Editing them needs a per-item sub-form with its own dirty tracking and validation. Until then, edit via the API, MCP tools, or a JSON tool.
 
 ### Document form: file uploads orphan on form abandonment
 **Status:** known
 **Severity:** low
-**Description:** If the user uploads a file into a `file` field and then cancels or navigates away without saving, the upload remains in storage with `reference_count = 0`.
-**Context:** The Files page lists orphan candidates. A future `/improve` pass could either (a) track pending uploads in session storage and prompt on unload or (b) add a server-side TTL on unreferenced files. For v1, manual cleanup is fine.
+**Description:** A file uploaded into a `file` field stays in storage with `reference_count = 0` if the form is cancelled or abandoned.
+**Context:** The Files page flags orphans (`reference_count === 0` / status `orphan`) for manual cleanup. Possible fixes are tracking pending uploads and prompting on unload, or a server-side TTL on unreferenced files.
 
-### Document form: object fields use JSON textarea
+### Document form: object fields use a JSON textarea
 **Status:** known (by design)
 **Severity:** cosmetic
-**Description:** Object-type fields render as a plain textarea with JSON.parse validation, not a keyed form.
-**Context:** This is an admin tool, not a general data entry app. A rich nested-object editor is a significant lift with diminishing returns. The textarea is sufficient for power users who understand JSON structure.
+**Description:** Object-type fields render as a plain textarea with JSON parse validation, not a keyed form (`ObjectFieldInput.tsx`).
+**Context:** This is an admin tool. The textarea is enough for users who understand the JSON structure.
 
-### NL Query requires ANTHROPIC_API_KEY
+### NL Query needs an Anthropic key
 **Status:** known
 **Severity:** low
-**Description:** The NL Query page shows an "unavailable" notice when ANTHROPIC_API_KEY is not set in .env. This is by design — the feature requires a paid API key.
-**Context:** The app is fully functional without NL Query. All other pages work without it.
+**Description:** The NL Query page shows an "unavailable" notice unless `ANTHROPIC_API_KEY` is set, or a key is provided at runtime on the API Keys page (held in memory only, lost on restart). wip-local currently has neither, so the agent's end-to-end behaviour, including the `list_registered_views` tool added 2026-10-12, has only been verified at the tool level (`executeTool` against live WIP), not through Claude.
+**Context:** Everything else in the app works without it.
 
-### No CodeMirror for SQL editor
+### No CodeMirror for SQL editors
 **Status:** deferred
 **Severity:** cosmetic
-**Description:** The PostgreSQL query pad uses a plain textarea instead of CodeMirror with SQL syntax highlighting. DESIGN.md originally specified CodeMirror.
-**Context:** Deferred to keep the initial build focused. A textarea with monospace font works fine for ad-hoc queries. CodeMirror can be added via `/improve`.
+**Description:** The Query Pad and the view editor use plain monospace textareas without SQL syntax highlighting.
+**Context:** Works fine for ad-hoc queries. CodeMirror can be added via `/wip-improve`.
 
 ### No ontology graph visualization
 **Status:** deferred
 **Severity:** low
-**Description:** The existing Vue console uses Cytoscape.js for ontology relationship graphs. RC-Console shows term details but not a graph view.
-**Context:** Peter approved deferring this. The ontology browser can be added as a sub-route on the terminology detail page.
+**Description:** The Vue console draws ontology graphs with Cytoscape.js. RC shows term relations (Relationships tab) and a Hierarchy tab, but no graph view.
+**Context:** Peter approved deferring this.
 
-### Chunk size warning on build
+### Bundle size warning on build
 **Status:** known
 **Severity:** cosmetic
-**Description:** Vite warns that the JS bundle exceeds 500KB (currently ~822KB). Could be reduced with code splitting via dynamic imports.
-**Context:** Not a functional issue. All pages load fine. Can be addressed with `React.lazy()` and route-based splitting.
+**Description:** The production JS bundle is one chunk of about 1,112 kB (288 kB gzipped; measured 2026-10-12), above Vite's 500 kB warning.
+**Context:** Not a functional issue. Route-based splitting with `React.lazy()` would reduce it.
 
 ### No E2E tests
 **Status:** deferred
 **Severity:** medium
-**Description:** Only unit tests exist (35 tests). No E2E tests with a real WIP instance.
-**Context:** Requires a running WIP instance in CI. Can be added with Playwright.
+**Description:** Only unit tests exist (114 tests in 10 files as of 2026-10-12). The CI gate runs tsc, vitest and a production build, but nothing against a real WIP instance.
+**Context:** Needs a running WIP instance in CI. Could be added with Playwright. Features have been verified manually in the browser against wip-local.
 
-### Document table view returns 500 on some templates (CASE-35)
-**Status:** open
-**Severity:** medium
-**Description:** The table view (`/documents/:tv/table`) returns a 500 error for some templates. The root cause is under investigation on the WIP side.
-**Context:** Not all templates are affected. Standard templates with simple field types work fine.
-
-### MongoDB document filter is basic
+### MongoDB page has no document filter
 **Status:** known
 **Severity:** low
-**Description:** MongoDB document browsing only supports filtering by a single field=value pair. No support for range queries, regex, or nested field access.
-**Context:** Sufficient for quick inspection. Advanced querying should go through the NL Query interface.
+**Description:** The MongoDB page lists a collection's documents, paginated, with no filter in the UI. The backend route (`server/infra/mongo.ts`) accepts a single `filter_field`/`filter_value` equality pair, but nothing exposes it.
+**Context:** Enough for quick inspection. Targeted queries go through the Documents pages, the PostgreSQL Query Pad, or NL Query.
 
 ## Resolved Issues
+
+### Document table view returned 500 on some templates (CASE-35)
+**Resolved:** before 2026-10-12 (CASE-35 closed, platform side)
+**Description:** `GET /api/document-store/table/{template_id}` returned 500 for some templates (e.g. `aa.AA_CHARACTER`).
+**Resolution:** Fixed in WIP. The current `AA_CHARACTER` template's table view returns 200 on wip-local (checked 2026-10-12).
+
+### Term picker capped at 100 terms
+**Resolved:** before 2026-10-12
+**Description:** `TermFieldInput` loaded only 100 terms per terminology.
+**Resolution:** It now requests `page_size: 1000`. See the open issue for the remaining 1000 cap.
 
 ### OIDC auth not tested end-to-end
 **Resolved:** 2026-04-09
 **Description:** OIDC auth middleware was untested with a live Dex instance from this console.
-**Resolution:** Tested end-to-end as part of CASE-38 production deployment. Added OAuth state parameter, trust proxy, and session cookie path fixes.
+**Resolution:** Tested end-to-end as part of CASE-38 production deployment. Added the OAuth state parameter, trust proxy, and session cookie path fixes.
 
 ### Backup archive OOM on large namespaces (CASE-28)
 **Resolved:** 2026-04-09
 **Description:** ArchiveWriter caused OOM when backing up large namespaces.
-**Resolution:** Fixed on the WIP side. RC-Console backup page uses streaming download proxy to handle large archives without buffering the entire response in memory.
+**Resolution:** Fixed on the WIP side. Backup downloads stream through the Express proxy, and since 2026-07 restore uploads stream too (@wip/proxy 0.5.0).
 
 ### Template duplicate creates broken copy (CASE-36)
 **Resolved:** 2026-04-09
@@ -93,5 +136,5 @@
 
 ### Vite pre-bundled deps cache after lib bump
 **Resolved:** 2026-04-08
-**Description:** After bumping @wip/client and @wip/react, Vite served stale pre-bundled exports, causing `SyntaxError: does not provide an export named 'useUpdateDocument'`.
-**Resolution:** Delete `node_modules/.vite` and restart `npm run dev`. Standard Vite cache hygiene after tarball bumps. Not a code bug.
+**Description:** After bumping @wip/client and @wip/react, Vite served stale pre-bundled exports (`SyntaxError: does not provide an export named …`).
+**Resolution:** Delete `node_modules/.vite` and restart `npm run dev`. This is standard cache hygiene after tarball bumps, not a code bug.

@@ -1,5 +1,112 @@
 # RC-Console — Changelog
 
+## 2026-10-12 — Registered views, NL agent fixes, client 0.53.0
+
+Session APP-RC-20261012-143854. The clone was 37 commits behind origin. It was reset onto origin, and only the genuinely new work was re-applied.
+
+### Reporting
+- Added: **Views** tab on the PostgreSQL page for registered reporting views. These are the named, read-only SQL views a namespace keeps in its reporting schema; they are not part of the `/tables` inventory. The tab lists views across all namespaces, filterable by namespace and by name/SQL. Selecting a view shows its definition, who registered it and when, and a row preview, with Open in Query Pad. You can create or replace a view, with a Test preview before saving, and delete one. Server validation errors are shown as returned. Views registered by an app carry a note that the app's bootstrap re-registers them.
+- Added: the Query Pad can be opened pre-filled (namespace + SQL) from other tabs.
+- Known issues: the first query after a column-changing view replace fails on the platform side (CASE-859). The view row preview retries that error once.
+
+### NL query
+- Added: `list_registered_views` tool, plus prompt guidance to prefer an existing view over re-deriving a complex query.
+- Fixed: `query_by_template` sent a body the documents query endpoint rejects (422). It now sends `template_id` (the template value, resolved within `?namespace=`), `page`/`page_size` and `filters` as `[{field, operator, value}]`. `namespace` is now required, and `offset` became `page`.
+- Fixed: `list_terms` by terminology value always reported "not found", and `describe_data_model` always described an empty model. Both read response keys that list endpoints don't return (`items` / `terminology_id` / `template_id`). List calls now pass `page_size`, since WIP ignores `limit` and silently returns 50. `describe_data_model` passes `latest_only=true`.
+- Fixed: the NL tools read only `WIP_API_KEY`, so in host-mode dev (where `.env` carries `WIP_API_KEY_FILE`) every def-store/template-store/document-store call got 401. The file-first key resolver now lives in `server/wip-key.ts` and is shared.
+
+### Templates
+- Changed: adopted @wip/client 0.53.0. Edge-type `source_templates` / `target_templates` are served as `{lookup_value, resolved}` entries. The detail page had been rendering them as `[object Object]`, and edit/duplicate loaded objects into the endpoint pickers. Both now use `lookup_value`.
+- Fixed: the edge-type endpoint pickers listed templates from every namespace, so a value present in several namespaces appeared and ticked once per namespace. They now list the edge type's own namespace only, which is the only place endpoints resolve. Reference-usage templates are now offered (only relationship templates are excluded). A selected endpoint with no template in the namespace is shown ticked with "not in <ns>" so it can be removed.
+- Fixed: the template list feeding the field reference pickers was capped at 100 templates. It now uses 1000, the API maximum.
+
+## 2026-08-20 — Sorting, logout, parity and NATS robustness
+
+- Added: server-side sorting (`sort_by`/`sort_order`, default `updated_at` desc) on the Templates, Terminologies, Documents and Files list pages. The choice persists per page. Adopted @wip/client 0.51.0 / @wip/react 0.20.0.
+- Added: refresh buttons for NATS stream details and for the Parity check.
+- Fixed: logout now returns to the app's base path instead of a 404 at the site root (`return_to` on `/auth/logout`).
+- Fixed: the Parity panel crashed when the API returned `null` counts.
+- Fixed: an unreachable NATS now renders as the inactive state instead of an error, which matters on cross-cluster k8s deployments.
+- Fixed: the batch sync job summary shows the synced vs no-op breakdown.
+- Fixed: the document-store health probe hits its health endpoint instead of running a document query.
+- Changed: adopted @wip/client 0.49.0 / @wip/proxy 0.5.1 via scaffold refreshes.
+
+## 2026-07-26 — PostgreSQL browser filters and full table view
+
+- Added: filter bar on the reporting Table Browser: namespace chips, name search, kind (views/tables), and default-on toggles that hide per-version `doc_*__vN` tables and empty tables. Filter state lives in the URL.
+- Added: the table detail panel is now a full server-paginated table (25/50/100 per page) with typed cell formatting and CSV export, matching the document Table View.
+
+## 2026-07-18 → 2026-07-22 — Reporting layout, backup/restore surface, template versioning
+
+### Reporting
+- Added: entity-first Table Browser, with tables grouped by template entity and view/table/legacy badges, falling back to a flat list on older installs. Added a **Parity** tab showing per-template view, version and legacy-table state (CASE-710).
+- Added: the template editor gained a cross-version view editor and a Field Renames section. The template detail page shows both read-only.
+- Changed: batch sync can be scoped to a namespace (@wip/client 0.44.0).
+
+### Backup & restore
+- Added: the page now exposes the platform's whole backup/restore/validate surface, including restore modes, namespace mapping on fresh restore, a dry-run Preview restore, and namespace validation.
+- Changed: restore uploads stream through @wip/proxy 0.5.0 instead of buffering, and the bespoke upload route was retired. Combined-archive filenames list their namespaces.
+- Removed: the "Latest versions only" / include-inactive toggles, which the platform ignored.
+
+### Templates & documents
+- Added: after a save that creates a new template version, the impact is shown: schema diff, live documents per version, and the migration verdict (CASE-722). Undeterminable values read "could not be determined", never zero.
+- Added: Version History rows open an inline inspector with a field-level diff against the current version.
+- Fixed: Deactivate acts on the version being viewed, not the latest.
+- Fixed: the Documents page offers templates owned by another namespace when the selected namespace has documents based on them.
+- Fixed: the term Hierarchy tab renders non-`is_a` relations (e.g. `part_of`).
+- Changed: integrity results branch on the platform's `result_kind` discriminator.
+
+### Keys & libraries
+- Added: API keys show runtime/config tier badges with guidance. Config keys resolve effective permissions from the registry's grants field.
+- Fixed: server routes and the `/wip` proxy honour `WIP_API_KEY_FILE` (the live wip-deploy secrets file), falling back to the inline `WIP_API_KEY` (@wip/proxy 0.4.3).
+- Changed: adopted @wip/client 0.34–0.47 (renamed ontology surfaces, typed grants, real template facets, force semantics).
+- Added: Gitea Actions offline CI gate (tsc, vitest, production build).
+
+## 2026-07-05 → 2026-07-12 — Grants, per-namespace reporting schemas, terminology import
+
+- Added: namespace grants management. Each namespace row on the Namespaces page can list, add and revoke grants, and API keys show their effective per-namespace permissions. Console-created scoped keys previously had no way to receive write access.
+- Added: terminologies and templates can be found by UUID in list-page search.
+- Added: by-term search mode on the Registry page (CASE-572).
+- Added: terminology import from a file, available both on the list page (with a naming step) and inside an existing terminology. OBO Graph JSON and plain-text `.obo` import terms *and* relations through the server's ontology importer. CSV and JSON arrays import terms in bulk with per-item failure reporting.
+- Fixed: every raw-SQL reporting surface was adapted to one PostgreSQL schema per namespace (CASE-628). The table browser groups by namespace using server-provided qualified names, the Query Pad has a namespace selector, CSV export passes the namespace, and the NL agent forwards it.
+- Changed: adopted @wip/client 0.30–0.31 and @wip/proxy 0.4.2. 0.4.1 crashed at mount under Express 5 (CASE-637) and was briefly rolled back.
+
+## 2026-06-11 → 2026-06-29 — Backup fan-out, build provenance, deployability
+
+- Added: backups across several namespaces at once, either one archive per namespace (in parallel, each with its own progress card) or one combined archive. Restore UX is safer.
+- Added: the dashboard shows per-service build provenance (version, sha, build time, image tag) where services expose it.
+- Added: an Anthropic key can be set at runtime from the API Keys page (in memory only, validated with a 1-token probe) as an alternative to `ANTHROPIC_API_KEY`.
+- Added: pinned-version pickers for template-to-template references (extends, nested object/array refs). The platform no longer accepts an unpinned "latest".
+- Added: Reactivate action for deactivated template versions.
+- Added: build-stamp footer.
+- Fixed: template versions are scoped to their namespace.
+- Changed: @wip/* are pinned to versioned, immutable tarballs checked into `libs/`, so CI can build images from git alone. Added a GitHub workflow building dual-arch images for GHCR.
+
+## 2026-05-31 → 2026-06-08 — Housekeeping
+
+- Fixed: enabling full deletion on a namespace sends the required `confirm_enable_deletion`.
+- Changed: backup archive filenames carry the namespace and a timestamp.
+- Changed: slash commands were renamed with the `wip-` prefix, and gitea references moved to `gitea.internal`.
+
+## 2026-04-28 → 2026-05-11 — Edge types, full-text search, header fields, brand theme
+
+- Added: edge-type (relationship template) support end to end: a usage filter and badges on the template list and detail, edge-type creation in the template editor (with source/target endpoints and automatic `source_ref`/`target_ref` fields), edge-aware document list, form and detail, and Relationships and Traversal sections on document detail.
+- Added: full-text search surfaces (CASE-150).
+- Added: `header_fields` editor and display on templates. Relationship peers, relationship endpoint chips and document list rows render a compact header-fields summary, falling back to identity fields.
+- Added: batch sync admin surface on the PostgreSQL page.
+- Added: brand palette tokens, Inter font, and WIP footer attribution. Raw palette utilities were swept to tokens, and NL query uses prompt caching.
+- Fixed: file uploads forward the namespace, and fresh uploads appear immediately.
+- Fixed: the reporting tables count reads the database, not a runtime counter.
+
+## 2026-04-12 → 2026-04-20 — Auth modes, k8s deployment, dev container
+
+- Added: gateway auth via `X-WIP-User` headers alongside OIDC. A 401 redirects to the gateway login instead of showing stale UI.
+- Added: inactive WIP modules (e.g. reporting-sync not deployed) are detected and shown as friendly banners rather than errors.
+- Added: `Dockerfile.dev` and a Vite host/proxy setup for `wip-deploy --app-source`, with a hash-gated `npm ci` entrypoint.
+- Added: health probes report HTTP status, content type and the probed path. File-Store was added to the service checks.
+- Fixed: OIDC uses separate internal and external issuer URLs, the SPA fallback works under Express 5, file content streams through the Express proxy instead of presigned MinIO URLs, and the NL `search` tool was restored using POST.
+- Changed: the sidebar is flat again (accordion sub-menus removed). The namespace selector is dimmed on cross-namespace infrastructure pages.
+
 ## 2026-04-09 — Tier features, backup/restore, production deployment
 
 This update covers session APP-RC-20260409-1649 (~47 commits). Major feature additions across all entity types, a new backup/restore page, audit explorer, and production deployment fixes.
