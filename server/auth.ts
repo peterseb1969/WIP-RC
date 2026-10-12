@@ -37,7 +37,9 @@ const ALLOWED_GROUPS = process.env.ALLOWED_GROUPS
   : []
 
 /** Public paths that skip authentication */
-const PUBLIC_PATHS = ['/api/health', '/auth/callback', '/auth/logout']
+// Matched against the router-relative path. The health probes must stay
+// public or an OIDC-mode container redirects its own healthcheck to Dex.
+const PUBLIC_PATHS = ['/health', '/api/health', '/auth/callback', '/auth/logout']
 
 /** Comma-separated Dex/gateway groups treated as admins. Default: wip-admins. */
 const ADMIN_GROUPS = (process.env.WIP_ADMIN_GROUPS || 'wip-admins')

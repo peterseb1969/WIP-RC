@@ -4,7 +4,7 @@ import cors from 'cors'
 import session from 'express-session'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { wipProxy } from '@wip/proxy'
+import { appConfigHandler, wipProxy } from '@wip/proxy'
 import { initAuth, requireAuth, handleCallback, handleLogout } from './auth.js'
 import mongoRouter from './infra/mongo.js'
 import natsRouter from './infra/nats.js'
@@ -66,9 +66,19 @@ router.get('/auth/logout', handleLogout)
 router.use(requireAuth())
 
 // Health
-router.get('/health', (_req, res) => {
+// /health is what the wip-app.yaml healthcheck and the Dockerfile probe;
+// /api/health is the deployable-app contract's path. Both are public in
+// server/auth.ts — a probe has no session — and neither touches WIP, so the
+// container reports healthy even while WIP is unreachable.
+const health: express.RequestHandler = (_req, res) => {
   res.json({ status: 'ok', service: 'rc-console' })
-})
+}
+router.get('/health', health)
+router.get('/api/health', health)
+
+// Runtime client config (deployable-app contract). RC is a cross-namespace
+// console with no namespace of its own, so namespace is always null.
+router.get('/api/app-config', appConfigHandler({ namespace: null }))
 
 // WIP API proxy — frontend uses @wip/client with baseUrl: '/wip'
 router.use('/wip', wipProxy({
