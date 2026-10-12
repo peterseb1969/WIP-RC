@@ -207,8 +207,10 @@ export default function TemplateBuilderPage() {
     // Usage class + edge-type endpoints — wire format carries them on Template
     setUsage(existing.usage ?? 'entity')
     setVersioned(existing.versioned ?? true)
-    setSourceTemplates(existing.source_templates ?? [])
-    setTargetTemplates(existing.target_templates ?? [])
+    // Endpoints are served as {lookup_value, resolved}; the picker and the
+    // write path work on the anchor as submitted (a template value).
+    setSourceTemplates((existing.source_templates ?? []).map((e) => e.lookup_value))
+    setTargetTemplates((existing.target_templates ?? []).map((e) => e.lookup_value))
     setInitialized(true)
   }
   // For create mode (no clone), mark initialized immediately

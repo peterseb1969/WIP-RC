@@ -395,13 +395,13 @@ export default function TemplateDetailPage() {
               <span className="text-gray-500">Source:</span>
               <span className="font-mono text-gray-800">
                 {template.source_templates?.length
-                  ? template.source_templates.join(', ')
+                  ? template.source_templates.map((e) => e.lookup_value).join(', ')
                   : <span className="text-gray-400 italic">any</span>}
               </span>
               <ArrowRight size={12} className="text-gray-400" />
               <span className="font-mono text-gray-800">
                 {template.target_templates?.length
-                  ? template.target_templates.join(', ')
+                  ? template.target_templates.map((e) => e.lookup_value).join(', ')
                   : <span className="text-gray-400 italic">any</span>}
               </span>
             </div>
