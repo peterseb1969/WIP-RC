@@ -8,15 +8,15 @@
  * All tools are READ-ONLY. The NL query agent cannot modify data.
  */
 import type Anthropic from '@anthropic-ai/sdk'
+import { resolveWipApiKey } from '../wip-key.js'
 
 const WIP_BASE = process.env.WIP_BASE_URL || 'https://localhost:8443'
-const WIP_KEY = process.env.WIP_API_KEY || ''
 
 /** Standard headers for WIP API calls */
 function wipHeaders(): Record<string, string> {
   return {
     'Content-Type': 'application/json',
-    'X-API-Key': WIP_KEY,
+    'X-API-Key': resolveWipApiKey(),
   }
 }
 
