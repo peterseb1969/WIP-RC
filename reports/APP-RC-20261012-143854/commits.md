@@ -77,3 +77,35 @@
 **What:** New list_registered_views NL tool (one namespace or all live namespaces, failures reported) returning each view's SQL + quoted qualified_name; system prompt tells the agent to prefer a curated view; list_report_tables description points at it.
 **Why:** /tables excludes registered views, so the agent could only use views the user named. Gap raised in my own "are you done?" review.
 **Discovered:** wip-local has no Anthropic key configured (.env or container) — the agent itself can't be exercised end to end here; tool verified directly. Also browser-verified the endpoint picker's namespace-switch path (clone kb edge → library: all endpoints flagged "not in library", untick removes).
+
+## f395ec5 — docs: catch documentation up with six months of changes
+**Time:** 19:20
+**Files:** 6 changed, +718/-285
+**Tests:** n/a (docs); claims spot-checked (Vite port 5174, not 5173 as my brief said)
+**What:** README/ARCHITECTURE/WIP_DEPENDENCIES/KNOWN_ISSUES/CHANGELOG rewritten against current code; new IMPORT_FORMATS.md. Done by four parallel forks, each owning separate files, verifying against code, no commits — reviewed and committed here.
+**Why:** /wip-document; docs were last touched 2026-04-11 (~120 commits behind).
+
+## 111a9b1 — docs: JSDoc on every exported component, hook and helper
+**Time:** 19:20
+**Files:** 64 changed, +318/-3
+**Tests:** 114 passed; tsc clean; diff verified comment-lines-only
+**What:** 95 exports annotated; FieldInput's stale header corrected.
+
+## 5ea06d6 — fix: template pickers no longer truncate at 100/200; term cap notice; CSV sort_order
+**Time:** 19:40
+**Files:** 11 changed, +41/-16
+**Tests:** 115 passed (1 new: parseSortOrder); tsc clean
+**What:** All "all templates" lists → page_size 1000; TermFieldInput notice/cap one constant; CSV sort_order NaN → omitted.
+**Why:** Found by the doc forks. Reference picker could resolve no target on wip-local (155 templates > 100).
+
+## 4152278 — fix: public health probes, contract health/app-config routes, current .env.example
+**Time:** 19:48
+**Files:** 3 changed, +34/-11
+**Tests:** 115 passed; container probes verified (/health, /api/health, /api/app-config all 200; no-store)
+**What:** PUBLIC_PATHS fixed (/health was not public → OIDC-mode healthcheck redirected to Dex); /api/health alias + /api/app-config via @wip/proxy appConfigHandler; .env.example rewritten.
+**Discovered:** NL_QUERY_MODEL default claude-sonnet-4-6 is still served; moving to sonnet-5-5/opus-5-5 is a migration (adaptive thinking on by default vs max_tokens 4096, no refusal handling, fallbacks recommended) — deliberately NOT done: untestable without an Anthropic key on wip-local. Raised with Peter.
+
+## 18a1a76 — docs: reflect the fixes found during the documentation pass
+**Time:** 19:52
+**Files:** 5 changed, +19/-11
+**What:** KNOWN_ISSUES/IMPORT_FORMATS/README/ARCHITECTURE/CHANGELOG updated for 5ea06d6 and 4152278.
