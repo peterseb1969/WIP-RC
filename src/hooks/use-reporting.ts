@@ -1,4 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query'
+import { useWipClient } from '@wip/react'
+import type { ReportQueryResult, WipClient } from '@wip/client'
 import { apiUrl } from '@/lib/wip'
 
 // ---------------------------------------------------------------------------
@@ -50,12 +52,8 @@ export interface TableColumns {
   }>
 }
 
-export interface QueryResult {
-  columns: string[]
-  rows: Record<string, unknown>[]
-  row_count: number
-  execution_time_ms?: number
-}
+/** A `/query` result: rows keyed by column name; columns present even for an empty result. */
+export type QueryResult = ReportQueryResult
 
 // SyncStatus is now exported from @wip/client; re-export for callers that
 // still import it from this module.
@@ -154,22 +152,36 @@ export const PARITY_QUERY_KEY = (namespace: string) =>
   ['rc-console', 'parity', namespace] as const
 
 /**
+ * Runs a read-only statement through reporting-sync `/query` via the typed
+ * client. With `namespace`, unqualified names (doc_*, terms, registered views)
+ * resolve in that namespace's schema; without it, names must be qualified.
+ */
+function runReportQuery(
+  client: WipClient,
+  sql: string,
+  namespace?: string,
+  params: unknown[] = [],
+): Promise<QueryResult> {
+  return client.reporting.runQuery(sql, params, namespace ? { namespace } : undefined)
+}
+
+/**
  * Get column details for a specific table by querying information_schema.
  * The /tables endpoint only returns column_count, not names/types. The
  * table_schema filter is load-bearing: without it, tables sharing a name
  * across namespaces would merge their column lists.
  */
 export function useTableColumns(table: ReportTable | null) {
+  const client = useWipClient()
   return useQuery({
     queryKey: ['rc-console', 'table-columns', table?.namespace, table?.name],
     queryFn: async (): Promise<TableColumns> => {
-      const result = await fetchJson<QueryResult>('/query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sql: `SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = '${table!.namespace}' AND table_name = '${table!.name}' ORDER BY ordinal_position`,
-        }),
-      })
+      const result = await runReportQuery(
+        client,
+        'SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position',
+        undefined,
+        [table!.namespace, table!.name],
+      )
       return {
         table: table!.name,
         columns: result.rows.map(r => ({
@@ -184,18 +196,14 @@ export function useTableColumns(table: ReportTable | null) {
 }
 
 /**
- * First 10 rows of a reporting table or view, read through `/query` with its
- * server-quoted qualified name.
+ * First 10 rows of a reporting table or view, read with its server-quoted
+ * qualified name.
  */
 export function useTablePreview(table: ReportTable | null) {
+  const client = useWipClient()
   return useQuery({
     queryKey: ['rc-console', 'table-preview', table?.namespace, table?.name],
-    queryFn: () =>
-      fetchJson<QueryResult>('/query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sql: `SELECT * FROM ${table!.qualified_name} LIMIT 10` }),
-      }),
+    queryFn: () => runReportQuery(client, `SELECT * FROM ${table!.qualified_name} LIMIT 10`),
     enabled: !!table,
     staleTime: 30_000,
   })
@@ -206,16 +214,14 @@ export function useTablePreview(table: ReportTable | null) {
 // page/pageSize are numbers, so the interpolation is injection-safe. Total row
 // count comes from the inventory (table.row_count), so no extra COUNT query.
 export function useTablePage(table: ReportTable | null, page: number, pageSize: number) {
+  const client = useWipClient()
   return useQuery({
     queryKey: ['rc-console', 'table-page', table?.namespace, table?.name, page, pageSize],
     queryFn: () =>
-      fetchJson<QueryResult>('/query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sql: `SELECT * FROM ${table!.qualified_name} LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
-        }),
-      }),
+      runReportQuery(
+        client,
+        `SELECT * FROM ${table!.qualified_name} LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
+      ),
     enabled: !!table,
     staleTime: 30_000,
     // Keep the previous page on screen while the next one loads (smoother paging).
@@ -236,6 +242,7 @@ export interface RunQueryInput {
  * non-SELECT/WITH input client-side before the server's own read-only check.
  */
 export function useRunQuery() {
+  const client = useWipClient()
   return useMutation({
     mutationFn: async ({ sql, namespace }: RunQueryInput): Promise<QueryResult> => {
       const trimmed = sql.trim()
@@ -243,39 +250,22 @@ export function useRunQuery() {
       if (!/^\s*(SELECT|WITH)\b/i.test(trimmed)) {
         throw new Error('Only SELECT queries are allowed')
       }
-      return fetchJson<QueryResult>('/query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(namespace ? { sql: trimmed, namespace } : { sql: trimmed }),
-      })
+      return runReportQuery(client, trimmed, namespace)
     },
   })
 }
 
-/**
- * Read-only query as a cached query (e.g. a registered view's row preview).
- * Goes through /query directly rather than client.reporting.runQuery: the
- * server returns rows as objects keyed by column, which DataTable renders.
- */
+/** Read-only query as a cached query (e.g. a registered view's row preview). */
 export function useQueryRows(sql: string, namespace: string | undefined, enabled = true) {
+  const client = useWipClient()
   return useQuery({
     queryKey: ['rc-console', 'query-rows', namespace ?? '', sql],
-    queryFn: () =>
-      fetchJson<QueryResult>('/query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(namespace ? { sql, namespace } : { sql }),
-      }),
+    queryFn: () => runReportQuery(client, sql, namespace),
     enabled,
     staleTime: 30_000,
-    // reporting-sync fails the first query after a registered view is replaced
-    // with a different column set ("cached statement plan is invalid") and
-    // succeeds on the next. Retry exactly that, once; anything else surfaces.
-    retry: (failures, error) => failures < 1 && STALE_PLAN.test((error as Error).message),
+    retry: false,
   })
 }
-
-const STALE_PLAN = /cached statement plan is invalid/i
 
 // useSyncStatus is now provided by @wip/react@0.9.0 (CASE-283).
 // Import it directly from there:  import { useSyncStatus } from '@wip/react'

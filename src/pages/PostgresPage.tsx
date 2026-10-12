@@ -52,7 +52,6 @@ interface HistoryEntry {
   namespace?: string
   timestamp: number
   rowCount: number
-  executionTimeMs?: number
 }
 
 const HISTORY_KEY = 'rc-console:pg-query-history'
@@ -883,7 +882,6 @@ function QueryPad({ initialSql, initialNamespace }: { initialSql?: string; initi
           namespace: namespace || undefined,
           timestamp: Date.now(),
           rowCount: data.row_count,
-          executionTimeMs: data.execution_time_ms,
         }
         const updated = [entry, ...history.filter(h => h.sql !== trimmed)]
         setHistory(updated)
@@ -1023,7 +1021,7 @@ function QueryPad({ initialSql, initialNamespace }: { initialSql?: string; initi
         {result && (
           <span className="text-xs text-gray-400 ml-auto">
             {result.row_count} row{result.row_count !== 1 ? 's' : ''}
-            {result.execution_time_ms !== undefined && ` · ${result.execution_time_ms}ms`}
+            {result.truncated && ' (truncated)'}
           </span>
         )}
       </div>
@@ -1067,7 +1065,6 @@ function QueryPad({ initialSql, initialNamespace }: { initialSql?: string; initi
                       <span className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-500">{entry.namespace}</span>
                     )}
                     <span>{entry.rowCount} rows</span>
-                    {entry.executionTimeMs !== undefined && <span>{entry.executionTimeMs}ms</span>}
                   </div>
                 </button>
               ))}
