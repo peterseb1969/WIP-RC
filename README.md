@@ -130,7 +130,7 @@ Optional platform modules are detected at runtime. If reporting-sync, NATS or Mo
 | Styling | Tailwind CSS 3 with the WIP palette tokens (`tailwind.config.js`), Inter |
 | Icons | Lucide React |
 | Data fetching | TanStack Query v5, @wip/react 0.20.0 hooks |
-| WIP client | @wip/client 0.53.0 |
+| WIP client | @wip/client 0.54.0 |
 | Routing | React Router v7 |
 | Backend | Express 5, @wip/proxy 0.5.1, tsx |
 | Auth | openid-client (standalone OIDC), gateway headers otherwise |

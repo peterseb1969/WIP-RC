@@ -140,9 +140,9 @@ Where @wip/react has no hook yet, or its hook drops a newer option, components c
 - `use-registered-views.ts`: `registerView` / `listViews` / `deleteView`. There is no instance-wide listing, so it fans out one `listViews` per live namespace with `useQueries` and shows any namespace that fails.
 - `use-external-templates.ts`: template facets.
 
-### RC's own reporting fetches
+### Reporting reads
 
-`src/hooks/use-reporting.ts` calls `/wip/api/reporting-sync/*` with plain `fetch` (`/tables`, `/query`, `/parity`) rather than `client.reporting.runQuery`. The server returns query rows as **objects keyed by column**, but @wip/client 0.53.0 types `ReportQueryResult.rows` as `unknown[][]` (filed as CASE-861). `DataTable` renders the object form, so RC keeps its own correct `QueryResult` type. `useQueryRows` (registered-view previews) retries exactly one error, reporting-sync's `cached statement plan is invalid`. That error hits the first read after a view is replaced with a different column set (CASE-859). Every other error surfaces.
+All SQL in `src/hooks/use-reporting.ts` (table columns/preview/paging, the Query Pad, view tests and previews) goes through the typed `client.reporting.runQuery` (`runReportQuery` helper). Rows come back as objects keyed by column, and `columns` is populated even for an empty result (@wip/client 0.54.0 / CASE-861). The column lookup passes schema and table names as query parameters rather than interpolating them. `/tables` and `/parity` are still read with plain `fetch` (`fetchJson`). `/parity` has no typed client method; `/tables` could move to `client.reporting.listTables()` (which returns the same `tables` + `entities` shape) — not done yet, RC's local `ReportTable`/`ReportEntity` types would need reconciling with the client's.
 
 ### Document CRUD
 

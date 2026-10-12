@@ -10,7 +10,7 @@ Pinned as versioned, immutable tarballs in `libs/` (see `package.json`):
 
 | Library | Version | Role |
 |---------|---------|------|
-| `@wip/client` | 0.53.0 | Typed service clients (`client.registry`, `client.defStore`, `client.templates`, `client.documents`, `client.files`, `client.reporting`). |
+| `@wip/client` | 0.54.0 | Typed service clients (`client.registry`, `client.defStore`, `client.templates`, `client.documents`, `client.files`, `client.reporting`). |
 | `@wip/react` | 0.20.0 | TanStack Query hooks over the client (`useTemplates`, `useTerms`, `useDocuments`, `useNamespaces`, mutations, …) and `useWipClient()` for direct typed calls. |
 | `@wip/proxy` | 0.5.1 | Express middleware mounted at `/wip` that forwards to WIP and injects the API key. Streams request and response bodies both ways. |
 
@@ -59,15 +59,12 @@ These bypass WIP's API because WIP doesn't expose infrastructure internals over 
 | MongoDB | `MONGO_URI`, default `mongodb://localhost:27017/` | Collection stats, indexes, paged document browsing over `wip_registry`, `wip_def_store`, `wip_template_store`, `wip_document_store` |
 | NATS | `NATS_URL`, default `nats://localhost:4222` | JetStream streams and consumers |
 
-## Wire-shape assumptions and open platform cases
+## Wire-shape assumptions
 
-RC depends on these behaviours. Each has an open case; when one closes, revisit the RC code listed.
-
-| Case | Behaviour | What RC does |
-|------|-----------|--------------|
-| CASE-858 | Edge-type `source_templates` / `target_templates` are served as `{lookup_value, resolved}` entries. `resolved` is `null` on endpoints written before the two-half shape existed (all of kb's, for example). | Reads `lookup_value` everywhere: `TemplateDetailPage` (display) and `TemplateBuilderPage` (pickers). `lookup_value` is also a valid write input. |
-| CASE-859 | The first `POST /query` after a registered view is replaced with a different column set fails with "cached statement plan is invalid"; the next one succeeds. | The view row preview (`useQueryRows` in `src/hooks/use-reporting.ts`) retries that exact error once. Other readers, including the Query Pad, will see the error. |
-| CASE-861 | `@wip/client`'s `ReportQueryResult` declares `rows: unknown[][]`, but the server returns objects keyed by column. A result with no rows also comes back with `columns: []`. | RC never uses `client.reporting.runQuery`. `use-reporting.ts` posts to `/query` itself, typed as `Record<string, unknown>[]`. |
+| Behaviour | What RC does |
+|-----------|--------------|
+| Edge-type `source_templates` / `target_templates` are `{lookup_value, resolved}` entries. `resolved` can be `null` on endpoints written before the two-half shape until `POST /api/template-store/maintenance/heal-endpoints` has run for that namespace (CASE-858; done on wip-local 2026-10-12). | Reads `lookup_value` everywhere: `TemplateDetailPage` (display) and `TemplateBuilderPage` (pickers). `lookup_value` is also a valid write input. |
+| `POST /query` rows are objects keyed by column; `columns` comes from the statement's result description, so it is present for empty results (CASE-861, @wip/client 0.54.0). A view replace no longer fails the next read (CASE-859). | All reporting SQL goes through `client.reporting.runQuery`. |
 
 ## System terminologies used
 

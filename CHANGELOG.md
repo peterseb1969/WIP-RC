@@ -1,5 +1,12 @@
 # RC-Console — Changelog
 
+## 2026-10-12 (later) — Platform fixes adopted: client 0.54.0, endpoint heal
+
+- Changed: adopted @wip/client 0.54.0. All reporting SQL (table columns, preview, paging, Query Pad, view tests and previews) now goes through `client.reporting.runQuery` instead of RC's own `/query` fetch — the client's row type now matches the wire (CASE-861). The column lookup uses query parameters instead of interpolated names.
+- Removed: the view preview's one-shot retry for "cached statement plan is invalid" — reporting-sync now prepares each query explicitly (CASE-859).
+- Removed: the Query Pad's execution-time display, which the server never populated.
+- Ops: ran the new template-store endpoint heal (CASE-858) on wip-local for kb, library, dev-wip-song and restore-rerun — 99 edge endpoints now carry their resolved template id; no template versions changed.
+
 ## 2026-10-12 — Registered views, NL agent fixes, client 0.53.0
 
 Session APP-RC-20261012-143854. The clone was 37 commits behind origin. It was reset onto origin, and only the genuinely new work was re-applied.

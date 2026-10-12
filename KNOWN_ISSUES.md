@@ -2,24 +2,6 @@
 
 ## Open Issues
 
-### Platform: first query after a column-changing view replace fails (CASE-859)
-**Status:** known (upstream, open)
-**Severity:** medium
-**Description:** After a registered view is replaced with a definition that has a different column set, the next `POST /api/reporting-sync/query` against it returns 400 "cached statement plan is invalid due to a database schema or configuration change". The query after that succeeds. This reproduces deterministically: one failure per replace on wip-local.
-**Context:** reporting-sync reuses a pooled connection's prepared plan across the view's DROP + CREATE. RC's view row preview (`useQueryRows` in `src/hooks/use-reporting.ts`) retries exactly this error once. The Query Pad, the NL agent's `run_report_query` and MCP callers still see it. Remove the retry once CASE-859 ships.
-
-### Platform: `ReportQueryResult.rows` is mistyped in @wip/client (CASE-861)
-**Status:** known (upstream, open)
-**Severity:** low
-**Description:** @wip/client types query rows as `unknown[][]`, but reporting-sync returns objects keyed by column (`{"rows":[{"n":1}]}`). A query that returns no rows also comes back with `columns: []`, because the server derives column names from the first row.
-**Context:** RC calls `/query` directly (`useRunQuery` / `useQueryRows`) with its own `Record<string, unknown>[]` type rather than `client.reporting.runQuery`. Empty results therefore render "returns no rows" with no column headers.
-
-### Platform: legacy edge-type endpoints serve `resolved: null` (CASE-858)
-**Status:** known (upstream, open)
-**Severity:** cosmetic for RC
-**Description:** Edge types created before the two-half endpoint shape (CASE-830) still serve `{lookup_value, resolved: null}` on every endpoint. That is 99 entries across kb, library, dev-wip-song and restore-rerun.
-**Context:** RC reads `lookup_value` everywhere (template detail, builder pickers), which is also a valid write input, so it is unaffected. Don't switch RC to `resolved` until CASE-858 is fixed.
-
 ### Registered views: edits to app-owned views are overwritten by the app
 **Status:** known (by design)
 **Severity:** low
@@ -105,6 +87,15 @@
 **Context:** Enough for quick inspection. Targeted queries go through the Documents pages, the PostgreSQL Query Pad, or NL Query.
 
 ## Resolved Issues
+
+### Platform: first query after a column-changing view replace failed (CASE-859)
+**Resolved:** 2026-10-12 (reporting-sync `94238418` prepares each `/query` explicitly; verified on wip-local, 6/6 reads succeed after a replace). RC's one-shot retry was removed.
+
+### Platform: `ReportQueryResult.rows` mistyped; empty results had no columns (CASE-861)
+**Resolved:** 2026-10-12 (@wip/client 0.54.0 `4ffeb597`; server columns fix in `94238418`). RC adopted 0.54.0 and now reads `/query` through `client.reporting.runQuery`.
+
+### Platform: legacy edge-type endpoints served `resolved: null` (CASE-858)
+**Resolved:** 2026-10-12 (template-store `45931c5e` adds `POST /api/template-store/maintenance/heal-endpoints`). Run on wip-local for kb, library, dev-wip-song and restore-rerun: 99 entries filled, 0 unresolvable, no version bumps. Other installs with pre-CASE-830 edge types need the same pass (dry-run first). RC still reads `lookup_value`, which works either way.
 
 ### Document table view returned 500 on some templates (CASE-35)
 **Resolved:** before 2026-10-12 (CASE-35 closed, platform side)
