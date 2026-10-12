@@ -229,6 +229,31 @@ export function useRunQuery() {
   })
 }
 
+/**
+ * Read-only query as a cached query (e.g. a registered view's row preview).
+ * Goes through /query directly rather than client.reporting.runQuery: the
+ * server returns rows as objects keyed by column, which DataTable renders.
+ */
+export function useQueryRows(sql: string, namespace: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: ['rc-console', 'query-rows', namespace ?? '', sql],
+    queryFn: () =>
+      fetchJson<QueryResult>('/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(namespace ? { sql, namespace } : { sql }),
+      }),
+    enabled,
+    staleTime: 30_000,
+    // reporting-sync fails the first query after a registered view is replaced
+    // with a different column set ("cached statement plan is invalid") and
+    // succeeds on the next. Retry exactly that, once; anything else surfaces.
+    retry: (failures, error) => failures < 1 && STALE_PLAN.test((error as Error).message),
+  })
+}
+
+const STALE_PLAN = /cached statement plan is invalid/i
+
 // useSyncStatus is now provided by @wip/react@0.9.0 (CASE-283).
 // Import it directly from there:  import { useSyncStatus } from '@wip/react'
 // Pass `{ refetchInterval: 60_000 }` if you want polling.

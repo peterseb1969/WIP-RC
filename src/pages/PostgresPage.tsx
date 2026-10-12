@@ -19,6 +19,7 @@ import {
   Search,
   X,
   ListFilter,
+  Eye,
 } from 'lucide-react'
 import {
   useReportTables,
@@ -37,6 +38,7 @@ import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import BatchSyncPanel from '@/components/reporting/BatchSyncPanel'
+import RegisteredViewsPanel from '@/components/reporting/RegisteredViewsPanel'
 import { cn } from '@/lib/cn'
 import { apiUrl } from '@/lib/wip'
 import { useIsServiceInactive } from '@/hooks/use-service-health'
@@ -849,9 +851,9 @@ function TableDetail({ table }: { table: ReportTable }) {
 // SQL Query Pad (right panel)
 // ---------------------------------------------------------------------------
 
-function QueryPad() {
-  const [sql, setSql] = useState('SELECT * FROM ')
-  const [namespace, setNamespace] = useState('')
+function QueryPad({ initialSql, initialNamespace }: { initialSql?: string; initialNamespace?: string }) {
+  const [sql, setSql] = useState(initialSql ?? 'SELECT * FROM ')
+  const [namespace, setNamespace] = useState(initialNamespace ?? '')
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory)
   const [showHistory, setShowHistory] = useState(false)
   const [result, setResult] = useState<QueryResult | null>(null)
@@ -1083,7 +1085,14 @@ function QueryPad() {
 
 export default function PostgresPage() {
   const [selectedTable, setSelectedTable] = useState<ReportTable | null>(null)
-  const [activeTab, setActiveTab] = useState<'browser' | 'query' | 'sync' | 'parity'>('browser')
+  const [activeTab, setActiveTab] = useState<'browser' | 'views' | 'query' | 'sync' | 'parity'>('browser')
+  // A Query Pad pre-filled from elsewhere on the page (e.g. a registered view).
+  // The id remounts the pad so a new seed replaces its state.
+  const [padSeed, setPadSeed] = useState<{ id: number; sql: string; namespace: string } | null>(null)
+  const openInQueryPad = (sql: string, namespace: string) => {
+    setPadSeed({ id: Date.now(), sql, namespace })
+    setActiveTab('query')
+  }
   const isInactive = useIsServiceInactive('reporting-sync')
 
   if (isInactive) {
@@ -1130,6 +1139,20 @@ export default function PostgresPage() {
           <span className="inline-flex items-center gap-1.5">
             <Table2 size={14} />
             Table Browser
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('views')}
+          className={cn(
+            'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+            activeTab === 'views'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          )}
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <Eye size={14} />
+            Views
           </span>
         </button>
         <button
@@ -1197,7 +1220,11 @@ export default function PostgresPage() {
         </div>
       )}
 
-      {activeTab === 'query' && <QueryPad />}
+      {activeTab === 'views' && <RegisteredViewsPanel onOpenInQueryPad={openInQueryPad} />}
+
+      {activeTab === 'query' && (
+        <QueryPad key={padSeed?.id ?? 0} initialSql={padSeed?.sql} initialNamespace={padSeed?.namespace} />
+      )}
 
       {activeTab === 'sync' && <BatchSyncPanel />}
 
