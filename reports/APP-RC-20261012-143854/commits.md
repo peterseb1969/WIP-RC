@@ -68,4 +68,4 @@
 **Why:** Peter wants support for registered views ("customized views").
 **Discovered:** (1) Registered views are NOT in GET /tables — they need their own surface. (2) reporting-sync: first query after a column-changing replace fails "cached statement plan is invalid" (deterministic, 1 failure per replace) → CASE-859; RC retries exactly that once. (3) @wip/client runQuery types rows as unknown[][] but the server returns objects keyed by column — RC keeps using its own /query fetch. (4) Hot-reload can leave the views listing stale after a save; a clean page load does not reproduce it.
 
-**Cases filed this session:** CASE-858 (pre-CASE-830 edge endpoints never get resolved; 99 entries null), CASE-859 (stale cached plan after view replace).
+**Cases filed this session:** CASE-858 (pre-CASE-830 edge endpoints never get resolved; 99 entries null), CASE-859 (stale cached plan after view replace), CASE-861 (@wip/client ReportQueryResult rows typed unknown[][], wire is objects; empty result has no columns).
