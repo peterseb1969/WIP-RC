@@ -122,3 +122,10 @@
 **Time:** 20:42
 **What:** Docs updated for the resolved cases.
 **Ops (no commit):** Ran POST /api/template-store/maintenance/heal-endpoints (CASE-858, 45931c5e) on wip-local with Peter's approval — dry-run first per namespace, then real: kb 93, library 2, dev-wip-song 2, restore-rerun 2 entries healed, 0 unresolvable; second dry-run 0 changes; kb edge types still v1. Re-survey: every edge endpoint on wip-local now has resolved set. BE-YAC suggests a dry-run on kb.internal too (not done — different install).
+
+## 3ca1a7c — docs: correct key-precedence note in .env.example and stale term-cap JSDoc
+**Time:** 21:49
+**Files:** 2 changed
+**Tests:** tsc clean; unit tests not run (comment-only change)
+**What:** .env.example now says the key file wins and WIP_API_KEY is only the fallback, matching server/wip-key.ts. The TermFieldInput JSDoc no longer mentions a 100-term cap; the cap is TERM_CAP (1000).
+**Why:** Both comments contradicted the code. Found while re-checking after compaction.
