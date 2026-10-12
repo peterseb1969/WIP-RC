@@ -6,8 +6,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { toolDefinitions, executeTool } from '../../server/nl/tools'
 
 describe('toolDefinitions', () => {
-  it('defines 7 tools', () => {
-    expect(toolDefinitions).toHaveLength(7)
+  it('defines 8 tools', () => {
+    expect(toolDefinitions).toHaveLength(8)
   })
 
   it('all tools have required fields', () => {
@@ -286,5 +286,42 @@ describe('executeTool — describe_data_model', () => {
     expect(result.terminologies).toEqual([
       expect.objectContaining({ id: 'trm-1', value: 'COUNTRY', term_count: 250 }),
     ])
+  })
+})
+
+describe('executeTool — list_registered_views', () => {
+  const mockFetch = vi.fn()
+  const ok = (body: unknown) => Promise.resolve({ ok: true, json: () => Promise.resolve(body) })
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', mockFetch)
+    mockFetch.mockReset()
+  })
+
+  it('lists one namespace with qualified names', async () => {
+    mockFetch.mockReturnValueOnce(ok({ namespace: 'ct', views: [{ name: 'v_sites', sql: 'SELECT 1', registered_by: 'ct-boot' }] }))
+    const result = await executeTool('list_registered_views', { namespace: 'ct' })
+    expect(mockFetch.mock.calls[0]![0]).toContain('/api/reporting-sync/namespace/ct/views')
+    expect(result).toEqual({
+      views: [{ namespace: 'ct', name: 'v_sites', qualified_name: '"ct"."v_sites"', sql: 'SELECT 1', registered_by: 'ct-boot' }],
+    })
+  })
+
+  it('without a namespace, asks every live namespace and reports failures', async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.endsWith('/api/registry/namespaces')) {
+        return ok([{ prefix: 'kb', status: 'active' }, { prefix: 'gone', status: 'deleted' }, { prefix: 'ct', status: 'active' }])
+      }
+      if (url.includes('/namespace/kb/')) return ok({ views: [{ name: 'v_open', sql: 'SELECT 2' }] })
+      return Promise.resolve({ ok: false, status: 500, text: () => Promise.resolve('boom') })
+    })
+    const result = (await executeTool('list_registered_views', {})) as {
+      views: Array<{ name: string }>
+      failures?: Array<{ namespace: string }>
+    }
+    const urls = mockFetch.mock.calls.map(c => c[0] as string)
+    expect(urls.some(u => u.includes('/namespace/gone/'))).toBe(false)
+    expect(result.views.map(v => v.name)).toEqual(['v_open'])
+    expect(result.failures?.map(f => f.namespace)).toEqual(['ct'])
   })
 })

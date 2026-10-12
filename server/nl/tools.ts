@@ -137,10 +137,25 @@ export const toolDefinitions: Anthropic.Tool[] = [
   {
     name: 'list_report_tables',
     description:
-      'List all tables and their columns in the PostgreSQL reporting database. Use this to discover what data is available for SQL queries.',
+      'List all tables and their columns in the PostgreSQL reporting database. Use this to discover what data is available for SQL queries. Registered views are NOT included — use list_registered_views for those.',
     input_schema: {
       type: 'object' as const,
       properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'list_registered_views',
+    description:
+      'List registered views: named, read-only SQL views a namespace keeps in its reporting schema (curated joins, roll-ups, hierarchy walks). Each comes with its defining SQL and a qualified_name to use in run_report_query. Prefer an existing view over re-deriving the same query.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        namespace: {
+          type: 'string',
+          description: 'Only this namespace\'s views. Omit to list views in every namespace.',
+        },
+      },
       required: [],
     },
   },
@@ -251,6 +266,31 @@ export async function executeTool(
 
     case 'list_report_tables': {
       return wipGet('/api/reporting-sync/tables')
+    }
+
+    case 'list_registered_views': {
+      // Views are listed per namespace only; without one, ask every namespace.
+      const one = async (ns: string) => {
+        const r = (await wipGet(
+          `/api/reporting-sync/namespace/${encodeURIComponent(ns)}/views`,
+        )) as { views?: Array<{ name: string; sql: string; registered_by?: string | null }> }
+        return (r.views ?? []).map(v => ({
+          namespace: ns,
+          name: v.name,
+          qualified_name: `"${ns.replace(/"/g, '""')}"."${v.name.replace(/"/g, '""')}"`,
+          sql: v.sql,
+          registered_by: v.registered_by ?? null,
+        }))
+      }
+      if (input.namespace) return { views: await one(String(input.namespace)) }
+      const namespaces = (await wipGet('/api/registry/namespaces')) as Array<{ prefix: string; status?: string }>
+      const prefixes = namespaces.filter(n => n.status !== 'deleted').map(n => n.prefix)
+      const settled = await Promise.allSettled(prefixes.map(one))
+      const views = settled.flatMap(r => (r.status === 'fulfilled' ? r.value : []))
+      const failures = settled.flatMap((r, i) =>
+        r.status === 'rejected' ? [{ namespace: prefixes[i], error: String(r.reason) }] : [],
+      )
+      return failures.length ? { views, failures } : { views }
     }
 
     case 'get_document': {
