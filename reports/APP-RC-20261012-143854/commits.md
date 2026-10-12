@@ -51,3 +51,21 @@
 **What:** Client 0.53.0 vendored by fetch from the WIP clone (byte-identical to its upstream; react 0.20.0 / proxy 0.5.1 already current). Edge endpoints mapped to lookup_value in TemplateDetailPage and TemplateBuilderPage.
 **Why:** Peter asked for the newest libs. 0.53.0 brings registerView/listViews/deleteView (CASE-856) — likely the basis for the "customized views" work Peter raised.
 **Discovered:** The {lookup_value, resolved} endpoint wire change had already shipped server-side, so RC's edge-type detail/edit were broken at runtime before the bump — only the typed client exposed it. Also: served `resolved` is null on kb edge endpoints (e.g. AGENT_PARTICIPATED) even though the data-model resource says it's the server-resolved template_id — may be worth asking BE-YAC. Picker quirk (pre-existing): endpoint picker lists all namespaces' templates, so a value present in several namespaces appears and ticks multiple times.
+
+## e19c61e — fix: edge-type endpoint picker lists the edge's own namespace only
+**Time:** 17:14
+**Files:** 1 changed
+**Tests:** 103 passed, 0 failed; tsc clean; browser-verified (duplicate kb AGENT_PARTICIPATED)
+**What:** Endpoint options from a namespace-scoped template query following the form's namespace; reference-usage templates allowed as endpoints (only relationship excluded); selected endpoints with no template in the namespace listed ticked with "not in <ns>"; shared template list page_size 100 → 1000.
+**Why:** Peter: duplicate rows/ticks for values present in several namespaces. Edge endpoints must resolve in the edge's own namespace, so other namespaces were never valid choices.
+**Discovered:** The "not in kb" flag caught a second bug on first run — AGENT_IDENTITY is usage=reference and was filtered out, yet counted as "1 selected". Template list was silently truncated at 100 of 155.
+
+## f30d684 — feat: registered reporting views — list, create, edit, delete (Views tab)
+**Time:** 17:45
+**Files:** 6 changed (new panel, hooks, lib helpers + tests; PostgresPage tab + seedable Query Pad)
+**Tests:** 112 passed, 0 failed (9 new); tsc clean; browser-verified end to end on wip-local
+**What:** New Views tab on the PostgreSQL page over @wip/client 0.53.0 registerView/listViews/deleteView — cross-namespace listing (per-namespace fan-out), detail + row preview, create/replace with Test preview, delete, Open in Query Pad, ownership note for app-registered views.
+**Why:** Peter wants support for registered views ("customized views").
+**Discovered:** (1) Registered views are NOT in GET /tables — they need their own surface. (2) reporting-sync: first query after a column-changing replace fails "cached statement plan is invalid" (deterministic, 1 failure per replace) → CASE-859; RC retries exactly that once. (3) @wip/client runQuery types rows as unknown[][] but the server returns objects keyed by column — RC keeps using its own /query fetch. (4) Hot-reload can leave the views listing stale after a save; a clean page load does not reproduce it.
+
+**Cases filed this session:** CASE-858 (pre-CASE-830 edge endpoints never get resolved; 99 entries null), CASE-859 (stale cached plan after view replace).
