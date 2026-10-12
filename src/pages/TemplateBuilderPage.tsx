@@ -96,7 +96,7 @@ export default function TemplateBuilderPage() {
 
   // Reference data for pickers
   const { data: terminologiesData } = useTerminologies({ status: 'active', page_size: 1000 })
-  const { data: templatesData } = useTemplates({ status: 'active', latest_only: true, page_size: 100 })
+  const { data: templatesData } = useTemplates({ status: 'active', latest_only: true, page_size: 1000 })
   const { data: namespacesData } = useNamespaces()
 
   // Terminology/template options for reference pickers
@@ -116,22 +116,31 @@ export default function TemplateBuilderPage() {
     })),
     [templatesData],
   )
-  // Edge-type endpoints can only point at entity templates in v1
-  // (allowing relationship-as-endpoint is a meta-relationship — out of
-  // scope per glossary §5.1). Filter accordingly.
-  const entityTemplateOptions = useMemo(
-    () => (templatesData?.items ?? [])
-      .filter(t => (t.usage ?? 'entity') === 'entity')
-      .map(t => ({ value: t.value, label: t.label || t.value })),
-    [templatesData],
-  )
-
   // --- Form state ---
   const [initialized, setInitialized] = useState(false)
   const [value, setValue] = useState('')
   const [label, setLabel] = useState('')
   const [description, setDescription] = useState('')
   const [namespace, setNamespace] = useState(globalNs || '')
+
+  // Edge-type endpoints: entity templates of the edge type's OWN namespace.
+  // An edge document's source_ref/target_ref must resolve within the edge's
+  // namespace (cross-namespace edges are rejected), and a bare value resolves
+  // only there — so other namespaces' templates are not valid choices, and
+  // listing them showed one row per namespace for a shared value.
+  // Entity and reference templates are both valid endpoints (kb's edges
+  // target the reference template AGENT_IDENTITY); relationship-as-endpoint
+  // is a meta-relationship, out of scope in v1.
+  const { data: endpointTemplatesData } = useTemplates(
+    { status: 'active', latest_only: true, page_size: 1000, namespace },
+    { enabled: !!namespace },
+  )
+  const entityTemplateOptions = useMemo(
+    () => (endpointTemplatesData?.items ?? [])
+      .filter(t => (t.usage ?? 'entity') !== 'relationship')
+      .map(t => ({ value: t.value, label: t.label || t.value })),
+    [endpointTemplatesData],
+  )
   const [extendsTemplate, setExtendsTemplate] = useState<string | undefined>()
   const [extendsVersion, setExtendsVersion] = useState<number | undefined>()
   const [identityFields, setIdentityFields] = useState<string[]>([])
@@ -645,6 +654,7 @@ export default function TemplateBuilderPage() {
                 label="Source templates *"
                 hint="Allowed template values for the edge's source endpoint"
                 options={entityTemplateOptions}
+                namespace={namespace}
                 selected={sourceTemplates}
                 onChange={setSourceTemplates}
                 disabled={isEdit}
@@ -653,6 +663,7 @@ export default function TemplateBuilderPage() {
                 label="Target templates *"
                 hint="Allowed template values for the edge's target endpoint"
                 options={entityTemplateOptions}
+                namespace={namespace}
                 selected={targetTemplates}
                 onChange={setTargetTemplates}
                 disabled={isEdit}
@@ -1204,6 +1215,7 @@ function EndpointPicker({
   label,
   hint,
   options,
+  namespace,
   selected,
   onChange,
   disabled,
@@ -1211,6 +1223,7 @@ function EndpointPicker({
   label: string
   hint: string
   options: Array<{ value: string; label: string }>
+  namespace: string
   selected: string[]
   onChange: (values: string[]) => void
   disabled?: boolean
@@ -1220,6 +1233,11 @@ function EndpointPicker({
     const next = selected.includes(v) ? selected.filter(x => x !== v) : [...selected, v]
     onChange(next)
   }
+  // Selected endpoints with no matching template in this namespace — e.g. a
+  // clone retargeted to another namespace, or a lookup in ns:VALUE / id form.
+  // Listed (ticked) so they can be seen and unticked, never silently counted.
+  const known = new Set(options.map(o => o.value))
+  const unmatched = selected.filter(v => !known.has(v))
   return (
     <div>
       <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -1227,10 +1245,32 @@ function EndpointPicker({
         {disabled && <span className="ml-2 text-[10px] text-gray-400 font-normal inline-flex items-center gap-1"><Lock size={10} /> locked</span>}
       </label>
       <p className="text-[11px] text-gray-400 mb-1.5">{hint}</p>
-      {options.length === 0 ? (
-        <p className="text-xs text-gray-400 italic">No entity templates available in any namespace.</p>
+      {!namespace ? (
+        <p className="text-xs text-gray-400 italic">Select a namespace to choose endpoints.</p>
+      ) : options.length === 0 && unmatched.length === 0 ? (
+        <p className="text-xs text-gray-400 italic">No entity or reference templates in namespace {namespace}.</p>
       ) : (
         <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto border border-gray-100 rounded p-2 bg-gray-50/50">
+          {unmatched.map(v => (
+            <label
+              key={`unmatched:${v}`}
+              className={cn(
+                'flex items-center gap-2 px-2 py-1 rounded text-xs bg-white',
+                disabled ? 'cursor-default' : 'cursor-pointer hover:bg-white',
+              )}
+              title={`No active entity template "${v}" in namespace ${namespace}`}
+            >
+              <input
+                type="checkbox"
+                checked
+                onChange={() => toggle(v)}
+                disabled={disabled}
+                className="rounded border-gray-300"
+              />
+              <span className="font-mono text-gray-700 truncate">{v}</span>
+              <span className="text-amber-600 truncate">— not in {namespace}</span>
+            </label>
+          ))}
           {options.map(o => (
             <label
               key={o.value}
