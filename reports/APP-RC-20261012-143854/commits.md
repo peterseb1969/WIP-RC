@@ -35,3 +35,11 @@
 **What:** origin's private resolveWipApiKey moved unchanged from index.ts to server/wip-key.ts; nl/tools.ts now uses it instead of reading only WIP_API_KEY.
 **Why:** The one genuine gap left on origin: host-mode NL tools got 401 on every def-store/template-store/document-store call. Live-verified 401 → authenticated.
 **Discovered:** (1) SECURITY — reporting-sync /api/reporting-sync/query and /tables answer 200 with NO credentials on wip-local (arbitrary SELECT across all namespaces' reporting schemas); def-store correctly 401s. Needs a BE-YAC case. (2) Pre-existing NL tools bug: list_terms-by-value and describe_data_model read `.terminologies`/`.templates`/`.id`, but WIP list responses are `{items:[…]}` with `terminology_id` — those tools always come back empty/"not found".
+
+## 3766375 — fix: NL query tools speak WIP's actual list/query wire shapes
+**Time:** 16:48
+**Files:** 2 changed, +140/-30
+**Tests:** 103 passed, 0 failed (5 new wire-shape tests); tsc clean
+**What:** query_by_template now sends {template_id, filters:[{field,operator,value}], page, page_size} with ?namespace= (namespace now required, offset→page); list_terms-by-value and describe_data_model read `items` + `terminology_id`/`template_id`; all list calls use page_size (WIP ignores `limit`), describe_data_model passes latest_only=true.
+**Why:** Three of seven NL agent tools never worked: query_by_template 422'd, list_terms-by-value always "not found", describe_data_model always empty — and the system prompt tells the agent to call describe_data_model first.
+**Discovered:** WIP list endpoints silently ignore `limit` (default page of 50) — a quiet truncation for any caller using it. reporting-sync /search, by contrast, does honour `limit`. Peter says the unauthenticated reporting-sync finding is being addressed elsewhere.
