@@ -6,6 +6,7 @@ interface LoadingStateProps {
   className?: string
 }
 
+/** Centred spinner with a label. */
 export default function LoadingState({ label = 'Loading...', className }: LoadingStateProps) {
   return (
     <div className={cn('flex items-center justify-center gap-2 py-12 text-gray-400', className)}>

@@ -52,6 +52,13 @@ export interface VersionWarningsProps {
   onBlockingChange?: (isBlocking: boolean) => void
 }
 
+/**
+ * Pre-save warnings in the template editor, from how many documents use the
+ * template: a draft or unused template saves freely; a schema change on a used
+ * template warns that it mints a new version; an identity-field change on a used
+ * template is blocking, because documents resolving the latest version would hash
+ * inconsistently. Reports blocking state through `onBlockingChange`.
+ */
 export default function VersionWarnings({
   original,
   currentFields,

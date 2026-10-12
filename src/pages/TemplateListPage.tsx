@@ -12,6 +12,10 @@ import { useNamespaceFilter, useSyncNamespaceFromUrl } from '@/hooks/use-namespa
 
 type UsageFilter = 'all' | 'entity' | 'relationship'
 
+/**
+ * Templates list: search, usage filter (entity / edge type), and a server-side
+ * sort remembered per page.
+ */
 export default function TemplateListPage() {
   useSyncNamespaceFromUrl()
   const { namespace } = useNamespaceFilter()

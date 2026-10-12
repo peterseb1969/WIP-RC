@@ -76,6 +76,10 @@ function formatValue(v: unknown): string {
   return JSON.stringify(v)
 }
 
+/**
+ * Compact one-line summary of a document from its template's header fields; takes
+ * either a peer projection or a full document (see header above).
+ */
 export default function PeerHeader({
   peer,
   data,

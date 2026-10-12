@@ -19,6 +19,7 @@ export interface ArrayFieldInputProps {
   namespace?: string
 }
 
+/** Editable list for an array field; each item rendered by FieldInput as the array's item type. */
 export default function ArrayFieldInput({ field, value, onChange, disabled, namespace }: ArrayFieldInputProps) {
   const items = Array.isArray(value) ? value : []
   const itemType = field.array_item_type

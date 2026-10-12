@@ -236,6 +236,7 @@ export interface BrowserFilters {
   kind: 'all' | 'view' | 'table'
 }
 
+/** Matches a template version's physical table name (`doc_<value>__v<N>`). */
 export const VERSION_TABLE_RE = /__v\d+$/
 
 // A pre-split table carries no `kind`; treat it as a physical table so the kind
@@ -244,6 +245,7 @@ function effectiveKind(t: ReportTable): 'view' | 'table' {
   return t.kind ?? 'table'
 }
 
+/** Whether a reporting table survives the Table Browser's empty / version-table / kind filters. */
 export function tablePasses(t: ReportTable, f: BrowserFilters): boolean {
   if (f.hideEmpty && t.row_count === 0) return false
   if (f.hideVersions && VERSION_TABLE_RE.test(t.name)) return false
@@ -251,10 +253,16 @@ export function tablePasses(t: ReportTable, f: BrowserFilters): boolean {
   return true
 }
 
+/** Case-insensitive substring match; `q` is expected lower-cased, and empty matches everything. */
 export function nameMatches(name: string, q: string): boolean {
   return q === '' || name.toLowerCase().includes(q)
 }
 
+/**
+ * The reporting relations owned by one template entity, labelled for the browser:
+ * its default query view, its entities view, then each version's table. Relations
+ * missing from the inventory are skipped.
+ */
 export function buildRelations(
   entity: ReportEntity,
   tableIndex: Map<string, ReportTable>

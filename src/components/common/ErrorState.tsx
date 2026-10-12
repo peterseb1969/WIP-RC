@@ -7,6 +7,7 @@ interface ErrorStateProps {
   className?: string
 }
 
+/** Centred error message with an optional Retry button. */
 export default function ErrorState({ message, onRetry, className }: ErrorStateProps) {
   return (
     <div className={cn('flex flex-col items-center justify-center gap-3 py-12', className)}>

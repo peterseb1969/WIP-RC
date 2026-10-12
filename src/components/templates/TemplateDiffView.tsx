@@ -141,6 +141,10 @@ export interface TemplateDiffViewProps {
   currentRules: ValidationRule[]
 }
 
+/**
+ * Field, identity and rule differences between the saved template and the editor's
+ * current state, shown before saving.
+ */
 export default function TemplateDiffView({
   originalFields,
   currentFields,

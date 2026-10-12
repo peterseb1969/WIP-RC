@@ -49,6 +49,11 @@ interface Props {
   onOpenInQueryPad: (sql: string, namespace: string) => void
 }
 
+/**
+ * Views tab of the PostgreSQL page: every namespace's registered views with
+ * definition, row preview, create/replace (with a Test run first) and delete.
+ * `onOpenInQueryPad` hands a read of the selected view to the Query Pad tab.
+ */
 export default function RegisteredViewsPanel({ onOpenInQueryPad }: Props) {
   const { views, failures, isLoading, refetch } = useRegisteredViews()
   const [nsFilter, setNsFilter] = useState('')

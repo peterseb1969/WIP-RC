@@ -42,6 +42,10 @@ interface HierarchyTabProps {
   term: Term
 }
 
+/**
+ * Hierarchy tab of the term detail page: lazily expanding ancestor and descendant
+ * trees for one relation type (see the header above for the traversal rules).
+ */
 export default function HierarchyTab({ term }: HierarchyTabProps) {
   const client = useWipClient()
   const [relationshipType, setRelationshipType] = useState('is_a')

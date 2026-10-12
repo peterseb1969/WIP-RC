@@ -37,6 +37,10 @@ type Item = {
   icon: React.ReactNode
 }
 
+/**
+ * Picker for a `reference` field — document, term, terminology or template by
+ * `reference_type` — storing the chosen entity's lookup value (see header above).
+ */
 export default function ReferenceFieldInput(props: ReferenceFieldInputProps) {
   const { field } = props
   const refType = field.reference_type

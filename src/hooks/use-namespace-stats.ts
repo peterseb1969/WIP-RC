@@ -9,6 +9,12 @@ export interface NamespaceWithStats {
   documents: number
 }
 
+/**
+ * Every namespace with its terminology / template / document counts, from the
+ * Registry's per-namespace stats (registry getNamespaceStats). A namespace whose
+ * stats call fails is kept with zero counts rather than dropped, so the
+ * Namespaces page still lists it.
+ */
 export function useNamespaceStats() {
   const client = useWipClient()
   const { data: namespaces, isLoading: nsLoading } = useNamespaces()

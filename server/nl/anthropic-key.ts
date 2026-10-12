@@ -19,10 +19,12 @@ const PROBE_MODEL = process.env.NL_QUERY_MODEL || 'claude-sonnet-4-6'
 
 let runtimeKeyOverride: string | null = null
 
+/** The Anthropic key to use now: the runtime override, else ANTHROPIC_API_KEY, else ''. */
 export function resolveAnthropicKey(): string {
   return runtimeKeyOverride || process.env.ANTHROPIC_API_KEY || ''
 }
 
+/** Where the current key comes from, for status display. */
 export function keySource(): 'override' | 'env' | 'none' {
   if (runtimeKeyOverride) return 'override'
   if (process.env.ANTHROPIC_API_KEY) return 'env'
@@ -39,10 +41,12 @@ export function keyStatus(): { configured: boolean; source: 'override' | 'env' |
   }
 }
 
+/** Set the process-wide runtime key override (memory only; lost on restart). */
 export function setKeyOverride(key: string): void {
   runtimeKeyOverride = key
 }
 
+/** Drop the runtime override; the env key, if any, applies again. */
 export function clearKeyOverride(): void {
   runtimeKeyOverride = null
 }

@@ -26,6 +26,9 @@ export interface TermFieldInputProps {
   disabled?: boolean
 }
 
+/**
+ * Searchable term picker for a `term` field; stores the term's value (see header above for the 100-term cap).
+ */
 export default function TermFieldInput({ field, value, onChange, disabled }: TermFieldInputProps) {
   // Resolve terminology_ref → terminology_id
   const ref = field.terminology_ref ?? ''

@@ -68,6 +68,10 @@ async function readManifestJson(file: File): Promise<Record<string, unknown> | n
   }
 }
 
+/**
+ * The backup archive's `manifest.json` format_version, read client-side from the
+ * ZIP's head without uploading it; null when it can't be read.
+ */
 export async function readArchiveFormatVersion(file: File): Promise<string | null> {
   const json = await readManifestJson(file)
   return typeof json?.format_version === 'string' ? json.format_version : null

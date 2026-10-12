@@ -152,6 +152,11 @@ function NamespaceParityCard({ parity }: { parity: NamespaceParity }) {
   )
 }
 
+/**
+ * Parity tab of the PostgreSQL page: one reporting-parity report per namespace
+ * that has reporting tables (schema/bookkeeping health, per-template table and
+ * count checks against the document store), fetched in parallel.
+ */
 export default function ParityPanel() {
   const queryClient = useQueryClient()
   const { data: inventory, isLoading } = useReportingInventory()

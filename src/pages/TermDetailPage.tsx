@@ -54,6 +54,7 @@ const TABS: { key: TabKey; label: string; icon: typeof Info }[] = [
   { key: 'raw', label: 'Raw JSON', icon: Code },
 ]
 
+/** Term detail with Overview, Relationships, Hierarchy and Raw JSON tabs. */
 export default function TermDetailPage() {
   const { tid, termId } = useParams<{ tid: string; termId: string }>()
   const navigate = useNavigate()

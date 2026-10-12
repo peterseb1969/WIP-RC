@@ -82,6 +82,11 @@ const fetchInventory = () =>
   fetchJson<{ tables: ReportTable[]; entities?: ReportEntity[] }>('/tables')
     .then(r => ({ tables: r.tables, entities: r.entities ?? [] }) as ReportingInventory)
 
+/**
+ * The reporting layer's inventory from reporting-sync `/tables`: every table/view
+ * per namespace schema, plus the per-template entity grouping (empty on installs
+ * that predate it). Registered views are not part of this inventory.
+ */
 export function useReportingInventory() {
   return useQuery({
     queryKey: ['rc-console', 'report-tables'],
@@ -90,6 +95,10 @@ export function useReportingInventory() {
   })
 }
 
+/**
+ * The flat table list of the reporting inventory. Shares the inventory's cache
+ * entry, so the Table Browser and Query Pad trigger one `/tables` fetch between them.
+ */
 export function useReportTables() {
   return useQuery({
     queryKey: ['rc-console', 'report-tables'],
@@ -133,9 +142,14 @@ export interface NamespaceParity {
   templates: ParityTemplate[]
 }
 
+/**
+ * One namespace's reporting parity report (reporting-sync `/parity`): schema and
+ * bookkeeping health plus per-template table/count checks against the document store.
+ */
 export const fetchNamespaceParity = (namespace: string) =>
   fetchJson<NamespaceParity>(`/parity?namespace=${encodeURIComponent(namespace)}`)
 
+/** Query key for a namespace's parity report — shared so the panel can fan out with useQueries. */
 export const PARITY_QUERY_KEY = (namespace: string) =>
   ['rc-console', 'parity', namespace] as const
 
@@ -169,6 +183,10 @@ export function useTableColumns(table: ReportTable | null) {
   })
 }
 
+/**
+ * First 10 rows of a reporting table or view, read through `/query` with its
+ * server-quoted qualified name.
+ */
 export function useTablePreview(table: ReportTable | null) {
   return useQuery({
     queryKey: ['rc-console', 'table-preview', table?.namespace, table?.name],
@@ -212,6 +230,11 @@ export interface RunQueryInput {
   namespace?: string
 }
 
+/**
+ * Runs ad-hoc SQL against reporting-sync `/query` (Query Pad, view tests). With
+ * `namespace`, unqualified names resolve in that namespace's schema. Rejects
+ * non-SELECT/WITH input client-side before the server's own read-only check.
+ */
 export function useRunQuery() {
   return useMutation({
     mutationFn: async ({ sql, namespace }: RunQueryInput): Promise<QueryResult> => {

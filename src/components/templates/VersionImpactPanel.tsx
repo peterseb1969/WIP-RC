@@ -17,6 +17,10 @@ function DiffLine({ label, fields, tone }: { label: string; fields?: string[]; t
   )
 }
 
+/**
+ * Shows a version event's impact (live documents affected) and migration
+ * eligibility after a template save; informational, dismissible.
+ */
 export default function VersionImpactPanel({
   details,
   version,

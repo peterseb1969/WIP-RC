@@ -12,6 +12,11 @@ interface DataTableProps {
 
 type SortDir = 'asc' | 'desc' | null
 
+/**
+ * Generic table over row objects keyed by column name (e.g. a reporting `/query`
+ * result). Client-side sorting cycles asc → desc → off per column; objects render
+ * as JSON and null/undefined as an em dash. Scrolls within `maxHeight`.
+ */
 export default function DataTable({ columns, rows, maxHeight = '500px', onRowClick, className }: DataTableProps) {
   const [sortCol, setSortCol] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>(null)

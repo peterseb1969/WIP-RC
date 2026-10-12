@@ -61,6 +61,10 @@ interface TermSearchPickerProps {
   className?: string
 }
 
+/**
+ * Debounced term search across terminologies; calls `onSelect` with the picked
+ * term and its terminology context (see the header above for namespace rules).
+ */
 export default function TermSearchPicker({
   namespace,
   onSelect,

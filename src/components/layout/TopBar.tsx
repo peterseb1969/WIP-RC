@@ -9,6 +9,11 @@ import { apiUrl, basePath } from '@/lib/wip'
 // inspection pages read across the whole WIP instance.
 const CROSS_NAMESPACE_PATHS = ['/postgres', '/mongodb', '/nats']
 
+/**
+ * Top bar: home link, the global namespace filter, and the signed-in user. The
+ * namespace selector is disabled on the infrastructure pages (PostgreSQL, MongoDB,
+ * NATS), which always read across the whole instance.
+ */
 export default function TopBar() {
   const { user, isAuthenticated, isAnonymous, isLoading } = useAuth()
   const { namespace, setNamespace } = useNamespaceFilter()

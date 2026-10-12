@@ -83,6 +83,12 @@ function ensureEdgeRefField(
   ]
 }
 
+/**
+ * Template editor for create (`/templates/new`), edit (`/templates/:id/edit`) and
+ * duplicate (`/templates/new?from=<id>`): fields, identity, rules, reporting
+ * config, and edge-type endpoints. Edge types get their source_ref/target_ref
+ * fields added on save.
+ */
 export default function TemplateBuilderPage() {
   const { id } = useParams()
   const [searchParams] = useSearchParams()

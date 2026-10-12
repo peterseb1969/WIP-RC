@@ -21,6 +21,12 @@ export interface DocumentFormProps {
   mode: 'create' | 'edit'
 }
 
+/**
+ * Body of the document editor: one labelled FieldInput per template field with
+ * inline errors. When editing, identity fields are read-only — changing them
+ * would address a different document. Header and save controls live in
+ * DocumentFormPage.
+ */
 export default function DocumentForm({
   template,
   value,

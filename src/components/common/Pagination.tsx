@@ -8,6 +8,7 @@ interface PaginationProps {
   className?: string
 }
 
+/** Previous / "page of pages" / next control. Renders nothing for a single page. */
 export default function Pagination({ page, totalPages, onPageChange, className }: PaginationProps) {
   if (totalPages <= 1) return null
 

@@ -5,6 +5,9 @@ import Sidebar from './Sidebar'
 import TopBar from './TopBar'
 import Breadcrumbs from './Breadcrumbs'
 
+/**
+ * App shell: collapsible sidebar, top bar, breadcrumbs, the routed page, and the WIP footer with the build stamp.
+ */
 export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false)
 

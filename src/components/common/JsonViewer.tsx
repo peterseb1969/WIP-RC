@@ -9,6 +9,10 @@ interface JsonViewerProps {
   collapsed?: boolean
 }
 
+/**
+ * Collapsible, syntax-coloured JSON tree with a copy-to-clipboard button. With
+ * `collapsed`, nested objects start folded (the root stays open).
+ */
 export default function JsonViewer({ data, maxHeight = '400px', className, collapsed = false }: JsonViewerProps) {
   const [copied, setCopied] = useState(false)
 

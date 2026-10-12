@@ -34,6 +34,7 @@ const TOP_LEVEL_LABELS: Record<string, string> = {
   'api-keys': 'API Keys',
 }
 
+/** Clickable path for the current route, rendered under the TopBar (nothing on the dashboard). */
 export default function Breadcrumbs() {
   const location = useLocation()
   const segments = location.pathname.split('/').filter(Boolean)

@@ -15,6 +15,7 @@ export interface ObjectFieldInputProps {
   disabled?: boolean
 }
 
+/** JSON textarea for an object field; emits the parsed object, shows parse errors inline. */
 export default function ObjectFieldInput({ value, onChange, disabled }: ObjectFieldInputProps) {
   const [text, setText] = useState(() =>
     value == null ? '' : safeStringify(value),

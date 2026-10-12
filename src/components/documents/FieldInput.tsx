@@ -10,9 +10,10 @@ import ObjectFieldInput from './ObjectFieldInput'
 // ---------------------------------------------------------------------------
 // FieldInput — dispatcher that renders the right widget per field.type.
 //
-// v1 focuses on scalar types. term/reference/file/array/object get wired up
-// in later steps; until then they render a textarea fallback so the form
-// still renders without crashing.
+// Every template field type has a widget: scalars (string — a select when the
+// field declares an enum — number/integer, boolean, date, datetime), plus
+// term, reference, file, array and object. A type this console doesn't know
+// renders a "not supported" notice instead of crashing the form.
 // ---------------------------------------------------------------------------
 
 export interface FieldInputProps {
@@ -26,6 +27,9 @@ export interface FieldInputProps {
   namespace?: string
 }
 
+/**
+ * The input widget for one template field, chosen by `field.type`, with its error message underneath.
+ */
 export default function FieldInput({ field, value, onChange, disabled, error, namespace }: FieldInputProps) {
   const control = renderControl({ field, value, onChange, disabled, namespace })
   return (

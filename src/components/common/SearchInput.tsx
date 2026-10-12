@@ -11,6 +11,10 @@ interface SearchInputProps {
   autoFocus?: boolean
 }
 
+/**
+ * Search box with a clear button that reports changes after `debounceMs` of
+ * quiet, so list queries don't refetch on every keystroke. Clearing reports immediately.
+ */
 export default function SearchInput({
   value,
   onChange,

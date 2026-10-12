@@ -30,6 +30,7 @@ export function parseVersionsInput(raw: string): CrossVersionViewVersions | null
   return nums
 }
 
+/** Wire form → the editor's text input: `all`, or the version numbers comma-separated. */
 export function formatVersionsInput(v: CrossVersionViewVersions | undefined): string {
   if (!v || v === 'all') return 'all'
   return v.join(', ')

@@ -14,6 +14,7 @@ export function Label({ children, htmlFor }: { children: React.ReactNode; htmlFo
   return <label htmlFor={htmlFor} className="block text-xs font-medium text-gray-600 mb-1">{children}</label>
 }
 
+/** Single-line text input in the editor style; `mono` for identifiers and codes. */
 export function TextInput({
   id,
   value,
@@ -46,6 +47,7 @@ export function TextInput({
   )
 }
 
+/** Numeric input; an empty box reports `undefined` rather than 0. */
 export function NumberInput({
   id,
   value,
@@ -75,6 +77,10 @@ export function NumberInput({
   )
 }
 
+/**
+ * Dropdown over a fixed list of string options. Offers an empty choice (unless
+ * `allowEmpty` is false), which reports `undefined`.
+ */
 export function SelectInput<T extends string>({
   id,
   value,
@@ -109,6 +115,7 @@ export function SelectInput<T extends string>({
   )
 }
 
+/** Labelled checkbox. */
 export function Toggle({
   id,
   checked,

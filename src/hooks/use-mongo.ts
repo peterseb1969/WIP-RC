@@ -43,6 +43,10 @@ async function fetchInfra<T>(path: string): Promise<T> {
   return res.json()
 }
 
+/**
+ * MongoDB databases with collection counts and size, from the backend's direct
+ * Mongo connection (`/api/infra/mongo/databases`) — not via WIP's APIs.
+ */
 export function useMongoDatabases() {
   return useQuery({
     queryKey: ['rc-console', 'mongo', 'databases'],
@@ -51,6 +55,7 @@ export function useMongoDatabases() {
   })
 }
 
+/** Collections of one database with document and index counts. Idle until a database is chosen. */
 export function useMongoCollections(database: string | null) {
   return useQuery({
     queryKey: ['rc-console', 'mongo', 'collections', database],
@@ -61,6 +66,7 @@ export function useMongoCollections(database: string | null) {
   })
 }
 
+/** Index definitions of one collection. Idle until database and collection are chosen. */
 export function useMongoIndexes(database: string | null, collection: string | null) {
   return useQuery({
     queryKey: ['rc-console', 'mongo', 'indexes', database, collection],
@@ -71,6 +77,7 @@ export function useMongoIndexes(database: string | null, collection: string | nu
   })
 }
 
+/** One page (20 raw documents) of a collection, for read-only inspection. */
 export function useMongoDocuments(database: string | null, collection: string | null, page: number = 1) {
   return useQuery({
     queryKey: ['rc-console', 'mongo', 'docs', database, collection, page],

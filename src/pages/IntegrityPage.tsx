@@ -32,6 +32,11 @@ interface IntegrityResult {
   }>
 }
 
+/**
+ * Referential-integrity check: runs reporting-sync's integrity health check
+ * (`/health/integrity`) on demand: summary counts plus each issue found —
+ * broken term references, missing templates, orphaned documents, inactive references.
+ */
 export default function IntegrityPage() {
   const [result, setResult] = useState<IntegrityResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)

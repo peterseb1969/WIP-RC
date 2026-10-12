@@ -8,6 +8,10 @@ import type { RegisteredView } from '@wip/client'
 /** registered_by stamp for views created or replaced from this console. */
 export const CONSOLE_REGISTRANT = 'rc-console'
 
+/**
+ * `registered_by` value for a save from this console: `rc-console:<email|name>`,
+ * or plain `rc-console` when no user is known (dev mode).
+ */
 export function consoleRegistrant(user?: { email?: string; name?: string } | null): string {
   const who = user?.email || user?.name
   return who ? `${CONSOLE_REGISTRANT}:${who}` : CONSOLE_REGISTRANT
@@ -42,10 +46,16 @@ export function selectFromView(view: Pick<RegisteredView, 'namespace' | 'name'>,
   return `SELECT * FROM ${quoteIdent(view.namespace)}.${quoteIdent(view.name)} LIMIT ${limit}`
 }
 
+/**
+ * Double-quote a PostgreSQL identifier, doubling embedded quotes. Namespace
+ * prefixes may contain hyphens (dev-wip-reactconsole), which are not valid in
+ * an unquoted identifier.
+ */
 export function quoteIdent(ident: string): string {
   return `"${ident.replace(/"/g, '""')}"`
 }
 
+/** Stable identity for a view in the UI — names are only unique within a namespace. */
 export function viewKey(view: Pick<RegisteredView, 'namespace' | 'name'>): string {
   return `${view.namespace}/${view.name}`
 }

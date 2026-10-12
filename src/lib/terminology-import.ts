@@ -175,6 +175,7 @@ export interface ImportSummary {
   failures: Array<{ value: string; error: string }>
 }
 
+/** A zeroed ImportSummary to accumulate into. */
 export function emptySummary(): ImportSummary {
   return {
     termsCreated: 0,

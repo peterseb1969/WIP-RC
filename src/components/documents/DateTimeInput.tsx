@@ -16,6 +16,7 @@ export interface DateTimeInputProps {
   disabled?: boolean
 }
 
+/** Date or date-time input that reads and emits ISO strings (see header above). */
 export default function DateTimeInput({ mode, value, onChange, disabled }: DateTimeInputProps) {
   const displayValue = mode === 'datetime' ? isoToLocalInput(value) : value ?? ''
 

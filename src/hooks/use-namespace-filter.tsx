@@ -13,6 +13,10 @@ const NamespaceFilterContext = createContext<NamespaceFilterContextValue>({
 
 const STORAGE_KEY = 'rc-console:namespace-filter'
 
+/**
+ * Provides the console-wide namespace filter chosen in the top bar ('' = all
+ * namespaces). Persisted to localStorage so the choice survives reloads.
+ */
 export function NamespaceFilterProvider({ children }: { children: ReactNode }) {
   const [namespace, setNamespaceRaw] = useState<string>(() => {
     try { return localStorage.getItem(STORAGE_KEY) || '' } catch { return '' }
@@ -30,6 +34,7 @@ export function NamespaceFilterProvider({ children }: { children: ReactNode }) {
   )
 }
 
+/** The current global namespace filter and its setter (see NamespaceFilterProvider). */
 export function useNamespaceFilter() {
   return useContext(NamespaceFilterContext)
 }

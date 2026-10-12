@@ -18,6 +18,11 @@ interface StatusBadgeProps {
   className?: string
 }
 
+/**
+ * Coloured pill with a status dot for service and entity states (healthy/active →
+ * success, unhealthy/error → danger, warning/unknown → yellow). `label` overrides
+ * the displayed text.
+ */
 export default function StatusBadge({ status, label, className }: StatusBadgeProps) {
   return (
     <span

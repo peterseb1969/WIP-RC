@@ -75,6 +75,10 @@ interface SidebarProps {
   onToggle: () => void
 }
 
+/**
+ * Left navigation grouped into sections (Overview, Data, Infrastructure, …).
+ * Collapsed, it shows icons only.
+ */
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside

@@ -8,6 +8,7 @@ interface EmptyStateProps {
   children?: React.ReactNode
 }
 
+/** Centred empty-state message with an icon; `children` can add an action. */
 export default function EmptyState({
   title = 'No data',
   message = 'Nothing to show here yet.',

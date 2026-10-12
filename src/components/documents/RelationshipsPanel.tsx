@@ -32,6 +32,9 @@ export interface RelationshipsPanelProps {
   namespace?: string
 }
 
+/**
+ * Incoming and outgoing relationship documents of `documentId`, grouped by edge type (see header above).
+ */
 export default function RelationshipsPanel({ documentId, namespace }: RelationshipsPanelProps) {
   const [direction, setDirection] = useState<Direction>('both')
   const [activeOnly, setActiveOnly] = useState(true)

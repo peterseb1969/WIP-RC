@@ -18,6 +18,11 @@ export function apiUrl(path: string): string {
   return `${basePath}${path}`
 }
 
+/**
+ * The app's @wip/client instance. Talks to the Express backend's `/wip` proxy,
+ * never to WIP directly — the proxy injects the API key server-side, so no
+ * credential reaches the browser.
+ */
 export const wipClient = createWipClient({
   baseUrl: `${basePath}/wip`,
   // auth omitted — wip-proxy injects the API key server-side

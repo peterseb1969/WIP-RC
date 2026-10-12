@@ -51,6 +51,11 @@ async function fetchNatsStatus(): Promise<NatsStatus> {
   }
 }
 
+/**
+ * NATS connection status from the backend's direct NATS client
+ * (`/api/infra/nats/status`). Never throws: an unreachable backend or NATS
+ * resolves to `{ connected: false, error }` so the page can render the state.
+ */
 export function useNatsStatus() {
   return useQuery({
     queryKey: ['rc-console', 'nats', 'status'],
@@ -60,6 +65,7 @@ export function useNatsStatus() {
   })
 }
 
+/** JetStream streams with message/byte/consumer counts (`/api/infra/nats/streams`). */
 export function useNatsStreams(enabled = true) {
   return useQuery({
     queryKey: ['rc-console', 'nats', 'streams'],
@@ -77,6 +83,11 @@ export interface IngestGatewayStatus {
   uptime_seconds: number
 }
 
+/**
+ * Ingest-Gateway runtime status via the WIP proxy (`/wip/api/ingest-gateway/status`).
+ * Resolves to `null` when the gateway is not deployed or unreachable — it is an
+ * optional module, so absence is a state, not an error.
+ */
 export function useIngestGatewayStatus() {
   return useQuery({
     queryKey: ['rc-console', 'ingest-gateway', 'status'],
@@ -94,6 +105,10 @@ export function useIngestGatewayStatus() {
   })
 }
 
+/**
+ * Consumers of one JetStream stream (`/api/infra/nats/consumers/:stream`), with
+ * pending/ack counts. Idle until a stream is selected.
+ */
 export function useNatsConsumers(stream: string | null) {
   return useQuery({
     queryKey: ['rc-console', 'nats', 'consumers', stream],

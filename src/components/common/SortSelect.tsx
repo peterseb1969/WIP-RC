@@ -16,6 +16,10 @@ interface SortSelectProps {
 
 const STORAGE_PREFIX = 'rc-console:sort:'
 
+/**
+ * A list page's remembered sort (localStorage, keyed by `page`), or the given
+ * defaults when none is stored or storage is unavailable.
+ */
 export function loadSort(page: string, defaultBy: string, defaultOrder: 'asc' | 'desc' = 'desc') {
   try {
     const raw = localStorage.getItem(STORAGE_PREFIX + page)
@@ -27,11 +31,16 @@ export function loadSort(page: string, defaultBy: string, defaultOrder: 'asc' | 
   return { sortBy: defaultBy, sortOrder: defaultOrder }
 }
 
+/** Remember a list page's sort choice; storage failures are ignored. */
 export function saveSort(page: string, sortBy: string, sortOrder: 'asc' | 'desc') {
   try { localStorage.setItem(STORAGE_PREFIX + page, JSON.stringify({ sortBy, sortOrder })) }
   catch { /* ignore */ }
 }
 
+/**
+ * Sort-field dropdown plus an ascending/descending toggle. Controlled: the page
+ * owns `sortBy`/`sortOrder` and passes them to the server-side list query.
+ */
 export default function SortSelect({ options, sortBy, sortOrder, onChange, className }: SortSelectProps) {
   const DirIcon = sortOrder === 'asc' ? ArrowUp : ArrowDown
 

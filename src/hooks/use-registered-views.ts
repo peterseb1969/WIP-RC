@@ -17,6 +17,11 @@ export interface RegisteredViewsState {
   refetch: () => void
 }
 
+/**
+ * Every registered view across all non-deleted namespaces, merged and sorted
+ * (namespace, name). Namespaces whose listing failed are returned in `failures`
+ * so the UI can show them instead of silently listing fewer views.
+ */
 export function useRegisteredViews(): RegisteredViewsState {
   const client = useWipClient()
   const { data: namespaces, isLoading: nsLoading } = useNamespaces()
@@ -62,6 +67,11 @@ export interface RegisterViewInput {
   registered_by: string
 }
 
+/**
+ * Registers a view, or replaces one of the same name (reporting-sync
+ * `POST /namespace/{ns}/views`; the column set may change). Refreshes that
+ * namespace's listing and any cached row previews on success.
+ */
 export function useRegisterView() {
   const client = useWipClient()
   const queryClient = useQueryClient()
@@ -71,6 +81,10 @@ export function useRegisterView() {
   })
 }
 
+/**
+ * Drops a registered view and its registration. The server answers 409 when
+ * another registered view depends on it; the error message carries that.
+ */
 export function useDeleteView() {
   const client = useWipClient()
   const queryClient = useQueryClient()

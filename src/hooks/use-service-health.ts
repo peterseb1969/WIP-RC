@@ -35,6 +35,11 @@ async function fetchAllHealth(): Promise<ServiceHealth[]> {
   return data.services
 }
 
+/**
+ * Health of each WIP service as probed by the backend (`/api/infra/health`):
+ * status, response time, the probe's HTTP evidence, and build provenance where a
+ * service exposes it. Polled every minute.
+ */
 export function useServiceHealth() {
   return useQuery({
     queryKey: ['rc-console', 'service-health'],

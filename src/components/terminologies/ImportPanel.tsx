@@ -65,6 +65,14 @@ function labelFromFilename(name: string): string {
   return name.replace(/\.[^.]*$/, '').replace(/[_-]+/g, ' ').trim()
 }
 
+/**
+ * Terminology import from a file, into an existing terminology or as a new one.
+ * Format by extension/content: .obo and OBO Graph JSON → importOntology (terms and
+ * relations); a JSON {terminology, terms[, relations]} bundle → importTerminology;
+ * CSV/TSV or a JSON term array → bulk createTerms into an existing terminology, or a
+ * bundle import when creating a new one. Reports created / skipped / failed counts
+ * with per-item failures. Parsing lives in src/lib/terminology-import.ts.
+ */
 export default function ImportPanel(props: ImportPanelProps) {
   const { mode, namespace: defaultNamespace, onClose } = props
   const client = useWipClient()

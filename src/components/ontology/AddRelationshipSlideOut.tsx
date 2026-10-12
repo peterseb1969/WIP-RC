@@ -41,6 +41,7 @@ interface AddRelationshipSlideOutProps {
   onClose: () => void
 }
 
+/** Slide-out that creates one term relation from or to `currentTerm` (see header above). */
 export default function AddRelationshipSlideOut({
   currentTerm,
   onClose,

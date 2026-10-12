@@ -71,6 +71,11 @@ function useScopedBatchSync(onError: (e: Error) => void) {
   })
 }
 
+/**
+ * Batch Sync tab: trigger document syncs (all templates or one, optionally scoped
+ * to a namespace, with forced rebuild) and per-namespace terminology / term /
+ * relation syncs, plus the live job list.
+ */
 export default function BatchSyncPanel() {
   const { data: templates } = useTemplates({ status: 'active', latest_only: true, page_size: 200 })
   const { data: namespaces } = useNamespaces()

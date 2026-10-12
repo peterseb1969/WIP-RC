@@ -19,6 +19,7 @@ import { cn } from '@/lib/cn'
 export const GRANTS_QUERY_KEY = (prefix: string) =>
   ['rc-console', 'grants', prefix] as const
 
+/** Grant rows of one namespace (registry listGrants). */
 export function useGrants(prefix: string, enabled = true) {
   const client = useWipClient()
   return useQuery({
@@ -35,6 +36,7 @@ const SUBJECT_TYPE_ICONS: Record<GrantSubjectType, React.ReactNode> = {
   api_key: <Key size={12} className="text-gray-400" />,
 }
 
+/** read / write / admin pill. */
 export function PermissionBadge({ permission, className }: { permission: string; className?: string }) {
   return (
     <span className={cn(
@@ -274,6 +276,13 @@ function resolveConfigKeyPermission(
   return { permission: 'read', source: 'in scope, no declared grant' }
 }
 
+/**
+ * Per-namespace effective permission of an API key, with where it comes from
+ * (superadmin group, direct or group grant, or the read fallback for an in-scope
+ * key with no grant). Config-file keys use the grants the registry reports on the
+ * key itself; when the registry doesn't expose them, the level is shown as unknown
+ * rather than guessed.
+ */
 export function KeyEffectivePermissions({ apiKey }: { apiKey: APIKeyInfo }) {
   const client = useWipClient()
   const isConfig = apiKey.source === 'config'
@@ -334,6 +343,10 @@ export function KeyEffectivePermissions({ apiKey }: { apiKey: APIKeyInfo }) {
   )
 }
 
+/**
+ * Collapsible grants section for a namespace: list, add and revoke grants. Grant
+ * rows load only once the section is opened.
+ */
 export default function GrantsPanel({ prefix }: { prefix: string }) {
   const [open, setOpen] = useState(false)
   const [showAdd, setShowAdd] = useState(false)

@@ -21,6 +21,7 @@ const TYPE_COLORS: Record<string, string> = {
   object: 'bg-indigo-100 text-indigo-700',
 }
 
+/** Coloured badge for a field type, shared by the field list and the template diff. */
 export function TypeBadge({ type }: { type: string }) {
   return (
     <span className={cn(
@@ -154,6 +155,10 @@ export interface FieldListProps {
   onReorder?: (fromIndex: number, toIndex: number) => void
 }
 
+/**
+ * Template editor field list: one row per field (identity fields marked), click
+ * to select for editing, remove, and drag to reorder when `onReorder` is given.
+ */
 export default function FieldList({
   fields,
   identityFields,

@@ -12,6 +12,10 @@ export interface RuleListProps {
   onChange: (rules: ValidationRule[]) => void
 }
 
+/**
+ * The template's cross-field validation rules, each in a RuleEditor, with add and
+ * remove. Emits the whole rule list through `onChange`.
+ */
 export default function RuleList({ rules, fieldNames, onChange }: RuleListProps) {
   const addRule = () => {
     onChange([

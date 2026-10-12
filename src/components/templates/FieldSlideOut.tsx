@@ -188,6 +188,12 @@ export interface FieldSlideOutProps {
   syncEnabled?: boolean
 }
 
+/**
+ * Right-side editor for one field definition: type, terminology/template
+ * references, validation, file config, full-text indexing. Switching type clears
+ * the type-specific settings so no stale config is saved. Calls `onChange` with
+ * the whole updated field.
+ */
 export default function FieldSlideOut({
   field,
   onChange,

@@ -37,6 +37,14 @@ function nextId(): string {
   return `msg-${Date.now()}-${++msgCounter}`
 }
 
+/**
+ * Chat state for the NL Query page. `sendQuery` posts the question plus the
+ * text-only conversation history to the backend agent (`/api/nl/query`), which
+ * runs Claude with read-only WIP tools; `checkStatus` reads `/api/nl/status`
+ * (whether an Anthropic key is configured, and which model). Failures become
+ * assistant messages flagged `error` rather than thrown, so the transcript
+ * shows them in place.
+ */
 export function useNLQuery() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isQuerying, setIsQuerying] = useState(false)

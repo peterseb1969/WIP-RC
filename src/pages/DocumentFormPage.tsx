@@ -31,6 +31,7 @@ import { cn } from '@/lib/cn'
 
 type Mode = 'create' | 'edit'
 
+/** Create or edit a document from its template (see header above). */
 export default function DocumentFormPage({ mode }: { mode: Mode }) {
   const { templateValue, id: documentId } = useParams()
   const navigate = useNavigate()

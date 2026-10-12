@@ -25,6 +25,10 @@ const EXAMPLE_QUERIES = [
   { label: 'SQL analytics', query: 'What tables exist in the reporting database and how many rows does each have?' },
 ]
 
+/**
+ * Natural-language query chat over WIP data (useNLQuery), with example prompts.
+ * Shows an "unavailable" notice with the server's hint when no Anthropic key is configured.
+ */
 export default function NLQueryPage() {
   const {
     messages,

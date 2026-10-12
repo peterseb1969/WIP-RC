@@ -23,6 +23,10 @@ export interface FileFieldInputProps {
   namespace?: string
 }
 
+/**
+ * Upload control for a `file` field: uploads to WIP file storage in `namespace`
+ * and stores the returned file_id.
+ */
 export default function FileFieldInput({ field, value, onChange, disabled, namespace }: FileFieldInputProps) {
   const fileId = typeof value === 'string' ? value : ''
   const { data: existing } = useFile(fileId, { enabled: !!fileId })

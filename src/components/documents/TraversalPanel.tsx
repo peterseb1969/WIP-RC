@@ -21,6 +21,9 @@ export interface TraversalPanelProps {
   namespace?: string
 }
 
+/**
+ * Breadth-first walk of the relationship graph from `documentId`, with depth control (see header above).
+ */
 export default function TraversalPanel({ documentId, namespace }: TraversalPanelProps) {
   const [depth, setDepth] = useState(2)
   const [direction, setDirection] = useState<Direction>('outgoing')

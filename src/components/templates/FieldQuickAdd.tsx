@@ -13,6 +13,10 @@ export interface FieldQuickAddProps {
   existingNames: Set<string>
 }
 
+/**
+ * Inline name + type + mandatory row for adding a field quickly. Requires a
+ * snake_case name not already used in the template.
+ */
 export default function FieldQuickAdd({ onAdd, existingNames }: FieldQuickAddProps) {
   const [name, setName] = useState('')
   const [type, setType] = useState<FieldType>('string')

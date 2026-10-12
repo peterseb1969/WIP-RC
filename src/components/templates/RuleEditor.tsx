@@ -104,6 +104,11 @@ export interface RuleEditorProps {
   onRemove: () => void
 }
 
+/**
+ * Editor for one validation rule. Shows only the inputs its rule type uses
+ * (conditions, target field, target fields) and clears the others when the type
+ * changes.
+ */
 export default function RuleEditor({
   rule,
   fieldNames,
