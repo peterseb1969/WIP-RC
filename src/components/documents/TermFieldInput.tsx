@@ -9,15 +9,18 @@ import { cn } from '@/lib/cn'
 //
 // `field.terminology_ref` may be either a terminology_id (UUID) or a
 // terminology value (UPPER_SNAKE). We resolve via useTerminologies() and
-// then load up to 100 terms via useTerms().
+// then load up to 1000 terms via useTerms().
 //
 // The form state stores the term's `value` (not its ID) — that's what the
 // Document schema expects for `term` fields (it resolves to a TermReference
 // on the server side). See the WIP data model for details.
 //
-// v1 cap: 100 terms per terminology. Beyond that, we'd need a debounced
+// Cap: 1000 terms per terminology (the API's page maximum). Beyond that, we'd need a debounced
 // search + TermSearchPicker. Tracked in KNOWN_ISSUES.
 // ---------------------------------------------------------------------------
+
+/** Most terms the picker loads — the list endpoints' page maximum. */
+const TERM_CAP = 1000
 
 export interface TermFieldInputProps {
   field: FieldDefinition
@@ -44,7 +47,7 @@ export default function TermFieldInput({ field, value, onChange, disabled }: Ter
 
   const { data: termsData, isLoading } = useTerms(
     resolvedTerminologyId,
-    { status: 'active', page_size: 1000 },
+    { status: 'active', page_size: TERM_CAP },
     { enabled: !!resolvedTerminologyId },
   )
 
@@ -191,9 +194,9 @@ export default function TermFieldInput({ field, value, onChange, disabled }: Ter
               ))
             )}
           </div>
-          {terms.length >= 100 && (
+          {terms.length >= TERM_CAP && (
             <div className="px-2.5 py-1 border-t border-gray-100 text-[10px] text-amber-600 bg-amber-50">
-              Showing first 100 terms. Scoped search is a v2 feature.
+              Showing the first {TERM_CAP} terms. Scoped search is a v2 feature.
             </div>
           )}
         </div>

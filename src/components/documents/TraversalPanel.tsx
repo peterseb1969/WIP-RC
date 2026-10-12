@@ -30,7 +30,7 @@ export default function TraversalPanel({ documentId, namespace }: TraversalPanel
   const [edgeTypes, setEdgeTypes] = useState<string[]>([])
 
   // Pull edge-type templates for the type filter
-  const { data: templatesData } = useTemplates({ status: 'active', latest_only: true, page_size: 200 })
+  const { data: templatesData } = useTemplates({ status: 'active', latest_only: true, page_size: 1000 })
   const edgeTypeOptions = (templatesData?.items ?? [])
     .filter(t => t.usage === 'relationship')
     .map(t => ({ value: t.value, label: t.label || t.value }))

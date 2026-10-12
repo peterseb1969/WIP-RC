@@ -8,6 +8,7 @@ import {
   csvRowsToTerms,
   looksLikeOboGraph,
   summarizeBulkTerms,
+  parseSortOrder,
 } from '../../src/lib/terminology-import'
 
 const SAMPLE_OBO = `format-version: 1.2
@@ -125,5 +126,16 @@ describe('summarizeBulkTerms', () => {
     const s = summarizeBulkTerms(results, submitted, 50)
     expect(s.termsErrored).toBe(100)
     expect(s.failures).toHaveLength(50)
+  })
+})
+
+describe('parseSortOrder', () => {
+  it('parses whole numbers and drops anything else', () => {
+    expect(parseSortOrder('3')).toBe(3)
+    expect(parseSortOrder(' 12 ')).toBe(12)
+    expect(parseSortOrder('abc')).toBeUndefined()
+    expect(parseSortOrder('1.5')).toBeUndefined()
+    expect(parseSortOrder('')).toBeUndefined()
+    expect(parseSortOrder(undefined)).toBeUndefined()
   })
 })

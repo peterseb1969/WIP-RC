@@ -36,13 +36,13 @@ Code: `src/components/terminologies/ImportPanel.tsx`, `src/lib/terminology-impor
   | `label` | `label`, `display_name` |
   | `description` | `description`, `definition` |
   | `aliases` | `aliases`, pipe-separated (`a\|b\|c`), trimmed, empties dropped |
-  | `sort_order` | `sort_order`, passed through `Number(...)` |
+  | `sort_order` | `sort_order`, parsed as a whole number |
 
 - **Transformations:** `created_by: 'rc-console'` is stamped on every term.
 - **Routing:** importing into an existing terminology uses `createTerms` (server-side batches of 250). Create-new uses `importTerminology`.
 - **Known issues:**
   - A row with no usable value column is skipped and reported as "row(s) had no usable term value".
-  - A non-numeric `sort_order` becomes `NaN` and is sent as-is.
+  - A `sort_order` that is blank or not a whole number is omitted for that term.
   - Relations can't be expressed in CSV.
 - **Sample:**
   ```csv

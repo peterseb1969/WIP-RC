@@ -77,7 +77,7 @@ function useScopedBatchSync(onError: (e: Error) => void) {
  * relation syncs, plus the live job list.
  */
 export default function BatchSyncPanel() {
-  const { data: templates } = useTemplates({ status: 'active', latest_only: true, page_size: 200 })
+  const { data: templates } = useTemplates({ status: 'active', latest_only: true, page_size: 1000 })
   const { data: namespaces } = useNamespaces()
 
   const [singleTemplate, setSingleTemplate] = useState('')

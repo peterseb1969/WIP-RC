@@ -334,7 +334,7 @@ function TemplateSelector({
   onSelectAll: () => void
 }) {
   const { namespace } = useNamespaceFilter()
-  const { data, isLoading } = useTemplates({ status: 'active', latest_only: true, namespace: namespace || undefined, page_size: 100 })
+  const { data, isLoading } = useTemplates({ status: 'active', latest_only: true, namespace: namespace || undefined, page_size: 1000 })
   const notifiedRef = useRef(false)
 
   const ownTemplates = data?.items ?? []

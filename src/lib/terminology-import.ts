@@ -149,11 +149,21 @@ export function csvRowsToTerms(rows: Array<Record<string, string>>): {
       aliases: row['aliases']
         ? row['aliases'].split('|').map(a => a.trim()).filter(Boolean)
         : undefined,
-      sort_order: row['sort_order'] ? Number(row['sort_order']) : undefined,
+      sort_order: parseSortOrder(row['sort_order']),
       created_by: 'rc-console',
     })
   }
   return { terms, skippedRows }
+}
+
+/**
+ * A CSV sort_order cell as an integer, or undefined when blank or not a whole
+ * number — Number('abc') is NaN, which JSON serializes as null and the server
+ * would reject or store as garbage.
+ */
+export function parseSortOrder(cell: string | undefined): number | undefined {
+  const n = Number(cell?.trim())
+  return cell?.trim() && Number.isInteger(n) ? n : undefined
 }
 
 /** True when a parsed JSON document is OBO Graph JSON rather than a term list/bundle. */

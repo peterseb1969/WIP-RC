@@ -94,7 +94,7 @@ export function useExternalTemplates(
   const { data: allTemplates, isLoading: templatesLoading } = useTemplates({
     status: 'active',
     latest_only: true,
-    page_size: 200,
+    page_size: 1000,
   }, { enabled: needsResolve })
 
   return useMemo(() => {
