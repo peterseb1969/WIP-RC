@@ -69,3 +69,11 @@
 **Discovered:** (1) Registered views are NOT in GET /tables — they need their own surface. (2) reporting-sync: first query after a column-changing replace fails "cached statement plan is invalid" (deterministic, 1 failure per replace) → CASE-859; RC retries exactly that once. (3) @wip/client runQuery types rows as unknown[][] but the server returns objects keyed by column — RC keeps using its own /query fetch. (4) Hot-reload can leave the views listing stale after a save; a clean page load does not reproduce it.
 
 **Cases filed this session:** CASE-858 (pre-CASE-830 edge endpoints never get resolved; 99 entries null), CASE-859 (stale cached plan after view replace), CASE-861 (@wip/client ReportQueryResult rows typed unknown[][], wire is objects; empty result has no columns).
+
+## 2f6a295 — feat: NL query agent can discover registered views
+**Time:** 18:05
+**Files:** 3 changed
+**Tests:** 114 passed, 0 failed (3 new); tsc clean
+**What:** New list_registered_views NL tool (one namespace or all live namespaces, failures reported) returning each view's SQL + quoted qualified_name; system prompt tells the agent to prefer a curated view; list_report_tables description points at it.
+**Why:** /tables excludes registered views, so the agent could only use views the user named. Gap raised in my own "are you done?" review.
+**Discovered:** wip-local has no Anthropic key configured (.env or container) — the agent itself can't be exercised end to end here; tool verified directly. Also browser-verified the endpoint picker's namespace-switch path (clone kb edge → library: all endpoints flagged "not in library", untick removes).
