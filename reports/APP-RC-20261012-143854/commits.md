@@ -109,3 +109,16 @@
 **Time:** 19:52
 **Files:** 5 changed, +19/-11
 **What:** KNOWN_ISSUES/IMPORT_FORMATS/README/ARCHITECTURE/CHANGELOG updated for 5ea06d6 and 4152278.
+
+## bc32c86 — chore: adopt @wip/client 0.54.0 — reporting SQL through the typed client
+**Time:** 20:40
+**Files:** 6 changed (tarball swap 0.53.0 → 0.54.0, README, pin + lockfile, use-reporting.ts, PostgresPage.tsx)
+**Tests:** 115 passed; tsc clean; browser-verified (Table Browser columns/data, Query Pad, view replace with column change)
+**What:** All reporting SQL via client.reporting.runQuery; parameterised information_schema lookup; CASE-859 retry removed; dead execution_time_ms display removed.
+**Why:** CASE-859/861 implemented upstream (94238418, 4ffeb597).
+**Discovered:** My own draft ARCHITECTURE line claimed the typed client can't serve /tables — false (client.reporting.listTables returns tables + entities). Corrected before commit; migrating /tables is a possible follow-up.
+
+## 5c54b34 — docs: CASE-858/859/861 resolved — client 0.54.0, endpoint heal run on wip-local
+**Time:** 20:42
+**What:** Docs updated for the resolved cases.
+**Ops (no commit):** Ran POST /api/template-store/maintenance/heal-endpoints (CASE-858, 45931c5e) on wip-local with Peter's approval — dry-run first per namespace, then real: kb 93, library 2, dev-wip-song 2, restore-rerun 2 entries healed, 0 unresolvable; second dry-run 0 changes; kb edge types still v1. Re-survey: every edge endpoint on wip-local now has resolved set. BE-YAC suggests a dry-run on kb.internal too (not done — different install).
