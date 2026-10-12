@@ -43,3 +43,11 @@
 **What:** query_by_template now sends {template_id, filters:[{field,operator,value}], page, page_size} with ?namespace= (namespace now required, offset→page); list_terms-by-value and describe_data_model read `items` + `terminology_id`/`template_id`; all list calls use page_size (WIP ignores `limit`), describe_data_model passes latest_only=true.
 **Why:** Three of seven NL agent tools never worked: query_by_template 422'd, list_terms-by-value always "not found", describe_data_model always empty — and the system prompt tells the agent to call describe_data_model first.
 **Discovered:** WIP list endpoints silently ignore `limit` (default page of 50) — a quiet truncation for any caller using it. reporting-sync /search, by contrast, does honour `limit`. Peter says the unauthenticated reporting-sync finding is being addressed elsewhere.
+
+## ff00599 — chore: adopt @wip/client 0.53.0 — two-half edge endpoints, registered views
+**Time:** 17:09
+**Files:** 7 changed (versioned tarball swap 0.51.0 → 0.53.0, README, pin + lockfile, 2 pages)
+**Tests:** 103 passed, 0 failed; tsc clean; browser-verified on kb AGENT_PARTICIPATED (detail + Duplicate)
+**What:** Client 0.53.0 vendored by fetch from the WIP clone (byte-identical to its upstream; react 0.20.0 / proxy 0.5.1 already current). Edge endpoints mapped to lookup_value in TemplateDetailPage and TemplateBuilderPage.
+**Why:** Peter asked for the newest libs. 0.53.0 brings registerView/listViews/deleteView (CASE-856) — likely the basis for the "customized views" work Peter raised.
+**Discovered:** The {lookup_value, resolved} endpoint wire change had already shipped server-side, so RC's edge-type detail/edit were broken at runtime before the bump — only the typed client exposed it. Also: served `resolved` is null on kb edge endpoints (e.g. AGENT_PARTICIPATED) even though the data-model resource says it's the server-resolved template_id — may be worth asking BE-YAC. Picker quirk (pre-existing): endpoint picker lists all namespaces' templates, so a value present in several namespaces appears and ticks multiple times.
