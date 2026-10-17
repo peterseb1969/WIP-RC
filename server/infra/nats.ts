@@ -5,6 +5,9 @@ import { natsAuthFromEnv, natsInboxPrefix, classifyNatsError, type NatsAuthMode 
 const router = Router()
 
 const NATS_URL = process.env.NATS_URL || 'nats://localhost:4222'
+// A deployed console gets NATS_URL only when its manifest grants it NATS
+// access; without it the localhost default is a host-mode guess.
+const NATS_URL_CONFIGURED = !!process.env.NATS_URL
 
 let nc: NatsConnection | null = null
 // One connect attempt shared by concurrent requests, so a burst of page loads
@@ -40,7 +43,13 @@ async function getConnection(): Promise<NatsConnection> {
 function sendNatsError(res: Response, err: unknown, fallback: string, extra: Record<string, unknown> = {}) {
   const mode: NatsAuthMode = natsAuthFromEnv().mode
   const message = err instanceof Error ? err.message : fallback
-  res.status(502).json({ ...extra, error: message, auth: mode, auth_error: classifyNatsError(err, mode) ?? null })
+  res.status(502).json({
+    ...extra,
+    error: message,
+    auth: mode,
+    auth_error: classifyNatsError(err, mode) ?? null,
+    url_configured: NATS_URL_CONFIGURED,
+  })
 }
 
 /**

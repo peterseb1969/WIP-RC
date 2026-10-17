@@ -13,6 +13,8 @@ export interface NatsStatus {
   user?: string | null
   /** Set when NATS refused the connection for authentication reasons. */
   auth_error?: 'not_configured' | 'rejected' | null
+  /** False when the server has no NATS_URL and fell back to localhost. */
+  url_configured?: boolean
 }
 
 export interface NatsStream {

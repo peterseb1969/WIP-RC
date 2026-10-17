@@ -42,7 +42,7 @@ function NatsStatusBar() {
   const connected = data?.connected ?? false
   const errMsg = data?.error ?? ''
   // ECONNREFUSED / ENOTFOUND / timeout → module not deployed
-  const isInactive = !connected && /ECONNREFUSED|ENOTFOUND|getaddrinfo|timeout|no servers available/i.test(errMsg)
+  const isInactive = !connected && /ECONNREFUSED|CONNECTION_REFUSED|ENOTFOUND|getaddrinfo|timeout|no servers available/i.test(errMsg)
 
   if (data?.auth_error) {
     return (
@@ -61,6 +61,15 @@ function NatsStatusBar() {
             {' '}<span className="font-mono">{errMsg}</span>
           </p>
         </div>
+      </div>
+    )
+  }
+
+  if (!connected && data?.url_configured === false) {
+    return (
+      <div className="flex items-center gap-3 px-4 py-2.5 border rounded-lg text-sm bg-gray-50 border-gray-200 text-gray-500">
+        <WifiOff size={16} className="text-gray-400" />
+        <span>No NATS connection is configured for the console (NATS_URL is not set).</span>
       </div>
     )
   }
