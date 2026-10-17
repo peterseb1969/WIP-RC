@@ -5,3 +5,6 @@ After committing the scaffold refresh (0da7642), reports tracking (fd457ed), and
 
 ## 2026-10-12 16:20 — UNBLOCKED: reconciled with origin, pushed, container current
 Reset master to origin/master per Peter, re-applied reports (1adaf2d) + NL-tools key fix (a29b286), pushed to b44ab1a. Pre-reset commits kept on `backup/local-pre-reset-20261012` (local only — delete once no longer needed). Host `npm ci` and a container restart (lockfile-hash-gated npm ci) brought both to client 0.51.0 / proxy 0.5.1; container healthy, proxy authenticated via the inline-key fallback (wipProxy warns that the host-only key file path is unreadable — expected in the container). Open for Peter's decision: (1) BE-YAC case for reporting-sync /query + /tables answering 200 with no credentials on wip-local; (2) fix the NL tools response-shape bug (`.terminologies`/`.templates`/`.id` vs `{items}`/`terminology_id`).
+
+## 2026-10-17 15:20 — kb.internal endpoint repair: dry run only
+Ran POST /api/template-store/maintenance/heal-endpoints with dry_run=true on kb.internal (deploy key ~/.wip-deploy/kb) for all three namespaces. wip: 0 templates. kb: 12 edge types scanned, 12 would change, 93 entries filled, 0 unresolvable. library: 1 edge type (SEE_ALSO), 2 entries, 0 unresolvable. Same counts as wip-local before its repair. Nothing written; the real run awaits Peter's go-ahead.
