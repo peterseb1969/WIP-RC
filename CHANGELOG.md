@@ -6,6 +6,8 @@
 - Added: the NATS page tells apart "credentials not configured" and "credentials rejected", and shows which identity is connected.
 - Changed: `server/secret.ts` holds the shared file-then-env secret resolution; the WIP key uses it too.
 - Fixed: concurrent NATS requests share one connect attempt instead of each opening a connection.
+- Platform: WIP added the read-only `nats-monitor` role and gave it to RC's manifest; the deployed console now connects as `react-console` (verified live on wip-local).
+- Fixed: the NATS page names a missing `NATS_URL` instead of a bare `CONNECTION_REFUSED`, and its "not deployed" check now recognises the nats.js refusal code.
 - Verified against a real nats-server with wip-local's rendered config plus a `react-console` user: the three read calls succeed, anonymous and wrong-password connections are refused, the user cannot read stream info, delete streams or consumers, or publish or subscribe on `wip.*`, and a live password rotation reconnects on the next request.
 
 ## 2026-10-12 (later) — Platform fixes adopted: client 0.54.0, endpoint heal

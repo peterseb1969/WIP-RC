@@ -2,12 +2,6 @@
 
 ## Open Issues
 
-### NATS page unreachable until RC has a NATS user
-**Status:** waiting on platform (CASE-852 comment)
-**Severity:** medium
-**Description:** NATS requires authentication since WIP `334af17f`. RC's deploy manifest no longer passes `NATS_URL` and declares no `nats_client`, so in a deployed container the NATS page reports a refused connection. RC's side is ready: it authenticates as soon as `NATS_USER` / `NATS_PASSWORD` (or a creds file) are present.
-**Context:** The manifest needs a `nats_client` block publishing `$JS.API.INFO`, `$JS.API.STREAM.LIST`, `$JS.API.CONSUMER.LIST.*`, plus `NATS_URL` from the nats component. That file lives in the WIP repo, so the change is requested from BE-YAC.
-
 ### Registered views: edits to app-owned views are overwritten by the app
 **Status:** known (by design)
 **Severity:** low
@@ -93,6 +87,9 @@
 **Context:** Enough for quick inspection. Targeted queries go through the Documents pages, the PostgreSQL Query Pad, or NL Query.
 
 ## Resolved Issues
+
+### NATS page unreachable once NATS required authentication (CASE-852)
+**Resolved:** 2026-10-17. WIP `f0fc0a64` added the read-only `nats-monitor` role, and RC's manifest declares `nats_client: {roles: [nats-monitor]}`. The deployer injects `NATS_URL`, `NATS_USER=react-console` and `NATS_PASSWORD`; verified live on wip-local (all three NATS routes return data as `react-console`).
 
 ### Platform: first query after a column-changing view replace failed (CASE-859)
 **Resolved:** 2026-10-12 (reporting-sync `94238418` prepares each `/query` explicitly; verified on wip-local, 6/6 reads succeed after a replace). RC's one-shot retry was removed.
