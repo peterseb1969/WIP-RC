@@ -144,3 +144,10 @@
 **Tests:** 128 passed; browser-verified on wip-local (/apps/rc/nats shows "No NATS connection is configured for the console").
 **What:** status carries url_configured; the "not deployed" regex now matches nats.js's CONNECTION_REFUSED.
 **Why:** The deployed container has no NATS_URL, so the page showed a bare CONNECTION_REFUSED. The old regex only ever matched Node's ECONNREFUSED.
+
+## eb4e59c — docs: RC holds the nats-monitor role — NATS page live again
+**Time:** 17:21
+**Files:** 5 changed (docs only)
+**Tests:** not run (docs). Live: RC container has NATS_URL/NATS_USER=react-console/NATS_PASSWORD injected; status/streams/consumers all return data.
+**What:** KNOWN_ISSUES entry moved to Resolved; WIP_DEPENDENCIES, ARCHITECTURE, .env.example and CHANGELOG name the nats-monitor role.
+**Why:** BE-YAC answered CASE-852#3: raw subjects are refused in app manifests (74ad391e), so it added the nats-monitor role and gave it to RC (f0fc0a64). The case is now implemented.
