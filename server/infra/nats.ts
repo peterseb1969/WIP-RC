@@ -1,21 +1,46 @@
-import { Router } from 'express'
+import { Router, type Response } from 'express'
 import { connect, type NatsConnection } from 'nats'
+import { natsAuthFromEnv, natsInboxPrefix, classifyNatsError, type NatsAuthMode } from './nats-auth.js'
 
 const router = Router()
 
 const NATS_URL = process.env.NATS_URL || 'nats://localhost:4222'
 
 let nc: NatsConnection | null = null
+// One connect attempt shared by concurrent requests, so a burst of page loads
+// opens one connection instead of one each.
+let connecting: Promise<NatsConnection> | null = null
 
+/**
+ * The cached connection, or a new one. Credentials are re-resolved for every
+ * new connection; a connection NATS closes after repeated auth failures (for
+ * example after a credential rotation) is replaced on the next request.
+ */
 async function getConnection(): Promise<NatsConnection> {
-  if (!nc || nc.isClosed()) {
-    nc = await connect({
-      servers: NATS_URL,
-      timeout: 5000,
-      name: 'rc-console',
-    })
+  if (nc && !nc.isClosed()) return nc
+  if (connecting) return connecting
+  const auth = natsAuthFromEnv()
+  if (auth.configError) throw new Error(auth.configError)
+  connecting = connect({
+    servers: NATS_URL,
+    timeout: 5000,
+    name: 'rc-console',
+    inboxPrefix: natsInboxPrefix(),
+    ...(auth.authenticator ? { authenticator: auth.authenticator } : {}),
+  })
+  try {
+    nc = await connecting
+    return nc
+  } finally {
+    connecting = null
   }
-  return nc
+}
+
+/** 502 with the error message plus, for auth refusals, which kind. Never includes a secret. */
+function sendNatsError(res: Response, err: unknown, fallback: string, extra: Record<string, unknown> = {}) {
+  const mode: NatsAuthMode = natsAuthFromEnv().mode
+  const message = err instanceof Error ? err.message : fallback
+  res.status(502).json({ ...extra, error: message, auth: mode, auth_error: classifyNatsError(err, mode) ?? null })
 }
 
 /**
@@ -36,16 +61,18 @@ router.get('/status', async (_req, res) => {
   try {
     const conn = await getConnection()
     const info = conn.info
+    const auth = natsAuthFromEnv()
     res.json({
       connected: !conn.isClosed(),
+      auth: auth.mode,
+      user: auth.user ?? null,
       server: info?.server_name ?? null,
       version: info?.version ?? null,
       proto: info?.proto ?? null,
       jetstream: info?.jetstream ?? false,
     })
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Connection failed'
-    res.status(502).json({ connected: false, error: message })
+    sendNatsError(res, err, 'Connection failed', { connected: false })
   }
 })
 
@@ -76,8 +103,7 @@ router.get('/streams', async (_req, res) => {
 
     res.json({ streams })
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to list streams'
-    res.status(502).json({ error: message })
+    sendNatsError(res, err, 'Failed to list streams')
   }
 })
 
@@ -102,8 +128,7 @@ router.get('/consumers/:stream', async (req, res) => {
 
     res.json({ stream: req.params.stream, consumers })
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to list consumers'
-    res.status(502).json({ error: message })
+    sendNatsError(res, err, 'Failed to list consumers')
   }
 })
 

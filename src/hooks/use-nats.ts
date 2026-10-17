@@ -7,6 +7,12 @@ export interface NatsStatus {
   version?: string | null
   jetstream?: boolean
   error?: string
+  /** How the backend authenticates: anonymous, user/password, or a creds file. */
+  auth?: 'none' | 'user' | 'creds'
+  /** NATS username when `auth` is `user` (not secret). */
+  user?: string | null
+  /** Set when NATS refused the connection for authentication reasons. */
+  auth_error?: 'not_configured' | 'rejected' | null
 }
 
 export interface NatsStream {
@@ -44,7 +50,7 @@ async function fetchNatsStatus(): Promise<NatsStatus> {
   try {
     const res = await fetch(apiUrl('/api/infra/nats/status'))
     const body = await res.json()
-    if (!res.ok) return { connected: false, error: body.error ?? `HTTP ${res.status}` }
+    if (!res.ok) return { ...body, connected: false, error: body.error ?? `HTTP ${res.status}` }
     return body
   } catch (err) {
     return { connected: false, error: err instanceof Error ? err.message : 'Unreachable' }

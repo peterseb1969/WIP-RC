@@ -93,6 +93,10 @@ Server-side (`process.env`, loaded from `.env` by `dotenv`):
 | `WIP_API_KEY` | One key source required | Literal WIP key. Fallback when the key file is unset or unreadable; this is what the deployer injects into containers, where a host path from `.env` doesn't exist. | — |
 | `MONGO_URI` | No | MongoDB connection string for the MongoDB page | `mongodb://localhost:27017/` |
 | `NATS_URL` | No | NATS URL for the NATS page | `nats://localhost:4222` |
+| `NATS_USER` | No | NATS user for the NATS page; the deployer injects it when RC's manifest declares a `nats_client`. Unset = anonymous. | `react-console` |
+| `NATS_PASSWORD_FILE` / `NATS_PASSWORD` | With `NATS_USER` | The user's password: the file (re-read on every connect) wins, the literal value is the fallback | `~/.wip-deploy/wip-local/secrets/nats-password-react-console` |
+| `NATS_CREDS_FILE` | No | JWT + nkey creds file; replaces user/password when set | — |
+| `NATS_INBOX_PREFIX` | No | Reply-inbox prefix (default `_INBOX_<NATS_USER>`, matching the per-user grant) | — |
 | `ANTHROPIC_API_KEY` | No | Claude key for NL Query. An admin can set an in-memory override on the API Keys page; it wins until cleared or the server restarts. | `sk-ant-...` |
 | `NL_QUERY_MODEL` | No | Claude model for NL Query (default `claude-sonnet-4-6`) | — |
 | `PORT` | No | Express port (default 3011) | `3011` |

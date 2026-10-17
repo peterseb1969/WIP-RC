@@ -1,5 +1,13 @@
 # RC-Console — Changelog
 
+## 2026-10-17 — NATS authentication
+
+- Added: the NATS page's backend authenticates to NATS as its own user — `NATS_USER` with `NATS_PASSWORD_FILE` / `NATS_PASSWORD`, or `NATS_CREDS_FILE`. Credentials are optional (anonymous when unset), passed as connect options rather than in the URL, and re-read on every reconnect, so a rotated password needs no restart. The reply inbox follows the user name to match the deployer's per-user grant.
+- Added: the NATS page tells apart "credentials not configured" and "credentials rejected", and shows which identity is connected.
+- Changed: `server/secret.ts` holds the shared file-then-env secret resolution; the WIP key uses it too.
+- Fixed: concurrent NATS requests share one connect attempt instead of each opening a connection.
+- Verified against a real nats-server with wip-local's rendered config plus a `react-console` user: the three read calls succeed, anonymous and wrong-password connections are refused, the user cannot read stream info, delete streams or consumers, or publish or subscribe on `wip.*`, and a live password rotation reconnects on the next request.
+
 ## 2026-10-12 (later) — Platform fixes adopted: client 0.54.0, endpoint heal
 
 - Changed: adopted @wip/client 0.54.0. All reporting SQL (table columns, preview, paging, Query Pad, view tests and previews) now goes through `client.reporting.runQuery` instead of RC's own `/query` fetch — the client's row type now matches the wire (CASE-861). The column lookup uses query parameters instead of interpolated names.

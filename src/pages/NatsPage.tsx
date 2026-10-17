@@ -44,6 +44,27 @@ function NatsStatusBar() {
   // ECONNREFUSED / ENOTFOUND / timeout → module not deployed
   const isInactive = !connected && /ECONNREFUSED|ENOTFOUND|getaddrinfo|timeout|no servers available/i.test(errMsg)
 
+  if (data?.auth_error) {
+    return (
+      <div className="flex items-start gap-3 px-4 py-2.5 border rounded-lg text-sm bg-amber-50 border-amber-200 text-amber-800">
+        <WifiOff size={16} className="text-amber-500 shrink-0 mt-0.5" />
+        <div className="space-y-0.5">
+          <p className="font-medium">
+            {data.auth_error === 'not_configured'
+              ? 'NATS requires credentials, and none are configured for the console.'
+              : 'NATS rejected the console\'s credentials.'}
+          </p>
+          <p className="text-xs text-amber-700">
+            {data.auth_error === 'not_configured'
+              ? 'Set NATS_USER with NATS_PASSWORD_FILE (or NATS_PASSWORD), or NATS_CREDS_FILE, on the console server.'
+              : `Check the ${data.auth === 'creds' ? 'creds file (NATS_CREDS_FILE)' : `password for user ${data.user ?? '(unknown)'}`} on the console server.`}
+            {' '}<span className="font-mono">{errMsg}</span>
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   if (isInactive) {
     return (
       <div className="flex items-center gap-3 px-4 py-2.5 border rounded-lg text-sm bg-gray-50 border-gray-200 text-gray-500">
@@ -65,6 +86,11 @@ function NatsStatusBar() {
       {data?.server && <span className="text-gray-500 text-xs">Server: {data.server}</span>}
       {data?.version && <span className="text-gray-500 text-xs">v{data.version}</span>}
       {data?.jetstream && <span className="text-xs text-primary font-medium">JetStream</span>}
+      {connected && data?.auth && (
+        <span className="text-gray-500 text-xs">
+          {data.auth === 'none' ? 'Anonymous' : data.auth === 'creds' ? 'Creds file' : `User ${data.user}`}
+        </span>
+      )}
       {data?.error && <span className="text-xs text-danger">{data.error}</span>}
     </div>
   )

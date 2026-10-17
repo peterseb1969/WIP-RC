@@ -2,6 +2,12 @@
 
 ## Open Issues
 
+### NATS page unreachable until RC has a NATS user
+**Status:** waiting on platform (CASE-852 comment)
+**Severity:** medium
+**Description:** NATS requires authentication since WIP `334af17f`. RC's deploy manifest no longer passes `NATS_URL` and declares no `nats_client`, so in a deployed container the NATS page reports a refused connection. RC's side is ready: it authenticates as soon as `NATS_USER` / `NATS_PASSWORD` (or a creds file) are present.
+**Context:** The manifest needs a `nats_client` block publishing `$JS.API.INFO`, `$JS.API.STREAM.LIST`, `$JS.API.CONSUMER.LIST.*`, plus `NATS_URL` from the nats component. That file lives in the WIP repo, so the change is requested from BE-YAC.
+
 ### Registered views: edits to app-owned views are overwritten by the app
 **Status:** known (by design)
 **Severity:** low

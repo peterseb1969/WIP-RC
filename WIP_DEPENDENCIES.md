@@ -57,7 +57,7 @@ These bypass WIP's API because WIP doesn't expose infrastructure internals over 
 | System | Connection (env, default) | Purpose |
 |--------|---------------------------|---------|
 | MongoDB | `MONGO_URI`, default `mongodb://localhost:27017/` | Collection stats, indexes, paged document browsing over `wip_registry`, `wip_def_store`, `wip_template_store`, `wip_document_store` |
-| NATS | `NATS_URL`, default `nats://localhost:4222` | JetStream streams and consumers |
+| NATS | `NATS_URL`, default `nats://localhost:4222`; user `NATS_USER` + `NATS_PASSWORD(_FILE)` or `NATS_CREDS_FILE` | JetStream streams and consumers. Needs publish on `$JS.API.INFO`, `$JS.API.STREAM.LIST`, `$JS.API.CONSUMER.LIST.*` (reply inbox `_INBOX_react-console.>` is granted by the deployer). The deployer creates the user only when RC's manifest (`apps/react-console/wip-app.yaml` in the WIP repo) declares this as a `nats_client` and restores `NATS_URL`. |
 
 ## Wire-shape assumptions
 
