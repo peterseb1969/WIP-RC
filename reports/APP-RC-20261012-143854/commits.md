@@ -129,3 +129,18 @@
 **Tests:** tsc clean; unit tests not run (comment-only change)
 **What:** .env.example now says the key file wins and WIP_API_KEY is only the fallback, matching server/wip-key.ts. The TermFieldInput JSDoc no longer mentions a 100-term cap; the cap is TERM_CAP (1000).
 **Why:** Both comments contradicted the code. Found while re-checking after compaction.
+
+## 3c989bd — feat: NATS page authenticates as its own NATS user
+**Time:** 16:49
+**Files:** 13 changed, +331/-25
+**Tests:** 128 passed; tsc clean. Live: RC's router against a real nats-server running wip-local's rendered nats.conf plus a react-console user. All three routes 200; anonymous/wrong password refused; STREAM.INFO/DELETE, CONSUMER.DELETE, wip.* publish/subscribe all Permissions Violation; live password rotation reconnects on the next request.
+**What:** NATS_USER + NATS_PASSWORD_FILE/NATS_PASSWORD or NATS_CREDS_FILE as connect options, re-read per connect; inbox _INBOX_<user>; auth-refusal classification on the NATS page; shared server/secret.ts; single shared connect attempt.
+**Why:** NATS now requires authentication (WIP 334af17f, CASE-852).
+**Discovered:** CASE-852 already landed on develop and wip-local today. Per BE-YAC's #2, Peter scoped RC's NATS access out ("dropped rather than given a monitor identity"), and RC's manifest lost NATS_URL. Apps share ComponentSpec, so RC can declare a nats_client; the ask is posted as CASE-852#3.
+
+## 3c9a837 — fix: NATS page names a missing NATS_URL and recognises nats.js connection refusals
+**Time:** 16:49
+**Files:** 3 changed
+**Tests:** 128 passed; browser-verified on wip-local (/apps/rc/nats shows "No NATS connection is configured for the console").
+**What:** status carries url_configured; the "not deployed" regex now matches nats.js's CONNECTION_REFUSED.
+**Why:** The deployed container has no NATS_URL, so the page showed a bare CONNECTION_REFUSED. The old regex only ever matched Node's ECONNREFUSED.
