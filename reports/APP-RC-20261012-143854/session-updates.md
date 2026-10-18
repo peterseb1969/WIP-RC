@@ -40,3 +40,6 @@ From pod wip-react-console-f67d745b9-xtd4q (20261018b, sha256:96038815…):
 - The CASE-858 heal is still intact (93 + 2 endpoints resolved).
 
 All four installs (wip-local, dev-test, prod-test, kb.internal) now run RC with NATS and MongoDB authentication.
+
+## 2026-10-18 18:49 — Table Browser filter: automation artifact, not a bug
+Browser automation typing into "Filter tables by name…" kept only the first character (?find=d). The input is controlled by the URL param via setSearchParams, so keystrokes arriving within milliseconds race the router update. Peter tested manually (normal speed, fast typing, key repeat, paste): works as expected. No change made. Next YAC: in automated browser tests, set the filter through ?find= in the URL instead of typing.
