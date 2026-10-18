@@ -34,11 +34,33 @@ export interface MongoDocBrowse {
   pages: number
 }
 
+/** Why MongoDB refused the console: no credentials, refused credentials, or missing privilege. */
+export type MongoAuthError = 'not_configured' | 'rejected' | 'forbidden'
+
+/** A failed MongoDB request; carries the auth classification when MongoDB refused the console. */
+export class MongoInfraError extends Error {
+  constructor(
+    message: string,
+    readonly authError: MongoAuthError | null = null,
+    readonly auth: 'none' | 'user' | null = null,
+    readonly user: string | null = null,
+  ) {
+    super(message)
+  }
+}
+
 async function fetchInfra<T>(path: string): Promise<T> {
   const res = await fetch(apiUrl(`/api/infra/mongo${path}`))
   if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    throw new Error(`MongoDB ${path}: HTTP ${res.status} — ${body}`)
+    const text = await res.text().catch(() => '')
+    let body: { error?: string; auth_error?: MongoAuthError | null; auth?: 'none' | 'user'; user?: string | null } = {}
+    try { body = JSON.parse(text) } catch { /* not JSON */ }
+    throw new MongoInfraError(
+      `MongoDB ${path}: HTTP ${res.status} — ${body.error ?? text}`,
+      body.auth_error ?? null,
+      body.auth ?? null,
+      body.user ?? null,
+    )
   }
   return res.json()
 }
@@ -47,10 +69,17 @@ async function fetchInfra<T>(path: string): Promise<T> {
  * MongoDB databases with collection counts and size, from the backend's direct
  * Mongo connection (`/api/infra/mongo/databases`) — not via WIP's APIs.
  */
+export interface MongoDatabaseList {
+  databases: MongoDatabase[]
+  /** How the backend authenticated: anonymously or as `user`. */
+  auth?: 'none' | 'user'
+  user?: string | null
+}
+
 export function useMongoDatabases() {
   return useQuery({
     queryKey: ['rc-console', 'mongo', 'databases'],
-    queryFn: () => fetchInfra<{ databases: MongoDatabase[] }>('/databases').then(r => r.databases),
+    queryFn: () => fetchInfra<MongoDatabaseList>('/databases'),
     staleTime: 60_000,
   })
 }

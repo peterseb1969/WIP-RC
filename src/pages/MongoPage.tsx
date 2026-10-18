@@ -14,6 +14,7 @@ import {
   useMongoCollections,
   useMongoIndexes,
   useMongoDocuments,
+  MongoInfraError,
 } from '@/hooks/use-mongo'
 import JsonViewer from '@/components/common/JsonViewer'
 import LoadingState from '@/components/common/LoadingState'
@@ -31,13 +32,20 @@ function DatabaseList({
   selectedDb: string | null
   onSelectDb: (name: string) => void
 }) {
-  const { data: databases, isLoading, error, refetch } = useMongoDatabases()
+  const { data, isLoading, error, refetch } = useMongoDatabases()
+  const databases = data?.databases
 
   if (isLoading) return <LoadingState label="Connecting to MongoDB..." />
+  if (error instanceof MongoInfraError && error.authError) return <MongoAuthNotice error={error} />
   if (error) return <ErrorState message={error.message} onRetry={() => refetch()} />
 
   return (
     <div className="divide-y divide-gray-100">
+      {data?.auth && (
+        <div className="px-3 py-1.5 text-[11px] text-gray-400">
+          {data.auth === 'user' ? `Read-only as ${data.user}` : 'Anonymous connection'}
+        </div>
+      )}
       {databases?.map(db => (
         <button
           key={db.name}
@@ -58,6 +66,28 @@ function DatabaseList({
           <ChevronRight size={14} className="text-gray-300 shrink-0" />
         </button>
       ))}
+    </div>
+  )
+}
+
+/** Why MongoDB refused the console, and which server setting to check. */
+function MongoAuthNotice({ error }: { error: MongoInfraError }) {
+  const headline =
+    error.authError === 'not_configured'
+      ? 'MongoDB requires credentials, and none are configured for the console.'
+      : error.authError === 'rejected'
+        ? 'MongoDB rejected the console\'s credentials.'
+        : `MongoDB user ${error.user ?? '(unknown)'} lacks read access to the WIP databases.`
+  const hint =
+    error.authError === 'not_configured'
+      ? 'Set MONGO_USER with MONGO_PASSWORD_FILE (or MONGO_PASSWORD) on the console server.'
+      : error.authError === 'rejected'
+        ? `Check the password for user ${error.user ?? '(unknown)'} on the console server.`
+        : 'The deployer grants it through the read-all role in the console\'s manifest.'
+  return (
+    <div className="m-3 px-3 py-2.5 border rounded-lg text-sm bg-amber-50 border-amber-200 text-amber-800 space-y-0.5">
+      <p className="font-medium">{headline}</p>
+      <p className="text-xs text-amber-700">{hint}</p>
     </div>
   )
 }

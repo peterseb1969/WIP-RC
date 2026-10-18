@@ -1,5 +1,12 @@
 # RC-Console — Changelog
 
+## 2026-10-18 — MongoDB authentication
+
+- Added: the MongoDB page logs in as its own MongoDB user: `MONGO_USER` with `MONGO_PASSWORD_FILE` / `MONGO_PASSWORD`, `authSource: admin`, passed as client options rather than in the URI. Optional: anonymous without a user.
+- Added: the page tells apart "no credentials", "credentials rejected" and "no read access", and shows the identity it reads as. Before, a refusal showed up as four databases in an error state behind a 200.
+- Fixed: concurrent first requests share one connect attempt; a failed attempt is no longer cached; a failed login discards the client so a rotated password is picked up on the next request.
+- Security: `/api/infra/mongo/docs` rejects filter field paths with a `$` segment and non-string filter values. `$where` ran server-side JavaScript, and the read-only role does not prevent that.
+
 ## 2026-10-17 — NATS authentication
 
 - Added: the NATS page's backend authenticates to NATS as its own user — `NATS_USER` with `NATS_PASSWORD_FILE` / `NATS_PASSWORD`, or `NATS_CREDS_FILE`. Credentials are optional (anonymous when unset), passed as connect options rather than in the URL, and re-read on every reconnect, so a rotated password needs no restart. The reply inbox follows the user name to match the deployer's per-user grant.

@@ -91,7 +91,9 @@ Server-side (`process.env`, loaded from `.env` by `dotenv`):
 | `WIP_BASE_URL` | No (default `https://localhost:8443`) | WIP gateway URL | `https://localhost:8443` |
 | `WIP_API_KEY_FILE` | One key source required | Path to a file holding the WIP key, typically the live wip-deploy secrets file. Read at startup, so key rotation is picked up on restart. Takes precedence over `WIP_API_KEY` when the file is readable and non-empty. | `~/.wip-deploy/wip-local/secrets/api-key` |
 | `WIP_API_KEY` | One key source required | Literal WIP key. Fallback when the key file is unset or unreadable; this is what the deployer injects into containers, where a host path from `.env` doesn't exist. | — |
-| `MONGO_URI` | No | MongoDB connection string for the MongoDB page | `mongodb://localhost:27017/` |
+| `MONGO_URI` | No | MongoDB connection string for the MongoDB page, without credentials | `mongodb://localhost:27017/` |
+| `MONGO_USER` | No | MongoDB user (authenticates against `admin`); the deployer injects it for the `read-all` role. Unset = anonymous. | `react-console` |
+| `MONGO_PASSWORD_FILE` / `MONGO_PASSWORD` | With `MONGO_USER` | The user's password: the file wins, the literal value is the fallback | `~/.wip-deploy/wip-local/secrets/mongo-password-react-console` |
 | `NATS_URL` | No | NATS URL for the NATS page | `nats://localhost:4222` |
 | `NATS_USER` | No | NATS user for the NATS page; the deployer injects it when RC's manifest declares a `nats_client`. Unset = anonymous. | `react-console` |
 | `NATS_PASSWORD_FILE` / `NATS_PASSWORD` | With `NATS_USER` | The user's password: the file (re-read on every connect) wins, the literal value is the fallback | `~/.wip-deploy/wip-local/secrets/nats-password-react-console` |

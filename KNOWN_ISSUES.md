@@ -83,10 +83,13 @@
 ### MongoDB page has no document filter
 **Status:** known
 **Severity:** low
-**Description:** The MongoDB page lists a collection's documents, paginated, with no filter in the UI. The backend route (`server/infra/mongo.ts`) accepts a single `filter_field`/`filter_value` equality pair, but nothing exposes it.
+**Description:** The MongoDB page lists a collection's documents, paginated, with no filter in the UI. The backend route (`server/infra/mongo.ts`) accepts a single `filter_field`/`filter_value` string equality pair (field paths with a `$` segment are rejected), but nothing exposes it.
 **Context:** Enough for quick inspection. Targeted queries go through the Documents pages, the PostgreSQL Query Pad, or NL Query.
 
 ## Resolved Issues
+
+### MongoDB page refused once MongoDB required authentication (CASE-892)
+**Resolved:** 2026-10-18. The page logs in as the deployer-injected `MONGO_USER` (`read-all` role, read-only). Verified live on wip-local. The document-browse filter now rejects `$`-prefixed field paths, which would otherwise run server-side JavaScript under the read role.
 
 ### NATS page unreachable once NATS required authentication (CASE-852)
 **Resolved:** 2026-10-17. WIP `f0fc0a64` added the read-only `nats-monitor` role, and RC's manifest declares `nats_client: {roles: [nats-monitor]}`. The deployer injects `NATS_URL`, `NATS_USER=react-console` and `NATS_PASSWORD`; verified live on wip-local (all three NATS routes return data as `react-console`).

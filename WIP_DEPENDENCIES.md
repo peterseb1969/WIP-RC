@@ -56,7 +56,7 @@ These bypass WIP's API because WIP doesn't expose infrastructure internals over 
 
 | System | Connection (env, default) | Purpose |
 |--------|---------------------------|---------|
-| MongoDB | `MONGO_URI`, default `mongodb://localhost:27017/` | Collection stats, indexes, paged document browsing over `wip_registry`, `wip_def_store`, `wip_template_store`, `wip_document_store` |
+| MongoDB | `MONGO_URI`, default `mongodb://localhost:27017/`; user `MONGO_USER` + `MONGO_PASSWORD(_FILE)`, `authSource: admin` | Collection stats, indexes, paged document browsing over `wip_registry`, `wip_def_store`, `wip_template_store`, `wip_document_store`. Needs only the built-in `read` role on those four, which the deployer's `read-all` role grants; RC's manifest declares `mongo_client: {roles: [read-all]}`. Every write is refused by the server. |
 | NATS | `NATS_URL`, default `nats://localhost:4222`; user `NATS_USER` + `NATS_PASSWORD(_FILE)` or `NATS_CREDS_FILE` | JetStream streams and consumers. Needs publish on `$JS.API.INFO`, `$JS.API.STREAM.LIST`, `$JS.API.CONSUMER.LIST.*` (reply inbox `_INBOX_react-console.>` is granted by the deployer). These are exactly what the deployer's `nats-monitor` role grants; RC's manifest (`apps/react-console/wip-app.yaml` in the WIP repo) declares `nats_client: {roles: [nats-monitor]}`, and the deployer injects `NATS_URL`, `NATS_USER=react-console` and `NATS_PASSWORD`. App manifests can only request roles, not raw subjects, so any new NATS call needs the role widened in WIP first. |
 
 ## Wire-shape assumptions
