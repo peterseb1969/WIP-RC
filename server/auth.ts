@@ -41,6 +41,18 @@ const ALLOWED_GROUPS = process.env.ALLOWED_GROUPS
 // public or an OIDC-mode container redirects its own healthcheck to Dex.
 const PUBLIC_PATHS = ['/health', '/api/health', '/auth/callback', '/auth/logout']
 
+/** Groups from the X-WIP-Groups identity header (set by the auth gateway, or by requireAuth in OIDC mode). */
+function headerGroups(req: Request): string[] {
+  return (req.headers['x-wip-groups'] as string || '').split(',').map(g => g.trim()).filter(Boolean)
+}
+
+function denyNotInAllowedGroups(res: Response): void {
+  res.status(403).json({
+    error: 'Access denied',
+    message: `You don't have access to this app. Required group: ${ALLOWED_GROUPS.join(' or ')}`,
+  })
+}
+
 /** Comma-separated Dex/gateway groups treated as admins. Default: wip-admins. */
 const ADMIN_GROUPS = (process.env.WIP_ADMIN_GROUPS || 'wip-admins')
   .split(',').map(g => g.trim()).filter(Boolean)
@@ -55,8 +67,7 @@ const ADMIN_GROUPS = (process.env.WIP_ADMIN_GROUPS || 'wip-admins')
 export function requireAdmin(): RequestHandler {
   return (req: Request, res: Response, next: NextFunction): void => {
     const gwUser = req.headers['x-wip-user'] as string | undefined
-    const gwGroups = (req.headers['x-wip-groups'] as string || '')
-      .split(',').map(g => g.trim()).filter(Boolean)
+    const gwGroups = headerGroups(req)
     const sessionGroups = req.session?.user?.groups ?? []
     const groups = gwGroups.length ? gwGroups : sessionGroups
 
@@ -123,19 +134,37 @@ function getCallbackUrl(req: Request): string {
 }
 
 /**
- * Express middleware that requires OIDC authentication.
- * Skips auth for PUBLIC_PATHS and when OIDC_ISSUER is not set.
+ * Express middleware that authenticates requests and applies ALLOWED_GROUPS.
+ *
+ * - OIDC mode (OIDC_ISSUER set): unauthenticated users are sent to Dex; the
+ *   session's groups must include an allowed group.
+ * - Gateway mode (no OIDC_ISSUER, behind the WIP auth gateway): identity
+ *   arrives in X-WIP-User / X-WIP-Groups, and the groups header must include
+ *   an allowed group. With ALLOWED_GROUPS set, a request carrying no identity
+ *   is refused rather than treated as dev mode, so reaching the container
+ *   without passing the gateway does not grant access.
+ * - Dev mode (neither, and no ALLOWED_GROUPS): everything passes.
+ *
+ * PUBLIC_PATHS (health probes, auth callbacks) always pass.
  */
 export function requireAuth(): RequestHandler {
   return (req: Request, res: Response, next: NextFunction): void => {
-    // Auth disabled — pass through
-    if (!oidcConfig) {
+    // Public paths skip auth
+    if (PUBLIC_PATHS.some(p => req.path.startsWith(p))) {
       next()
       return
     }
 
-    // Public paths skip auth
-    if (PUBLIC_PATHS.some(p => req.path.startsWith(p))) {
+    if (!oidcConfig) {
+      if (ALLOWED_GROUPS.length === 0) { next(); return }
+      if (!req.headers['x-wip-user']) {
+        res.status(401).json({
+          error: 'Authentication required',
+          message: 'Sign in through the WIP gateway to use this app.',
+        })
+        return
+      }
+      if (!headerGroups(req).some(g => ALLOWED_GROUPS.includes(g))) { denyNotInAllowedGroups(res); return }
       next()
       return
     }
@@ -143,10 +172,7 @@ export function requireAuth(): RequestHandler {
     // Already authenticated — check app-level access, then inject identity headers
     if (req.session.user) {
       if (ALLOWED_GROUPS.length > 0 && !req.session.user.groups.some(g => ALLOWED_GROUPS.includes(g))) {
-        res.status(403).json({
-          error: 'Access denied',
-          message: `You don't have access to this app. Required group: ${ALLOWED_GROUPS.join(' or ')}`,
-        })
+        denyNotInAllowedGroups(res)
         return
       }
       req.headers['x-wip-user'] = req.session.user.email

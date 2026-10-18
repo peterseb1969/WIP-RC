@@ -109,7 +109,7 @@ Server-side (`process.env`, loaded from `.env` by `dotenv`):
 | `OIDC_ISSUER` | No | Public OIDC issuer; setting it enables standalone OIDC login | `https://localhost:8443/dex` |
 | `OIDC_INTERNAL_ISSUER` | No | Issuer URL for server-to-server discovery (defaults to `OIDC_ISSUER`) | `http://wip-dex:5556/dex` |
 | `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | No | OIDC client (defaults `wip-apps` / `wip-apps-secret`) | — |
-| `ALLOWED_GROUPS` | No | Comma-separated groups allowed into the app (OIDC mode); empty = any authenticated user | `wip-admins` |
+| `ALLOWED_GROUPS` | No | Comma-separated groups allowed into the app. Applied to the OIDC session and, behind the WIP gateway, to its `X-WIP-Groups` header. When set, a request without identity gets 401 (only health and auth paths stay public). Empty = any authenticated user, and dev mode without auth. | `wip-admins` |
 | `WIP_ADMIN_GROUPS` | No | Groups treated as admins for admin-only server routes (e.g. setting the Anthropic key). Default `wip-admins`. | `wip-admins` |
 
 Key resolution lives in one place: `server/wip-key.ts` serves the direct callers (infra health, file and backup streaming, NL tools). `@wip/proxy` uses the same precedence for `/wip`: `apiKeyFile`, then the inline key.

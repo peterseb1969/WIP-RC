@@ -1,5 +1,10 @@
 # RC-Console — Changelog
 
+## 2026-10-18 — ALLOWED_GROUPS behind the WIP gateway
+
+- Fixed: `ALLOWED_GROUPS` was enforced only in OIDC mode. Behind the WIP auth gateway (the deployed default) every authenticated user got in, the viewer included, and, because RC calls WIP with the admin key, could write data. It is now also checked against the gateway's `X-WIP-Groups` header, and with it set, a request carrying no identity gets 401 instead of open dev mode. The RC manifest gets `ALLOWED_GROUPS=wip-admins` from BE-YAC.
+- Verified: a temporary instance with `ALLOWED_GROUPS=wip-admins` on wip-local answered health 200, no identity 401, viewer 403 (also through the `/wip` proxy), and an admin 200.
+
 ## 2026-10-18 — NL data-model tool scoped by namespace
 
 - Changed: `describe_data_model` returns an overview (template and terminology names per namespace) without arguments, and full detail (fields with types and terminologies, identity fields, usage, term counts, IDs) for up to 10 `namespaces`. On wip-local the overview is ~7k characters; the old all-in-one listing was ~45k and got cut mid-JSON at the 30k tool-result limit.
