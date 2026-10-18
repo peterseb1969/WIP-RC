@@ -179,6 +179,7 @@ npm run test:e2e    # End-to-end, against a running WIP install (default: wip-lo
   - the data lifecycle: terminology, term, Template Builder, document form, edit to version 2, archive;
   - imports: a terminology from a CSV, more terms into it (existing ones skipped), documents from a CSV through the column-mapping wizard (alias resolution, a bad row reported);
   - API keys: a namespace-scoped key with a write grant created in the UI, then used against WIP (writes in its namespace, refused in the twin), revoked and rejected (allows for the services' key cache, up to ~30 s each way);
+  - integrity: a document whose term is hard-deleted afterwards (mutable terminology) appears as an orphaned term reference in the Integrity check (instance-wide, ~25 s);
   - form validation: a missing mandatory field is caught before saving, a value the platform rejects (a pattern) is shown, and an edit that lost a race with another writer is refused as a conflict with a Reload offer; nothing is written in any case;
   - registry: add a synonym to a document's entry and confirm a lookup by that key resolves it, find it with the by-term search, remove it, merge a duplicate entry so its ID resolves to the preferred one;
   - files: upload (shown as an orphan), download returns the same bytes, a document's file field uploads and links a file, the file page lists the referencing document and warns before deleting it, deleting an orphan;
@@ -189,4 +190,5 @@ npm run test:e2e    # End-to-end, against a running WIP install (default: wip-lo
   - template versioning: a schema change mints version 2 with version 1 still active, existing documents stay on version 1, deactivate and reactivate a single version, identity fields locked in the editor;
   - access control: a user outside `ALLOWED_GROUPS` (the deployer's `viewer@wip.local`) gets 403 from RC's server and its `/wip` proxy, a write through the proxy does not land, and pages show the denial.
 - **Prerequisites:** the `e2e` user (`wip-deploy user add e2e --email e2e@wip.local --group wip-admins --name wip-local`), and `ALLOWED_GROUPS` set on the install for the access spec. Secrets are read from `~/.wip-deploy/<deployment>/secrets/` (`dex-password-e2e`, `dex-password-viewer`, `api-key`); the access spec skips its viewer checks when the viewer password is absent. The `E2E_*` variables in `tests/e2e/support/env.ts` override the target.
-- **Artifacts:** the HTML report, traces and screenshots of failures go to `test-results/e2e/`.
+- **Artifacts:** the HTML report, traces and screenshots of failures go to `test-results/e2e/` (gitignored). A failed API call's log in them includes the request headers, so the deploy API key: don't share the report or traces.
+- **Load:** the integrity spec runs the instance-wide check (a full document scan, ~25 s on wip-local) and the reporting spec force-rebuilds one table; run the full suite when the install is otherwise idle.
