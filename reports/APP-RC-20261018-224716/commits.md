@@ -72,3 +72,18 @@
 **What:** The scaffold's API_PREFIXES exclusion after express.static, ahead of the index.html fallback.
 **Why:** CASE-888 umbrella; confirmed live on dev-test 20261018c (missing API GET → 200 text/html). Reported as CASE-888#3.
 **Discovered:** /wip/api/<unknown service>/… returns 200 HTML through the proxy, from WIP itself; the exclusion can't reach it, since the proxy answers first. Noted on the case, origin not traced.
+
+## 01349b4 — fix: file fields accept wildcard types; E2E files
+**Time:** 00:28
+**Files:** 8 files changed, 196 insertions(+), 8 deletions(-)
+**Tests:** unit 189 passed (6 new); E2E files 4/4
+**What:** mimeTypeAllowed (exact, family/*, any; case- and parameter-insensitive; an empty type is left to the server) replaces a literal includes() in FileFieldInput; upload form labels associated; files spec.
+**Why:** Found by the new files spec: a field allowing text/* refused text/plain ("File type text/plain not allowed"), so any wildcard-configured file field could not take a file. The server accepted the same file for the same field.
+
+## 4b6cead — test: E2E API keys; new-key banner notes the propagation delay
+**Time:** 00:28
+**Files:** 5 files changed, 111 insertions(+), 9 deletions(-)
+**Tests:** E2E api-keys 3/3 (~47 s, mostly key-cache waits)
+**What:** api-keys spec (create a scoped write key in the UI, use it against WIP, revoke, rejected); afterAll revoke; create-form labels; banner hint "WIP may take up to 30 seconds to accept it".
+**Why:** Coverage gap (write path with real consequences).
+**Discovered:** A new key took ~14 s on wip-local to be accepted, revocation ~28 s. The first run's 401 can't be attributed: the locator then read the first <code> on the page (the tier advisory's command), and I fixed that and added the wait at the same time.
