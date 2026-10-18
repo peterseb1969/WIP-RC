@@ -15,6 +15,8 @@ const RESOLVED_BASE = process.env.VITE_BASE_PATH || process.env.APP_BASE_PATH ||
 const BASE_WITH_SLASH = RESOLVED_BASE.endsWith('/') ? RESOLVED_BASE : `${RESOLVED_BASE}/`
 const BASE_PATH = RESOLVED_BASE.replace(/\/$/, '')
 
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
 export default defineConfig({
   base: BASE_WITH_SLASH,
   plugins: [react()],
@@ -28,17 +30,22 @@ export default defineConfig({
     // (wip-deploy --target dev with --app-source). Harmless on host.
     host: '0.0.0.0',
     port: 5174,
-    proxy: {
-      [`${BASE_PATH}/wip`]: 'http://localhost:3011',
-      [`${BASE_PATH}/api`]: 'http://localhost:3011',
-      [`${BASE_PATH}/health`]: 'http://localhost:3011',
-      [`${BASE_PATH}/auth`]: 'http://localhost:3011',
-    },
+    // Regex keys anchored to a whole path segment: a plain string key is a
+    // prefix match, so `${BASE_PATH}/api` would also proxy the SPA route
+    // /api-keys to Express (which has no such route) instead of serving it.
+    proxy: Object.fromEntries(
+      ['wip', 'api', 'health', 'auth'].map(seg => [
+        `^${escapeRegExp(`${BASE_PATH}/${seg}`)}(?:/|\\?|$)`,
+        'http://localhost:3011',
+      ]),
+    ),
   },
   test: {
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./tests/setup.ts'],
+    // Playwright end-to-end specs run separately (npm run test:e2e).
+    exclude: ['**/node_modules/**', 'tests/e2e/**'],
     css: true,
   },
 })
