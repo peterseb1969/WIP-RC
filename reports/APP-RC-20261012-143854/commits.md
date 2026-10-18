@@ -167,3 +167,11 @@
 **What:** model default sonnet-5-5 (shared constant), effort low (NL_QUERY_EFFORT), max_tokens 16000, server-side refusal fallback on current models, finalAnswerFrom for refusal/max_tokens/context-window stops, round-budget message, is_error on failed tools, Models API key check. Docs updated.
 **Why:** Peter approved the migration from claude-sonnet-4-6 (Sonnet tier, cheaper per token; adaptive thinking on by default needed max_tokens headroom and refusal handling).
 **Discovered:** describe_data_model output on wip-local (155+ templates) exceeds the 30k-char tool-result cap, so the model said it "couldn't cross-check" and fell back to SQL. The cap predates this change. SDK 0.95.1 lacks fallbacks typing; an SDK bump is an optional follow-up. Prompt tweaks (word cap, prohibition list) were offered to Peter, not applied.
+
+## 08d16f0 — feat: CodeMirror editor for the Query Pad and the view editor
+**Time:** 18:12
+**Files:** 13 changed, +629/-41
+**Tests:** 149 passed (4 new format-code); tsc clean; vite build shows a separate CodeEditor chunk (404 kB / 134 kB gz) and an unchanged main chunk. Browser on wip-local: highlighting; table completion (doc_case_r → doc_case_record…); column completion (status, doc_status); Cmd+Enter ran a 3-row query; Format reflowed it; view editor renders.
+**What:** src/components/editor/{CodeEditor,LazyCodeEditor}, src/lib/format-code.ts, useSqlCompletionSchema; Query Pad + view editor switched over; Format button.
+**Why:** Peter approved the editor plan (CodeMirror 6, shared editor first, then the Mongo pad).
+**Discovered:** The dev container needs a restart after dependency changes (lockfile-gated npm ci), and the restart drops the in-memory Anthropic key override.
