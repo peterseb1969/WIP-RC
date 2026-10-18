@@ -1,5 +1,14 @@
 # RC-Console — Changelog
 
+## 2026-10-18 — End-to-end tests (phase 1)
+
+- Added: a Playwright E2E suite (`npm run test:e2e`) against wip-local through its router, with a dedicated `e2e@wip.local` user and a disposable namespace per run. Specs: smoke, the data lifecycle and infrastructure pages, 25 tests.
+- Fixed (found by the suite):
+  - the dev proxy served "Cannot GET" for `/api-keys` on reload;
+  - document form inputs were not associated with their labels;
+  - the field settings panel's close button had no accessible name;
+  - error states now carry `role="alert"`.
+
 ## 2026-10-18 — ALLOWED_GROUPS behind the WIP gateway
 
 - Fixed: `ALLOWED_GROUPS` was enforced only in OIDC mode. Behind the WIP auth gateway (the deployed default) every authenticated user got in, the viewer included, and, because RC calls WIP with the admin key, could write data. It is now also checked against the gateway's `X-WIP-Groups` header, and with it set, a request carrying no identity gets 401 instead of open dev mode. The RC manifest gets `ALLOWED_GROUPS=wip-admins` from BE-YAC.

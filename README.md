@@ -155,6 +155,25 @@ The @wip/* libs are pinned to versioned, immutable tarballs (`file:libs/wip-<lib
 npm test            # Run once
 npm run test:watch  # Watch mode
 npx tsc --noEmit -p tsconfig.json   # Type-check (also run by CI)
+npm run test:e2e    # End-to-end, against a running WIP install (default: wip-local)
 ```
 
-114 tests across 10 files in `tests/unit/`. They cover UI components, NL query tools (definitions, SQL guard, wire shapes, key handling), terminology import parsing, archive manifest/filename helpers, PostgreSQL browser filters, external-template discovery, the version-impact panel, and registered-view helpers.
+**Unit tests:** 175 across 17 files in `tests/unit/`. They cover:
+- UI components;
+- NL query tools: definitions, SQL guard, wire shapes, key handling, data-model scoping, result size;
+- NATS and MongoDB credentials, and the MongoDB query-pad safety checks;
+- gateway access control;
+- the code editor's formatting and completions;
+- terminology import parsing;
+- archive helpers;
+- PostgreSQL browser filters;
+- registered-view helpers.
+
+**End-to-end tests** (`tests/e2e/`, Playwright with the system Chrome) run against RC behind the install's router.
+- **Setup:** global setup deletes leftover `rc-e2e-*` namespaces, creates a disposable `rc-e2e-<timestamp>` namespace and logs in once through Dex as `e2e@wip.local`. Teardown deletes the namespace.
+- **Specs:**
+  - smoke: health endpoints, and every page loads with no error state or console error;
+  - the data lifecycle: terminology, term, Template Builder, document form, edit to version 2, archive;
+  - infrastructure: MongoDB query pad incl. the `$where` refusal, and the NATS identity.
+- **Prerequisites:** the `e2e` user (`wip-deploy user add e2e --email e2e@wip.local --group wip-admins --name wip-local`). Secrets are read from `~/.wip-deploy/<deployment>/secrets/` (`dex-password-e2e`, `api-key`). The `E2E_*` variables in `tests/e2e/support/env.ts` override the target.
+- **Artifacts:** the HTML report, traces and screenshots of failures go to `test-results/e2e/`.

@@ -74,11 +74,11 @@
 **Description:** The production JS bundle is one chunk of about 1,112 kB (288 kB gzipped; measured 2026-10-12), above Vite's 500 kB warning.
 **Context:** Not a functional issue. Route-based splitting with `React.lazy()` would reduce it.
 
-### No E2E tests
-**Status:** deferred
-**Severity:** medium
-**Description:** Only unit tests exist (114 tests in 10 files as of 2026-10-12). The CI gate runs tsc, vitest and a production build, but nothing against a real WIP instance.
-**Context:** Needs a running WIP instance in CI. Could be added with Playwright. Features have been verified manually in the browser against wip-local.
+### E2E suite: local only, three spec groups still to write
+**Status:** in progress (phase 1, local)
+**Severity:** low
+**Description:** `npm run test:e2e` (Playwright) covers smoke, the data lifecycle and the infrastructure pages: 25 tests, about 30 s against wip-local. Still to write: imports (terminology CSV, document CSV), reporting (wait for reporting-sync, Query Pad, registered view create/test/delete) and relationships (edge type and edge, relationships panel). It does not run in CI.
+**Context:** Phase 1 is local only, by decision (2026-10-18). Run it before image builds. CI would need a WIP install per run (phase 2, not planned). NL Query and backup/restore are deliberately excluded for now.
 
 ## Resolved Issues
 
