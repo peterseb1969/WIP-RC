@@ -46,4 +46,7 @@ EXPOSE 3011
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD wget -qO- http://localhost:3011${APP_BASE_PATH:-}/health || exit 1
 
-CMD ["npx", "tsx", "server/index.ts"]
+# tsx is a pinned runtime dependency; start it from node_modules, never via
+# npx, which downloads a package missing from the image (an unpinned version,
+# fetched from the registry on every container start).
+CMD ["./node_modules/.bin/tsx", "server/index.ts"]
