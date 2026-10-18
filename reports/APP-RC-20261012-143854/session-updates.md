@@ -11,3 +11,6 @@ Ran POST /api/template-store/maintenance/heal-endpoints with dry_run=true on kb.
 
 ## 2026-10-18 12:38 — dev-test: RC 20261018a connects to authenticated NATS
 Peter built react-console:20261018a from master 7edf6e2 (GitHub run 39119915381) and rolled dev-test's react-console to it (was 20261012a, which predates the NATS auth code and got Authorization Violation). Verified from inside pod wip-react-console-7d485cdcb-5x5pr (digest sha256:7b30293c…): status connected as react-console (NATS 2.15.1), streams lists WIP_EVENTS, consumers lists reporting-sync-durable. WIP_EVENTS on dev-test was created 2026-10-18T10:31 with 0 messages, consistent with the one-time move of the JetStream store onto the volume (CASE-891).
+
+## 2026-10-18 12:43 — kb.internal endpoint repair run (CASE-858)
+Peter took a backup first and approved the run. heal-endpoints dry_run=false: kb 12 templates / 93 entries, library 1 / 2, 0 unresolvable. A dry-run re-check found 0 left to change (93 and 2 already filled). Edge-type versions unchanged (all v1). The served templates now carry resolved on every endpoint.
