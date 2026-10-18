@@ -207,3 +207,15 @@
 **What:** requireAuth enforces ALLOWED_GROUPS on X-WIP-Groups in gateway mode; with it set, no-identity requests get 401.
 **Why:** Found while planning E2E: any authenticated user (viewer included) could write via RC's admin-key calls. BE-YAC proposed the split: RC fixes the middleware, BE-YAC sets ALLOWED_GROUPS=wip-admins in the manifest.
 **Discovered:** My earlier "wip-deploy has no user command" was wrong (truncated --help); `wip-deploy user add` exists (CASE-842). Lesson saved to memory.
+
+## 040bc7a — fix: dev proxy no longer swallows the /api-keys page
+**Time:** 19:27
+**Tests:** E2E smoke 17/17 after the fix (1 failed before: "Cannot GET /apps/rc/api-keys")
+**What:** Vite proxy keys became regexes anchored to whole segments (/wip, /api, /health, /auth).
+**Why:** A string key is a prefix match, so /api caught the SPA route /api-keys on reload or deep link (dev only).
+
+## bf8eb21 — test: Playwright E2E foundation and smoke suite against wip-local
+**Time:** 19:27
+**Tests:** E2E 17 passed (19.8 s); unit 175 passed
+**What:** @playwright/test 1.63.0 (exact), system Chrome; global setup (stale rc-e2e-* cleanup, disposable namespace, one Dex login as e2e@wip.local from the dex-password-e2e secret); teardown deletes the namespace; smoke spec (health/app-config, 16 pages: heading, no role=alert, no console errors). ErrorState role="alert".
+**Why:** Peter approved E2E phase 1 (local only; test user e2e@wip.local in wip-admins created with `wip-deploy user add`; scope groups 1–6, no NL, no backup for now).

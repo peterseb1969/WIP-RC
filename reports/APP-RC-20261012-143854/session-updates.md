@@ -43,3 +43,12 @@ All four installs (wip-local, dev-test, prod-test, kb.internal) now run RC with 
 
 ## 2026-10-18 18:49 — Table Browser filter: automation artifact, not a bug
 Browser automation typing into "Filter tables by name…" kept only the first character (?find=d). The input is controlled by the URL param via setSearchParams, so keystrokes arriving within milliseconds race the router update. Peter tested manually (normal speed, fast typing, key repeat, paste): works as expected. No change made. Next YAC: in automated browser tests, set the filter through ?find= in the URL instead of typing.
+
+## 2026-10-18 19:27 — E2E in progress: foundation + smoke done, groups 2–6 next
+Done: bf8eb21 (foundation + smoke). Remaining spec groups, all in the run's disposable namespace (run().namespace), serial:
+- (2) lifecycle: terminology + terms → Template Builder → document form → list/table → edit → v2 → archive
+- (3) imports: terminology CSV, small document CSV
+- (4) reporting: wait for reporting-sync (eventually()), Query Pad run, view create/test/delete
+- (5) infra: Mongo query pad finds e2e docs and refuses $where; NATS page shows react-console
+- (6) relationships: edge type + edge, relationships panel
+Notes: `npm run test:e2e`. The user is e2e@wip.local (wip-admins). When BE-YAC sets ALLOWED_GROUPS=wip-admins in RC's manifest (RC side: 3461408), in-container probes without X-WIP-User get 401, so send gateway headers. In browser automation, use only refs returned by find; set URL-synced filters through the URL, not typing.
