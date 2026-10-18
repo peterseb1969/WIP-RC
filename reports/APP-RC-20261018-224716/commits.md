@@ -94,7 +94,7 @@
 **Tests:** E2E registry 4/4; unit 189 passed
 **What:** Synonym form sends plural entity types (singular labels kept), defaults to the entry's namespace and type; synonym/merge labels associated; registry spec with real by-key / by-id lookups.
 **Why:** API probe before writing the spec: lookups match entity_type exactly; RC sent "document" while the registry uses "documents", so RC-added synonyms never resolved.
-**Discovered:** The registry accepts any entity_type string on synonyms/add without validation (stored "document"), so the mistake was silent. Possible platform case: validate synonym_entity_type against known types. Existing wip-local or deployed data may hold such dead synonyms from RC; not checked.
+**Discovered:** The registry accepts any entity_type string on synonyms/add without validation (stored "document"), so the mistake was silent. Filed as CASE-908. A read-only check on wip-local, dev-test, prod-test and kb.internal found no dead synonyms.
 
 ## 695fedc — fix: document edit conflicts detected by error code and explained; E2E validation
 **Time:** 00:44
