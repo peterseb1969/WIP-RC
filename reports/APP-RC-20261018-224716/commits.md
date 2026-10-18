@@ -40,3 +40,19 @@
 **What:** tsx moved from devDependencies to dependencies, pinned to 4.21.0. The Dockerfile CMD is ./node_modules/.bin/tsx instead of npx tsx.
 **Why:** Seen while verifying the 20261018c roll on dev-test: the pod log showed npx installing tsx@4.23.15 at startup (the --omit=dev image had no tsx). Present since the Dockerfile was written; not from this session's changes.
 **Discovered:** Lockfile change is only the dev flags on tsx/esbuild/get-tsconfig; no version changes. The wip-local dev container needs no restart (node_modules unchanged).
+
+## f6c9bee — chore: adopt scaffold refresh — @wip/client 0.61.0, @wip/react 0.21.0
+**Time:** 00:07
+**Files:** 24 files changed, 413 insertions(+), 147 deletions(-)
+**Tests:** typecheck clean; unit 183 passed
+**What:** Ran create-app-project.sh in place from the WIP clone (develop a6fb80ec): versioned tarballs (git rm old, git add -f new), toolkit/archive wheels, docs, commands, wake script, lib READMEs, package.json + lockfile. Merged only the four general CLAUDE.md sections from CLAUDE.md.refresh (deleted it). Committed .claude/.settings-baseline.json (the scaffold's three-way-merge record).
+**Why:** Peter: CASE-905 done, update what we can. CASE-898 also implemented (client 0.61.0).
+**Discovered:** The refresh regenerated .mcp.json with this machine's paths (/Users/peter instead of /Users/sebbelp). Left uncommitted pending Peter's call; it would let the wip MCP server start on this machine.
+
+## 2a23958 — feat: reporting parity and CSV export through the typed client; export errors shown
+**Time:** 00:07
+**Files:** 9 files changed, 149 insertions(+), 133 deletions(-)
+**Tests:** E2E 48 passed (50.9 s); unit 183 passed
+**What:** getParity / exportTableCsv / exportQueryCsv replace raw fetches; local parity types gone; export errors shown next to their buttons; single-template batch sync via useTriggerBatchSync; useRouteTemplate's by-value branch on useTemplateByValue({ namespace }). E2E: both exports, Parity card, forced scoped batch sync.
+**Why:** CASE-898 and CASE-905 adoption.
+**Discovered:** Export failures were only console-logged before (no user feedback). Playwright fill() on CodeMirror leaves the completion list open over the buttons below it; with real typing, clicking elsewhere closes it, so this is not a UI bug (verified with keyboard.type). The spec presses Escape. useTriggerBatchSyncAll's BatchSyncAllVars lacks namespace (comment CASE-905#3). wip-local reporting-sync already has the export fix (namespaced export 200; bad query 400). Commented CASE-898#3.
