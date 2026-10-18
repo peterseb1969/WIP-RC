@@ -56,11 +56,19 @@
 **Description:** The NL Query page shows an "unavailable" notice unless `ANTHROPIC_API_KEY` is set, or a key is provided at runtime on the API Keys page (held in memory only, lost on restart). wip-local currently has neither, so the agent's end-to-end behaviour, including the `list_registered_views` tool added 2026-10-12, has only been verified at the tool level (`executeTool` against live WIP), not through Claude.
 **Context:** Everything else in the app works without it.
 
-### No CodeMirror for SQL editors
-**Status:** deferred
-**Severity:** cosmetic
-**Description:** The Query Pad and the view editor use plain monospace textareas without SQL syntax highlighting.
-**Context:** Works fine for ad-hoc queries. CodeMirror can be added via `/wip-improve`.
+### Query editors: plain textareas, and no MongoDB query editor
+**Status:** backlog (requested 2026-10-18)
+**Severity:** low
+**Description:** Two parts, to be built as one shared editor:
+- **MongoDB query editor.** The MongoDB page can only page through a collection, with no query UI (the backend `/docs` route takes one string equality filter, which nothing exposes). Wanted: a query pad for MongoDB like the PostgreSQL Query Pad, for `find` (filter, projection, sort, limit) and probably read-only `aggregate`.
+- **Richer editing for both.** The Query Pad and the registered-view editor are plain monospace textareas. Wanted: syntax highlighting (SQL; JSON / MongoDB query syntax) and further editor features, e.g. bracket matching, autocomplete of table, view, column or collection and field names, and run-on-shortcut. One editor component would serve the SQL editors and the new MongoDB one.
+
+**Context:** Constraints for whoever builds it:
+- **Server-side only.** MongoDB queries must run in Express, as today, through the console's own MongoDB user.
+- **Writes are blocked by the role.** That user holds only the built-in `read` role on the four platform databases, so the server refuses writes, including aggregation `$out` / `$merge`.
+- **JavaScript is not blocked by the role.** The `read` role does not stop server-side JavaScript. `$where`, `$function` and `$accumulator` must be rejected anywhere in a filter or pipeline. `isSafeFilterField` in `server/infra/mongo-auth.ts` does this for the one existing filter; a query editor needs the same check applied recursively.
+- **Bound every query** with `maxTimeMS` and a result cap.
+- **Stack:** no editor library is in the stack yet. Check `docs/technology-stack.md` before adding one (CodeMirror 6 is the likely candidate).
 
 ### No ontology graph visualization
 **Status:** deferred
@@ -79,12 +87,6 @@
 **Severity:** medium
 **Description:** Only unit tests exist (114 tests in 10 files as of 2026-10-12). The CI gate runs tsc, vitest and a production build, but nothing against a real WIP instance.
 **Context:** Needs a running WIP instance in CI. Could be added with Playwright. Features have been verified manually in the browser against wip-local.
-
-### MongoDB page has no document filter
-**Status:** known
-**Severity:** low
-**Description:** The MongoDB page lists a collection's documents, paginated, with no filter in the UI. The backend route (`server/infra/mongo.ts`) accepts a single `filter_field`/`filter_value` string equality pair (field paths with a `$` segment are rejected), but nothing exposes it.
-**Context:** Enough for quick inspection. Targeted queries go through the Documents pages, the PostgreSQL Query Pad, or NL Query.
 
 ## Resolved Issues
 
