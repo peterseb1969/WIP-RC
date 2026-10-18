@@ -219,3 +219,21 @@
 **Tests:** E2E 17 passed (19.8 s); unit 175 passed
 **What:** @playwright/test 1.63.0 (exact), system Chrome; global setup (stale rc-e2e-* cleanup, disposable namespace, one Dex login as e2e@wip.local from the dex-password-e2e secret); teardown deletes the namespace; smoke spec (health/app-config, 16 pages: heading, no role=alert, no console errors). ErrorState role="alert".
 **Why:** Peter approved E2E phase 1 (local only; test user e2e@wip.local in wip-admins created with `wip-deploy user add`; scope groups 1–6, no NL, no backup for now).
+
+## ffcc943 — fix: document form labels name their inputs
+**Time:** 22:38
+**Tests:** 175 unit; E2E lifecycle passes with label lookups
+**What:** FieldInput takes an id and passes it to TextInput/NumberInput/SelectInput; DocumentForm supplies df-<field>.
+**Why:** <Label htmlFor> pointed at an id no input carried, so the fields had no accessible name.
+
+## 5360792 — test: E2E data lifecycle
+**Time:** 22:38
+**Tests:** E2E 23 passed
+**What:** terminology → term → Template Builder → document form → edit (v2) → archive, with API cross-checks.
+**Discovered:** The builder ignores ?ns= and has its own namespace select. Quick-add inputs share a placeholder with other inputs. Adding a field opens a slide-out. Archive returns to the active-only list. One run got an /auth/verify redirect (a gateway session not accepted); it did not recur.
+
+## 5e3b789 — test: E2E infrastructure pages; document the E2E suite
+**Time:** 22:38
+**Tests:** E2E 25 passed (27.7 s)
+**What:** Mongo query pad (find + $where refusal), NATS identity; README/KNOWN_ISSUES/CHANGELOG.
+**Discovered:** Playwright's locator.press('ControlOrMeta+Enter') on the CodeMirror editor did not trigger the run (manual Cmd+Enter works); the spec clicks Find instead.
