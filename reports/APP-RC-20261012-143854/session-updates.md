@@ -27,3 +27,6 @@ Peter rolled new platform images (CASE-890 MongoDB auth) plus react-console:2026
 - NATS: connected as react-console; streams and consumers listed.
 - Health: all services healthy; ingest-gateway is inactive (not deployed on dev-test).
 - dev-test MongoDB refuses anonymous listCollections and an insertOne as react-console (13 Unauthorized).
+
+## 2026-10-18 15:45 — prod-test: RC 20261018b verified with MongoDB + NATS auth
+The first check found prod-test's per-app pin react-console=20261018a overriding the install tag 20261018b. The old image ignored MONGO_USER, so /databases returned 200 with four "requires authentication" errors and the other Mongo routes returned 502. NATS, health and Mongo enforcement were fine (anonymous and writes refused). Peter moved the pin with app-deploy. Re-check from pod wip-react-console-6f5fd74d47-8sl9q (20261018b, sha256:96038815…): Mongo databases/collections/docs 200 as react-console, $where 400, NATS connected (104 delivered), all 7 services healthy. kb.internal likely has the same stale react-console pin.
