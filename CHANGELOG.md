@@ -1,5 +1,11 @@
 # RC-Console — Changelog
 
+## 2026-10-18 — Template editor: identity locked; versioning and access E2E
+
+- Fixed: the template editor let identity fields be changed on an existing template and said it was safe when the template had no documents or only pinned ones. The platform rejects every identity change (a different identity is a different template). The identity selector is now locked when editing, and any identity change, including removing or renaming an identity field, blocks the save.
+- Fixed: after a save created a new template version, or a version was deactivated, the template page's version list stayed stale for up to a minute.
+- Added E2E specs: template versioning and access control (`ALLOWED_GROUPS` with a viewer login). 44 tests.
+
 ## 2026-10-18 — Document pages stay in the selected namespace; E2E phase 1 complete
 
 - Fixed: the create form, table view, import wizard and document detail page looked up templates by value without a namespace. Where the same template value exists in several namespaces, they used whichever came first. "New document" could load another namespace's template and create the document there. In-app links now carry the template's id, a bare value resolves in the selected namespace, and the detail page uses the document's own template.

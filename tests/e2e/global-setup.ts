@@ -1,6 +1,7 @@
 import { chromium, type FullConfig } from '@playwright/test'
 import { E2E, NAMESPACE_PREFIX, readSecret, writeRun } from './support/env'
 import { wipApi, getJson, postJson } from './support/wip'
+import { login } from './support/login'
 
 /**
  * Before the run: remove namespaces left by earlier (aborted) runs, create this
@@ -30,12 +31,7 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
 
   const browser = await chromium.launch({ channel: 'chrome' })
   const context = await browser.newContext({ ignoreHTTPSErrors: true })
-  const page = await context.newPage()
-  await page.goto(E2E.baseURL)
-  await page.locator('#login').fill(E2E.user)
-  await page.locator('#password').fill(readSecret(E2E.passwordFile))
-  await page.locator('#submit-login').click()
-  await page.waitForURL(url => url.href.startsWith(E2E.baseURL), { timeout: 30_000 })
+  await login(await context.newPage(), E2E.user, readSecret(E2E.passwordFile))
   await context.storageState({ path: E2E.stateFile })
   await browser.close()
 }

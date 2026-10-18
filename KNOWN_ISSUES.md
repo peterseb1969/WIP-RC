@@ -77,7 +77,7 @@
 ### E2E suite: local only
 **Status:** known (phase 1 complete, local)
 **Severity:** low
-**Description:** `npm run test:e2e` (Playwright) covers smoke, the data lifecycle, imports, same-named templates across namespaces, relationships, reporting and the infrastructure pages: 36 tests, about 40 s against wip-local. It does not run in CI.
+**Description:** `npm run test:e2e` (Playwright) covers smoke, the data lifecycle, imports, same-named templates across namespaces, relationships, reporting, template versioning, access control and the infrastructure pages: 44 tests, about 42 s against wip-local. Not yet covered: files, the API Keys and Registry pages, form validation errors, and the Integrity, Table Browser, Batch Sync and Parity views. It does not run in CI.
 **Context:** Phase 1 is local only, by decision (2026-10-18). Run it before image builds. CI would need a WIP install per run (phase 2, not planned). NL Query and backup/restore are deliberately excluded for now.
 
 ### @wip/react: useTemplateByValue has no namespace

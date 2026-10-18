@@ -15,6 +15,9 @@ export const E2E = {
   user: process.env.E2E_USER ?? 'e2e@wip.local',
   passwordFile: process.env.E2E_PASSWORD_FILE ?? path.join(secrets, 'dex-password-e2e'),
   apiKeyFile: process.env.E2E_API_KEY_FILE ?? path.join(secrets, 'api-key'),
+  /** A user outside ALLOWED_GROUPS (the deployer's default viewer), for the access checks. */
+  viewerUser: process.env.E2E_VIEWER_USER ?? 'viewer@wip.local',
+  viewerPasswordFile: process.env.E2E_VIEWER_PASSWORD_FILE ?? path.join(secrets, 'dex-password-viewer'),
   /** Saved browser session (login once in global setup). */
   stateFile: path.resolve('test-results/e2e/.auth.json'),
   /** This run's disposable namespace, written by global setup. */
