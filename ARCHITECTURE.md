@@ -179,11 +179,13 @@ Restore uploads go through @wip/proxy, which streams since 0.5.0.
 
 ```
 NLQueryPage → POST /api/nl/query
-  → Claude (model NL_QUERY_MODEL, default claude-sonnet-4-6) with 8 read-only tools (server/nl/tools.ts)
+  → Claude (model NL_QUERY_MODEL, default claude-sonnet-5-5; effort NL_QUERY_EFFORT, default low) with 8 read-only tools (server/nl/tools.ts)
   → tool_use → Express runs the tool against WIP REST → tool_result → …
   → stops at a text answer or after 10 tool rounds
   → answer + tool-call log back to the page
 ```
+
+Request shape: thinking is left at the model default (adaptive); `max_tokens` is 16000 so thinking and the answer both fit. The loop is append-only within a question (assistant turns, thinking blocks included, go back unchanged; system prompt and tools never change), which keeps the prompt cache and the API's thinking-block checks intact. History across questions is text only. A response that ends in `refusal`, `max_tokens` or `model_context_window_exceeded` becomes an explanatory answer instead of an empty or silently truncated one (`finalAnswerFrom`). The answer reports the model that actually served it, which differs when a refusal fallback ran. An admin-set key is checked with a Models API lookup of the configured model, which generates no tokens.
 
 Tools:
 - `search`

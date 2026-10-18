@@ -1,5 +1,13 @@
 # RC-Console — Changelog
 
+## 2026-10-18 — NL Query on Claude Sonnet 5.5
+
+- Changed: the NL Query agent defaults to `claude-sonnet-5-5` (was `claude-sonnet-4-6`), at effort `low` (`NL_QUERY_EFFORT` overrides). `max_tokens` 4096 → 16000, because thinking is on by default and counts toward it.
+- Added: requests on current models carry the server-side refusal fallback (`fallbacks: "default"`). The answer reports the model that actually served it.
+- Fixed: a refusal, a length cutoff or an oversized conversation now produce an explanatory answer instead of empty or silently cut-off text. Ten tool rounds without an answer say so. Failed tool calls are marked `is_error`.
+- Changed: the admin key check looks up the configured model through the Models API instead of sending a message, so it generates no tokens.
+- Verified live on wip-local: a namespace lookup, a SQL aggregation across four tool calls, and a follow-up turn using history, all served by `claude-sonnet-5-5` in 5–10 s.
+
 ## 2026-10-18 — MongoDB authentication
 
 - Added: the MongoDB page logs in as its own MongoDB user: `MONGO_USER` with `MONGO_PASSWORD_FILE` / `MONGO_PASSWORD`, `authSource: admin`, passed as client options rather than in the URI. Optional: anonymous without a user.

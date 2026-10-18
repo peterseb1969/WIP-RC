@@ -15,7 +15,8 @@
  */
 import Anthropic from '@anthropic-ai/sdk'
 
-const PROBE_MODEL = process.env.NL_QUERY_MODEL || 'claude-sonnet-4-6'
+/** The Claude model the NL query agent uses; NL_QUERY_MODEL overrides the default. */
+export const NL_QUERY_MODEL = process.env.NL_QUERY_MODEL || 'claude-sonnet-5-5'
 
 let runtimeKeyOverride: string | null = null
 
@@ -52,17 +53,14 @@ export function clearKeyOverride(): void {
 }
 
 /**
- * Liveness probe — one tiny (1-token) call so a bad/expired key is rejected
- * at set time instead of failing the user's first real NL query.
+ * Key check — looks up the configured model with the key, so a bad or expired
+ * key (or one without access to that model) is rejected at set time instead of
+ * failing the user's first real NL query. Generates no tokens.
  */
 export async function validateKey(key: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const probe = new Anthropic({ apiKey: key })
-    await probe.messages.create({
-      model: PROBE_MODEL,
-      max_tokens: 1,
-      messages: [{ role: 'user', content: 'ping' }],
-    })
+    await probe.models.retrieve(NL_QUERY_MODEL)
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'validation failed' }

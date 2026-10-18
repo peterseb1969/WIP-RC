@@ -13,6 +13,7 @@ import { Router } from 'express'
 import Anthropic from '@anthropic-ai/sdk'
 import { toolDefinitions, executeTool } from './tools.js'
 import {
+  NL_QUERY_MODEL,
   resolveAnthropicKey,
   keyStatus,
   setKeyOverride,
@@ -23,9 +24,29 @@ import { requireAdmin } from '../auth.js'
 
 const router = Router()
 
-const MODEL = process.env.NL_QUERY_MODEL || 'claude-sonnet-4-6'
+const MODEL = NL_QUERY_MODEL
 const MAX_TOOL_ROUNDS = 10 // safety limit on agentic loops
-const MAX_TOKENS = 4096
+// Thinking is on by default on current models and counts toward max_tokens,
+// so leave room for it as well as the answer.
+const MAX_TOKENS = 16000
+
+type Effort = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+const EFFORTS: readonly Effort[] = ['low', 'medium', 'high', 'xhigh', 'max']
+/**
+ * Thinking depth. `low` suits an interactive lookup assistant: it skips
+ * thinking on simple questions and keeps answers quick. NL_QUERY_EFFORT
+ * overrides it (e.g. `medium` for heavier analytical use).
+ */
+const EFFORT: Effort = EFFORTS.includes(process.env.NL_QUERY_EFFORT as Effort)
+  ? (process.env.NL_QUERY_EFFORT as Effort)
+  : 'low'
+
+// Models that accept the server-side refusal fallback in its "default" form:
+// a request a safety classifier declines is re-run on a fallback model chosen
+// by the refusal category, inside the same call. Other models get no
+// fallback, since the parameter is rejected there.
+const FALLBACK_MODELS = new Set(['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-opus-5', 'claude-fable-5-1'])
+const FALLBACK_BETA = 'server-side-fallback-2026-07-01'
 
 // System prompt — loaded from the query-assistant-prompt MCP resource at build time.
 // For runtime, we inline it here. It instructs Claude to use WIP tools for data queries.
@@ -135,8 +156,8 @@ function getClient(): Anthropic {
 function buildMessages(
   history: ChatMessage[],
   question: string
-): Anthropic.MessageParam[] {
-  const messages: Anthropic.MessageParam[] = []
+): Anthropic.Beta.BetaMessageParam[] {
+  const messages: Anthropic.Beta.BetaMessageParam[] = []
 
   for (const msg of history) {
     messages.push({
@@ -151,6 +172,36 @@ function buildMessages(
   })
 
   return messages
+}
+
+/** The parts of a final (non-tool-use) response that shape the answer. */
+type FinalResponse = Pick<Anthropic.Beta.BetaMessage, 'content' | 'stop_reason'> & {
+  stop_details?: { category?: string | null } | null
+}
+
+/**
+ * The user-facing answer from a response that called no tools: its text
+ * blocks, with a note when the model declined or ran out of room. A refusal
+ * is a normal response (HTTP 200) whose content may be empty, so it is
+ * checked before the text is used.
+ */
+export function finalAnswerFrom(response: FinalResponse): string {
+  const text = response.content
+    .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text')
+    .map(b => b.text)
+    .join('')
+  switch (response.stop_reason) {
+    case 'refusal': {
+      const category = response.stop_details?.category
+      return `The model declined to answer this question${category ? ` (safety category: ${category})` : ''}. Try rephrasing it.`
+    }
+    case 'max_tokens':
+      return `${text}\n\n_The answer was cut off because it reached the length limit. Ask for a narrower answer._`
+    case 'model_context_window_exceeded':
+      return `${text}\n\n_The conversation is too long for the model. Start a new conversation._`
+    default:
+      return text
+  }
 }
 
 // POST /api/nl/query
@@ -172,11 +223,16 @@ router.post('/query', async (req, res) => {
     let finalAnswer = ''
     let totalInputTokens = 0
     let totalOutputTokens = 0
+    let servedModel = MODEL
+    let finished = false
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const response = await client.messages.create({
+      const useFallback = FALLBACK_MODELS.has(MODEL)
+      const response = await client.beta.messages.create({
         model: MODEL,
         max_tokens: MAX_TOKENS,
+        output_config: { effort: EFFORT },
+        ...(useFallback ? { betas: [FALLBACK_BETA] } : {}),
         // CASE-311 step 1 — prompt caching on the static blocks. The system
         // prompt and tool definitions don't change across rounds within a
         // session; marking them as cache breakpoints lets round 2+ within
@@ -192,7 +248,10 @@ router.post('/query', async (req, res) => {
             : t
         ),
         messages: currentMessages,
+        // The pinned SDK's types predate `fallbacks`; the field is sent as is.
+        ...(useFallback ? ({ fallbacks: 'default' } as Record<string, unknown>) : {}),
       })
+      servedModel = response.model
 
       totalInputTokens += response.usage?.input_tokens ?? 0
       totalOutputTokens += response.usage?.output_tokens ?? 0
@@ -203,16 +262,18 @@ router.post('/query', async (req, res) => {
         const assistantContent = response.content
 
         // Execute each tool call
-        const toolResults: Anthropic.ToolResultBlockParam[] = []
+        const toolResults: Anthropic.Beta.BetaToolResultBlockParam[] = []
         for (const block of assistantContent) {
           if (block.type === 'tool_use') {
             let result: unknown
+            let failed = false
             try {
               result = await executeTool(
                 block.name,
                 block.input as Record<string, unknown>
               )
             } catch (err) {
+              failed = true
               result = {
                 error: err instanceof Error ? err.message : 'Tool execution failed',
               }
@@ -234,6 +295,7 @@ router.post('/query', async (req, res) => {
               type: 'tool_result',
               tool_use_id: block.id,
               content: resultStr,
+              ...(failed ? { is_error: true } : {}),
             })
           }
         }
@@ -248,19 +310,20 @@ router.post('/query', async (req, res) => {
         continue // next round
       }
 
-      // No more tool calls — extract the text answer
-      for (const block of response.content) {
-        if (block.type === 'text') {
-          finalAnswer += block.text
-        }
-      }
-
+      // No more tool calls — extract the text answer (blocks are read by
+      // type: a response can also carry thinking blocks).
+      finalAnswer = finalAnswerFrom(response)
+      finished = true
       break // done
+    }
+
+    if (!finished) {
+      finalAnswer = `I stopped after ${MAX_TOOL_ROUNDS} rounds of tool calls without reaching an answer. Try a narrower question.`
     }
 
     const result: QueryResponse = {
       answer: finalAnswer,
-      model: MODEL,
+      model: servedModel,
       usage: {
         input_tokens: totalInputTokens,
         output_tokens: totalOutputTokens,

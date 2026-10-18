@@ -279,7 +279,7 @@ TOOLS
 - **Conversation history**: Scrollable, persisted in session (not localStorage — sensitive data).
 - **Examples**: Sidebar or header with sample queries ("How many documents per template?", "Show all active terminologies in the aa namespace", "What clinical trials are in phase 3?").
 - **How it works**: Express backend receives the question, calls Claude API with the `wip://query-assistant-prompt` system prompt. The LLM uses WIP's REST APIs (search, query_by_template, run_report_query, describe_data_model, list_report_tables, get_document) as tools. Returns a formatted answer.
-- **LLM provider**: Claude API (Anthropic). API key in `.env` as `ANTHROPIC_API_KEY`. Model: `claude-sonnet-4-6` (fast, cost-effective for queries). TBD: could also support local LLM or other providers.
+- **LLM provider**: Claude API (Anthropic). API key in `.env` as `ANTHROPIC_API_KEY`. Model: `NL_QUERY_MODEL`, default `claude-sonnet-5-5` (fast, cost-effective for queries). TBD: could also support local LLM or other providers.
 
 ## Folder Structure
 
@@ -568,7 +568,7 @@ The complete system prompt is available at `wip://query-assistant-prompt` MCP re
 ### Implementation
 The Express backend:
 1. Receives question from frontend: `POST /api/nl/query { question: "...", history: [...] }`
-2. Calls Claude API (`claude-sonnet-4-6`) with the query-assistant system prompt
+2. Calls Claude API (`NL_QUERY_MODEL`, default `claude-sonnet-5-5`) with the query-assistant system prompt
 3. The LLM response may include tool calls — the backend executes them against WIP's REST API
 4. Returns the formatted answer to the frontend
 

@@ -86,7 +86,7 @@ None. RC has no data model to seed, so there is no `data-model/` directory and n
 
 | Source | Purpose | Configuration |
 |--------|---------|---------------|
-| Anthropic API (Claude) | NL Query: the agent answers questions using the read-only WIP tools in `server/nl/tools.ts` | `ANTHROPIC_API_KEY`, or an in-memory override set from the API Keys page. Model from `NL_QUERY_MODEL` (default `claude-sonnet-4-6`). |
+| Anthropic API (Claude) | NL Query: the agent answers questions using the read-only WIP tools in `server/nl/tools.ts` | `ANTHROPIC_API_KEY`, or an in-memory override set from the API Keys page. Model from `NL_QUERY_MODEL` (default `claude-sonnet-5-5`), effort from `NL_QUERY_EFFORT` (default `low`). On current models the request carries the server-side refusal fallback (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`). |
 
 ## Cross-app references
 

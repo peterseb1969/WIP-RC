@@ -100,7 +100,8 @@ Server-side (`process.env`, loaded from `.env` by `dotenv`):
 | `NATS_CREDS_FILE` | No | JWT + nkey creds file; replaces user/password when set | — |
 | `NATS_INBOX_PREFIX` | No | Reply-inbox prefix (default `_INBOX_<NATS_USER>`, matching the per-user grant) | — |
 | `ANTHROPIC_API_KEY` | No | Claude key for NL Query. An admin can set an in-memory override on the API Keys page; it wins until cleared or the server restarts. | `sk-ant-...` |
-| `NL_QUERY_MODEL` | No | Claude model for NL Query (default `claude-sonnet-4-6`) | — |
+| `NL_QUERY_MODEL` | No | Claude model for NL Query (default `claude-sonnet-5-5`) | — |
+| `NL_QUERY_EFFORT` | No | Thinking depth for NL Query: `low` (default), `medium`, `high`, `xhigh`, `max` | `medium` |
 | `PORT` | No | Express port (default 3011) | `3011` |
 | `APP_BASE_PATH` | No | Path prefix when served behind a router that does not strip it | `/apps/rc` |
 | `NODE_ENV` | No | `production` serves `dist/` with an SPA fallback and secure cookies | `production` |
