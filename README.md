@@ -20,7 +20,7 @@ The sidebar is flat, grouped into Overview / Data / Infrastructure / Health / Ad
   - **Query Pad**: SQL scoped to a namespace, with history and CSV export. The editor highlights PostgreSQL, autocompletes table, view and column names, runs on Ctrl/Cmd+Enter and formats on Shift+Alt+F (also in the registered-view editor).
   - **Batch Sync**: namespace-scopable sync with an optional force rebuild.
   - **Parity**: per-namespace documents-vs-reporting checks.
-- **MongoDB** — database → collection → document drill-down with indexes.
+- **MongoDB** — database → collection → document drill-down with indexes, plus a read-only query pad per collection: filter, projection and sort as Extended JSON, with field and operator autocomplete, a limit, paging and the total match count.
 - **NATS** — stream cards with consumer details; friendly banner when NATS isn't deployed.
 - **Integrity** — on-demand cross-service referential integrity checks.
 - **Audit Explorer** — full-text entity search with reverse-reference inspection.

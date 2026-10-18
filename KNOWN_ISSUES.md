@@ -56,19 +56,11 @@
 **Description:** The NL Query page shows an "unavailable" notice unless `ANTHROPIC_API_KEY` is set, or a key is provided at runtime on the API Keys page (held in memory only, lost on restart). wip-local currently has neither, so the agent's end-to-end behaviour, including the `list_registered_views` tool added 2026-10-12, has only been verified at the tool level (`executeTool` against live WIP), not through Claude.
 **Context:** Everything else in the app works without it.
 
-### Query editors: no MongoDB query editor yet
-**Status:** in progress (SQL editors done 2026-10-18; MongoDB query pad next)
+### MongoDB query pad: no aggregation pipelines yet
+**Status:** deferred (by design for the first cut)
 **Severity:** low
-**Description:** Two parts, to be built as one shared editor:
-- **MongoDB query editor.** The MongoDB page can only page through a collection, with no query UI (the backend `/docs` route takes one string equality filter, which nothing exposes). Wanted: a query pad for MongoDB like the PostgreSQL Query Pad, for `find` (filter, projection, sort, limit) and probably read-only `aggregate`.
-- **Richer editing for both.** Done for SQL: the Query Pad and the registered-view editor use the shared `CodeEditor` (CodeMirror 6). The MongoDB pad reuses it in JSON mode.
-
-**Context:** Constraints for whoever builds it:
-- **Server-side only.** MongoDB queries must run in Express, as today, through the console's own MongoDB user.
-- **Writes are blocked by the role.** That user holds only the built-in `read` role on the four platform databases, so the server refuses writes, including aggregation `$out` / `$merge`.
-- **JavaScript is not blocked by the role.** The `read` role does not stop server-side JavaScript. `$where`, `$function` and `$accumulator` must be rejected anywhere in a filter or pipeline. `isSafeFilterField` in `server/infra/mongo-auth.ts` does this for the one existing filter; a query editor needs the same check applied recursively.
-- **Bound every query** with `maxTimeMS` and a result cap.
-- **Design (approved 2026-10-18):** separate Extended JSON fields (filter, projection, sort, limit), `find` + count first, `aggregate` later.
+**Description:** The MongoDB query pad runs `find` (filter, projection, sort, limit, skip) plus a total count. Aggregation pipelines aren't supported.
+**Context:** Analytics belong in the PostgreSQL Query Pad. A pipeline editor would reuse `CodeEditor` and `findUnsafe` (`server/infra/mongo-query.ts`), and would also have to reject `$out` and `$merge` (the `read` role refuses them, but RC should name the reason) and keep `maxTimeMS`.
 
 ### No ontology graph visualization
 **Status:** deferred
@@ -89,6 +81,9 @@
 **Context:** Needs a running WIP instance in CI. Could be added with Playwright. Features have been verified manually in the browser against wip-local.
 
 ## Resolved Issues
+
+### Query editors were plain textareas; no MongoDB query editor
+**Resolved:** 2026-10-18. The shared CodeMirror 6 `CodeEditor` serves the Query Pad, the registered-view editor and the new MongoDB query pad: highlighting, autocomplete, Ctrl/Cmd+Enter, Format.
 
 ### MongoDB page refused once MongoDB required authentication (CASE-892)
 **Resolved:** 2026-10-18. The page logs in as the deployer-injected `MONGO_USER` (`read-all` role, read-only). Verified live on wip-local. The document-browse filter now rejects `$`-prefixed field paths, which would otherwise run server-side JavaScript under the read role.

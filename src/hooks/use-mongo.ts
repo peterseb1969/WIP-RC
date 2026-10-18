@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { apiUrl } from '@/lib/wip'
 
 export interface MongoDatabase {
@@ -114,5 +114,59 @@ export function useMongoDocuments(database: string | null, collection: string | 
       fetchInfra<MongoDocBrowse>(`/docs/${database}/${collection}?page=${page}&page_size=20`),
     enabled: !!database && !!collection,
     staleTime: 30_000,
+  })
+}
+
+/** A query-pad request: Extended JSON text for each part, plus paging. */
+export interface MongoQueryInput {
+  database: string
+  collection: string
+  filter?: string
+  projection?: string
+  sort?: string
+  limit?: number
+  skip?: number
+}
+
+/** Query-pad result: documents as relaxed Extended JSON, plus the total match count. */
+export interface MongoQueryResult {
+  database: string
+  collection: string
+  documents: Record<string, unknown>[]
+  total: number
+  limit: number
+  skip: number
+  elapsedMs: number
+}
+
+/**
+ * Runs a read-only find from the MongoDB query pad (`POST /api/infra/mongo/query`).
+ * The server parses the Extended JSON, rejects JavaScript operators and bounds
+ * the query (result cap, time limit); its 400 message explains a rejected query.
+ */
+export function useMongoQuery() {
+  return useMutation({
+    mutationFn: async (input: MongoQueryInput): Promise<MongoQueryResult> => {
+      const res = await fetch(apiUrl('/api/infra/mongo/query'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new MongoInfraError(body.error ?? `HTTP ${res.status}`, body.auth_error ?? null, body.auth ?? null, body.user ?? null)
+      }
+      return body as MongoQueryResult
+    },
+  })
+}
+
+/** Field paths seen in a sample of the collection's documents, for query-pad autocomplete. */
+export function useMongoFields(database: string | null, collection: string | null) {
+  return useQuery({
+    queryKey: ['rc-console', 'mongo', 'fields', database, collection],
+    queryFn: () => fetchInfra<{ fields: string[] }>(`/fields/${database}/${collection}`).then(r => r.fields),
+    enabled: !!database && !!collection,
+    staleTime: 300_000,
   })
 }

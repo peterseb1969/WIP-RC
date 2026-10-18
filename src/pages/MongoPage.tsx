@@ -4,10 +4,9 @@ import {
   Database,
   FolderOpen,
   ChevronRight,
-  ChevronLeft,
-  Hash,
   Layers,
   FileJson,
+  SearchCode,
 } from 'lucide-react'
 import {
   useMongoDatabases,
@@ -16,7 +15,8 @@ import {
   useMongoDocuments,
   MongoInfraError,
 } from '@/hooks/use-mongo'
-import JsonViewer from '@/components/common/JsonViewer'
+import DocumentList from '@/components/mongo/DocumentList'
+import MongoQueryPanel from '@/components/mongo/MongoQueryPanel'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import { cn } from '@/lib/cn'
@@ -146,7 +146,7 @@ function CollectionList({
 
 function CollectionDetail({ database, collection }: { database: string; collection: string }) {
   const [page, setPage] = useState(1)
-  const [selectedDocIndex, setSelectedDocIndex] = useState<number | null>(null)
+  const [mode, setMode] = useState<'browse' | 'query'>('browse')
   const { data: indexes } = useMongoIndexes(database, collection)
   const { data: docBrowse, isLoading, error } = useMongoDocuments(database, collection, page)
 
@@ -194,48 +194,37 @@ function CollectionDetail({ database, collection }: { database: string; collecti
         </div>
       )}
 
-      {/* Documents */}
+      {/* Documents: browse or query */}
       <div>
-        <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1.5">
-          <FileJson size={14} />
-          Documents
-          {docBrowse && (
-            <span className="font-normal text-gray-400">
-              ({docBrowse.total.toLocaleString()} total, page {docBrowse.page} of {docBrowse.pages})
+        <div className="flex items-center gap-1 mb-2 border-b border-gray-200">
+          {(['browse', 'query'] as const).map(m => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={cn(
+                'px-3 py-1.5 text-sm -mb-px border-b-2 flex items-center gap-1.5',
+                mode === m ? 'border-primary text-primary-dark font-medium' : 'border-transparent text-gray-500 hover:text-gray-700',
+              )}
+            >
+              {m === 'browse' ? <FileJson size={14} /> : <SearchCode size={14} />}
+              {m === 'browse' ? 'Browse' : 'Query'}
+            </button>
+          ))}
+          {mode === 'browse' && docBrowse && (
+            <span className="ml-2 text-xs text-gray-400">
+              {docBrowse.total.toLocaleString()} total, page {docBrowse.page} of {docBrowse.pages}
             </span>
           )}
-        </h3>
+        </div>
 
-        {isLoading && <LoadingState label="Loading documents..." />}
-        {error && <ErrorState message={error.message} />}
+        {mode === 'query' && <MongoQueryPanel key={`${database}/${collection}`} database={database} collection={collection} />}
 
-        {docBrowse && (
+        {mode === 'browse' && isLoading && <LoadingState label="Loading documents..." />}
+        {mode === 'browse' && error && <ErrorState message={error.message} />}
+
+        {mode === 'browse' && docBrowse && (
           <>
-            {/* Document list */}
-            <div className="space-y-2">
-              {docBrowse.documents.map((doc, i) => {
-                const id = (doc._id as string) ?? `row-${i}`
-                const isSelected = selectedDocIndex === i
-
-                return (
-                  <div key={id} className="border border-gray-200 rounded-lg overflow-hidden">
-                    <button
-                      onClick={() => setSelectedDocIndex(isSelected ? null : i)}
-                      className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-gray-50 text-sm"
-                    >
-                      <Hash size={12} className="text-gray-300" />
-                      <span className="font-mono text-xs text-gray-500 truncate flex-1">{id}</span>
-                      {isSelected ? <ChevronLeft size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
-                    </button>
-                    {isSelected && (
-                      <div className="border-t border-gray-200">
-                        <JsonViewer data={doc} maxHeight="400px" />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+            <DocumentList key={page} documents={docBrowse.documents} />
 
             {/* Pagination */}
             {docBrowse.pages > 1 && (

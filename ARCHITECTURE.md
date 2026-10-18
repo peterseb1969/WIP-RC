@@ -83,6 +83,8 @@ The sidebar used to be an accordion with sub-menus. It was flattened because the
 
 **`src/components/editor/`** — `CodeEditor`, the query-surface editor (CodeMirror 6): SQL (PostgreSQL dialect, schema-driven autocomplete) or JSON (parse-error lint, optional completion source), Ctrl/Cmd+Enter to run, Shift+Alt+F to format (`src/lib/format-code.ts`; sql-formatter is loaded on first use). It is controlled and built once per mount, so undo history survives re-renders. Pages use `LazyCodeEditor`, which loads it as its own chunk and shows a plain textarea until then. The SQL autocomplete schema comes from `useSqlCompletionSchema(namespace)`: every namespace's tables from the inventory, plus the chosen namespace's tables and views with their columns from `information_schema`.
 
+**`src/components/mongo/`** — `MongoQueryPanel` (the MongoDB page's Query tab: filter / projection / sort editors in JSON mode with field-and-operator autocomplete from `useMongoFields`, limit, paging) and `DocumentList` (expandable document rows, shared with Browse).
+
 **`src/components/layout/`** — `AppLayout`, `Sidebar`, `TopBar`, `Breadcrumbs`.
 
 **`src/components/templates/`** — builder internals.
@@ -162,6 +164,8 @@ MongoDB and NATS have no WIP REST surface, so Express connects directly and read
 useMongoDatabases()  →  fetch(apiUrl('/api/infra/mongo/databases'))  →  mongoRouter  →  MongoClient
 useNatsStreams()     →  fetch(apiUrl('/api/infra/nats/streams'))     →  natsRouter   →  JetStream
 ```
+
+**MongoDB query pad.** `POST /api/infra/mongo/query` takes filter, projection and sort as Extended JSON text and parses them with the driver's EJSON parser, so nothing is evaluated. `$where`, `$function`, `$accumulator` and BSON code values are rejected at any depth, because the `read` role permits server-side JavaScript while refusing writes. Limit is 1–500 (default 50), skip is at most 100,000, and `find` and `countDocuments` both run with `maxTimeMS` 10 s. Results go back as relaxed Extended JSON, so an `_id` copied from a result (`{"$oid": …}`) works as a filter. Input errors and queries MongoDB rejects return 400 with the reason; auth failures use the shared classification. `GET /api/infra/mongo/fields/:db/:collection` samples 100 documents (`$sample`) for autocomplete paths.
 
 `/api/infra/health` probes each WIP service through the gateway and reads the `build` block from services that expose one. `useIsServiceInactive(slug)` turns a missing module into a "not deployed" banner (PostgreSQL, Dashboard); NATS detects its own connection failure.
 
@@ -279,7 +283,8 @@ server/
 ├── auth.ts           # Standalone OIDC (openid-client), group gate, requireAdmin
 ├── wip-key.ts        # Shared WIP key resolution (file first, inline fallback)
 ├── infra/
-│   ├── mongo.ts      # Read-only MongoDB routes
+│   ├── mongo.ts      # Read-only MongoDB routes (browse, query pad, field sampling)
+│   ├── mongo-query.ts # Query-pad parsing and safety checks (Extended JSON, JS-operator ban, bounds)
 │   └── nats.ts       # Read-only NATS JetStream routes
 └── nl/
     ├── query.ts      # /api/nl: agent loop, system prompt, key status/override endpoints

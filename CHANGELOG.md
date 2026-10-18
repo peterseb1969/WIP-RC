@@ -1,5 +1,10 @@
 # RC-Console — Changelog
 
+## 2026-10-18 — MongoDB query pad
+
+- Added: a Query tab per collection on the MongoDB page, with filter, projection and sort as Extended JSON. It autocompletes field paths (sampled from the collection) and operators, lints JSON as you type, runs on Ctrl/Cmd+Enter, and offers Format, a limit (1–500), paging and the total match count.
+- Safety: the server parses with the driver's EJSON parser (nothing is evaluated). It rejects `$where`, `$function`, `$accumulator` and code values anywhere, bounds limit and skip, and stops queries after 10 s. Rejected input returns its reason. The console's MongoDB user is read-only, so writes are refused by MongoDB itself.
+
 ## 2026-10-18 — Code editor for the SQL surfaces
 
 - Added: the Query Pad and the registered-view editor use a CodeMirror 6 editor. It highlights the PostgreSQL dialect, matches brackets and autocompletes table and column names: every namespace's tables, plus the chosen namespace's tables and views with their columns. Ctrl/Cmd+Enter runs the query (in the view editor it runs Test), and Shift+Alt+F or the new Format button reformats it.
