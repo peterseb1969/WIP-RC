@@ -1,5 +1,11 @@
 # RC-Console — Changelog
 
+## 2026-10-19 — Edit conflicts explained
+
+- Fixed: saving a document that someone else had changed since it was opened showed only "Expected version 1, current is 2", with no explanation and no Reload button. RC recognised a conflict by looking for "conflict" or "concurrency" in the message text, which this message doesn't contain. It now uses the platform's `concurrency_conflict` error code, says the changes were not saved because the document changed, and offers Reload.
+- Changed: the document form's error banner has `role="alert"`.
+- Added E2E tests for form validation: missing mandatory field, a value the platform rejects, an edit conflict. 62 tests.
+
 ## 2026-10-19 — Registry synonyms resolve
 
 - Fixed: synonyms added on the Registry page never resolved. The form sent singular entity types (`document`), but the registry's are plural (`documents`) and a lookup matches the type exactly, so a synonym stored as `document` was invisible to every lookup. The form now sends the plural type and starts from the entry's own namespace and type.

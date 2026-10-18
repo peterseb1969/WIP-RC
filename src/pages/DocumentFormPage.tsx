@@ -8,7 +8,7 @@ import {
   useWipClient,
 } from '@wip/react'
 import { useQuery } from '@tanstack/react-query'
-import type { Template, FieldDefinition } from '@wip/client'
+import { WipBulkItemError, WipConflictError, type Template, type FieldDefinition } from '@wip/client'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import DocumentForm from '@/components/documents/DocumentForm'
@@ -113,11 +113,22 @@ export default function DocumentFormPage({ mode }: { mode: Mode }) {
     },
     onError: (err) => setBanner(err.message),
   })
+  // Set from the platform's error_code, never from message text: the
+  // concurrency_conflict message ("Expected version 1, current is 2") names
+  // neither word, so sniffing the text left the user without an explanation.
+  const [conflict, setConflict] = useState(false)
   const updateDoc = useUpdateDocument({
     onSuccess: () => {
       if (documentId) navigate(`/documents/${templateValue}/${documentId}`)
     },
-    onError: (err) => setBanner(err.message),
+    onError: (err) => {
+      if ((err instanceof WipBulkItemError && err.errorCode === 'concurrency_conflict') || err instanceof WipConflictError) {
+        setConflict(true)
+        setBanner(`This document was changed by someone else after you opened it, so your changes were not saved. Reload to see the current version. (${err.message})`)
+        return
+      }
+      setBanner(err.message)
+    },
   })
 
   const isPending = createDoc.isPending || updateDoc.isPending
@@ -125,6 +136,7 @@ export default function DocumentFormPage({ mode }: { mode: Mode }) {
   // --- Save ---
   const handleSave = useCallback(() => {
     setBanner(null)
+    setConflict(false)
     setFieldErrors({})
     if (!template) return
 
@@ -192,7 +204,6 @@ export default function DocumentFormPage({ mode }: { mode: Mode }) {
     ? `Editing against pinned template v${docQ.data.template_version}. Latest is v${template.version}.`
     : null
 
-  const isConcurrencyConflict = banner?.toLowerCase().includes('concurrency') || banner?.toLowerCase().includes('conflict')
 
   return (
     <div className="space-y-4 max-w-3xl">
@@ -251,10 +262,10 @@ export default function DocumentFormPage({ mode }: { mode: Mode }) {
 
       {/* Error banner */}
       {banner && (
-        <div className="flex items-start gap-2 text-sm text-danger bg-danger/5 border border-danger/20 rounded-md px-3 py-2">
+        <div role="alert" className="flex items-start gap-2 text-sm text-danger bg-danger/5 border border-danger/20 rounded-md px-3 py-2">
           <AlertTriangle size={14} className="text-danger shrink-0 mt-0.5" />
           <div className="flex-1">{banner}</div>
-          {isConcurrencyConflict && mode === 'edit' && (
+          {conflict && mode === 'edit' && (
             <button
               type="button"
               onClick={() => window.location.reload()}
