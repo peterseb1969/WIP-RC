@@ -183,3 +183,27 @@
 **What:** server/infra/mongo-query.ts (EJSON parsing, findUnsafe, bounds, collectFieldPaths); /query and /fields routes; useMongoQuery/useMongoFields; mongoCompletionSource; MongoQueryPanel + shared DocumentList; Browse/Query tabs.
 **Why:** the approved editor plan, phase 2 (find + count first, aggregate later).
 **Discovered:** wip-local was fully redeployed mid-test (all containers recreated); RC stayed on the --app-source dev mount.
+
+## b75a94f — chore: Anthropic SDK 0.131.0; tidy the NL system prompt
+**Time:** 19:23
+**Tests:** 163 passed; live: 2 NL queries on 0.131.0
+**What:** SDK 0.95.1 → 0.131.0 (exact, ≥2 weeks old); typed `fallbacks`. Prompt: no word cap; "What NOT to Do" folded into positive rules.
+**Why:** Peter approved both.
+
+## 1acbad5 — refactor: reporting inventory and table columns through client.reporting.listTables
+**Time:** 19:23
+**Tests:** 169 passed; browser: Table Browser list + 35 columns via detail mode
+**What:** inventory via listTables(); columns via listTables(name, ns); local ReportTable/ReportEntity replaced by the client's. Filed CASE-898 for parity + reporting CSV client methods.
+**Discovered:** RC's local types had drifted (template_value nullable, kind required).
+
+## 6e1f571 — feat: NL data-model tool scoped by namespace; structural cut for tool results
+**Time:** 19:23
+**Tests:** 169 passed (6 new); live: library terminologies 1 call / 3.1 s (was 4 calls / 75k tokens / 15.8 s)
+**What:** describe_data_model overview vs namespaces detail; serializeToolResult keeps JSON valid with <key>_omitted.
+
+## 3461408 — fix: apply ALLOWED_GROUPS behind the WIP gateway, not only in OIDC mode
+**Time:** 19:23
+**Tests:** 175 passed (6 new auth-gateway); live temp instance on wip-local: health 200, no identity 401, viewer 403 (incl. /wip proxy), admin 200
+**What:** requireAuth enforces ALLOWED_GROUPS on X-WIP-Groups in gateway mode; with it set, no-identity requests get 401.
+**Why:** Found while planning E2E: any authenticated user (viewer included) could write via RC's admin-key calls. BE-YAC proposed the split: RC fixes the middleware, BE-YAC sets ALLOWED_GROUPS=wip-admins in the manifest.
+**Discovered:** My earlier "wip-deploy has no user command" was wrong (truncated --help); `wip-deploy user add` exists (CASE-842). Lesson saved to memory.
