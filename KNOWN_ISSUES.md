@@ -81,9 +81,9 @@
 **Context:** Phase 1 is local only, by decision (2026-10-18). Run it before image builds. CI would need a WIP install per run (phase 2, not planned). NL Query and backup/restore are deliberately excluded for now.
 
 ### @wip/react: useTemplateByValue has no namespace
-**Status:** worked around
+**Status:** worked around; library fix requested (CASE-905)
 **Severity:** medium (data written to the wrong namespace before the workaround)
-**Description:** `useTemplateByValue(value)` calls `GET /templates/by-value/{value}` without a namespace, and its query key ignores namespace. A template value is unique only within its namespace, so the unscoped lookup returns whichever namespace's template comes first (on wip-local, `CASE_RECORD` resolves to kb's).
+**Description:** `useTemplateByValue(value)` (and `useFormSchema`, unused by RC) calls `GET /templates/by-value/{value}` without a namespace, and its query key ignores namespace. A template value is unique only within its namespace, so the unscoped lookup returns whichever namespace's template comes first (on wip-local, `CASE_RECORD` resolves to kb's).
 **Context:** RC no longer uses the hook: `src/hooks/use-route-template.ts` resolves by `?template_id=` or by value in the selected namespace (2026-10-18). A namespace-scoped by-value lookup does not fall back to `wip`; a value-only URL for a template owned by another namespace needs the id.
 
 ## Resolved Issues
