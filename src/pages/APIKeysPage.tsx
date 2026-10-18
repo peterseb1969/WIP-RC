@@ -205,8 +205,9 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Name *</label>
+            <label htmlFor="key-name" className="block text-xs text-gray-500 mb-1">Name *</label>
             <input
+              id="key-name"
               type="text"
               value={name}
               onChange={e => { setName(e.target.value); setError(null) }}
@@ -216,8 +217,9 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Owner</label>
+            <label htmlFor="key-owner" className="block text-xs text-gray-500 mb-1">Owner</label>
             <input
+              id="key-owner"
               type="text"
               value={owner}
               onChange={e => setOwner(e.target.value)}
@@ -227,8 +229,9 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
           </div>
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Description</label>
+          <label htmlFor="key-description" className="block text-xs text-gray-500 mb-1">Description</label>
           <input
+            id="key-description"
             type="text"
             value={description}
             onChange={e => setDescription(e.target.value)}
@@ -238,10 +241,11 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-gray-500 mb-1">
+            <label htmlFor="key-namespaces" className="block text-xs text-gray-500 mb-1">
               Namespaces <span className="text-gray-300">(comma-separated)</span>
             </label>
             <input
+              id="key-namespaces"
               type="text"
               value={namespacesInput}
               onChange={e => setNamespacesInput(e.target.value)}
@@ -253,10 +257,11 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
             </p>
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">
+            <label htmlFor="key-groups" className="block text-xs text-gray-500 mb-1">
               Groups <span className="text-gray-300">(comma-separated)</span>
             </label>
             <input
+              id="key-groups"
               type="text"
               value={groupsInput}
               onChange={e => setGroupsInput(e.target.value)}
@@ -267,8 +272,9 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
         </div>
         <div className="flex items-start gap-3">
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Permission on namespaces</label>
+            <label htmlFor="key-permission" className="block text-xs text-gray-500 mb-1">Permission on namespaces</label>
             <select
+              id="key-permission"
               value={grantPermission}
               onChange={e => setGrantPermission(e.target.value as '' | 'read' | 'write' | 'admin')}
               disabled={!namespacesInput.trim()}
@@ -286,8 +292,9 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
             </p>
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Expires At</label>
+            <label htmlFor="key-expires" className="block text-xs text-gray-500 mb-1">Expires At</label>
             <input
+              id="key-expires"
               type="datetime-local"
               value={expiresAt}
               onChange={e => setExpiresAt(e.target.value)}
@@ -336,7 +343,7 @@ function PlaintextKeyBanner({ name, plaintextKey, onDismiss }: {
             API key created: {name}
           </p>
           <p className="text-xs text-amber-600 mt-0.5">
-            Copy the key now — it cannot be retrieved again.
+            Copy the key now — it cannot be retrieved again. WIP may take up to 30 seconds to accept it.
           </p>
         </div>
       </div>

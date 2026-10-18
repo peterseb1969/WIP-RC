@@ -5,6 +5,8 @@
 - Fixed: a file field whose allowed types use a pattern (`text/*`, `image/*`) refused every file in the document form ("File type text/plain not allowed"): the form compared the type literally. It now matches exact types, families (`image/*`) and `*`, ignoring case and parameters, and leaves a type the browser could not detect to the server.
 - Fixed: the Files page's upload form labels name their inputs.
 - Added E2E tests for files: upload, download, a document's file field, references and delete. 52 tests.
+- Changed: the new-key banner on the API Keys page says WIP may take up to 30 seconds to accept the key (observed ~14 s on wip-local); the create form's labels name their inputs.
+- Added E2E tests for API keys: create a scoped write key, use it, revoke it. 55 tests.
 
 ## 2026-10-19 — @wip/client 0.61.0 and @wip/react 0.21.0
 
