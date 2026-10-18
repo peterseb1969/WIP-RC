@@ -159,3 +159,11 @@
 **What:** mongo-auth.ts (MONGO_USER + MONGO_PASSWORD(_FILE), authSource admin, classification, filter-field guard); connector shares one connect attempt and drops the client on failed login; /databases reports one classified auth error; page notice and identity.
 **Why:** CASE-892 (MongoDB requires auth, CASE-890).
 **Discovered:** Without credentials MongoDB still accepts the connection and only refuses commands, so the old page got 200 with four per-DB errors. $where runs under the built-in read role (confirmed), so the old /docs filter let any console user run server-side JS. CASE-892 is now implemented (#2).
+
+## 5c5576e — feat: NL Query on Claude Sonnet 5.5
+**Time:** 18:01
+**Files:** 9 changed, +137/-28
+**Tests:** 145 passed (5 new in nl-answer.test.ts); tsc clean. Live on wip-local with Peter's key (admin override): 3 queries all served by claude-sonnet-5-5 in 4.7–9.8 s (namespace list; kb top-5 templates via list_report_tables + 3× run_report_query; follow-up using history via query_by_template). fallbacks "default" + beta header accepted.
+**What:** model default sonnet-5-5 (shared constant), effort low (NL_QUERY_EFFORT), max_tokens 16000, server-side refusal fallback on current models, finalAnswerFrom for refusal/max_tokens/context-window stops, round-budget message, is_error on failed tools, Models API key check. Docs updated.
+**Why:** Peter approved the migration from claude-sonnet-4-6 (Sonnet tier, cheaper per token; adaptive thinking on by default needed max_tokens headroom and refusal handling).
+**Discovered:** describe_data_model output on wip-local (155+ templates) exceeds the 30k-char tool-result cap, so the model said it "couldn't cross-check" and fell back to SQL. The cap predates this change. SDK 0.95.1 lacks fallbacks typing; an SDK bump is an optional follow-up. Prompt tweaks (word cap, prohibition list) were offered to Peter, not applied.
