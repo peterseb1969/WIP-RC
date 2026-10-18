@@ -8,3 +8,6 @@ Reset master to origin/master per Peter, re-applied reports (1adaf2d) + NL-tools
 
 ## 2026-10-17 15:20 — kb.internal endpoint repair: dry run only
 Ran POST /api/template-store/maintenance/heal-endpoints with dry_run=true on kb.internal (deploy key ~/.wip-deploy/kb) for all three namespaces. wip: 0 templates. kb: 12 edge types scanned, 12 would change, 93 entries filled, 0 unresolvable. library: 1 edge type (SEE_ALSO), 2 entries, 0 unresolvable. Same counts as wip-local before its repair. Nothing written; the real run awaits Peter's go-ahead.
+
+## 2026-10-18 12:38 — dev-test: RC 20261018a connects to authenticated NATS
+Peter built react-console:20261018a from master 7edf6e2 (GitHub run 39119915381) and rolled dev-test's react-console to it (was 20261012a, which predates the NATS auth code and got Authorization Violation). Verified from inside pod wip-react-console-7d485cdcb-5x5pr (digest sha256:7b30293c…): status connected as react-console (NATS 2.15.1), streams lists WIP_EVENTS, consumers lists reporting-sync-durable. WIP_EVENTS on dev-test was created 2026-10-18T10:31 with 0 messages, consistent with the one-time move of the JetStream store onto the volume (CASE-891).
