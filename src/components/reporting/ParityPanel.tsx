@@ -1,13 +1,9 @@
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle, XCircle, AlertTriangle, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
-import {
-  useReportingInventory,
-  fetchNamespaceParity,
-  PARITY_QUERY_KEY,
-  type NamespaceParity,
-  type ParityTemplate,
-} from '@/hooks/use-reporting'
+import { useWipClient } from '@wip/react'
+import type { NamespaceParityResult as NamespaceParity, TemplateParity as ParityTemplate } from '@wip/client'
+import { useReportingInventory, PARITY_QUERY_KEY } from '@/hooks/use-reporting'
 import LoadingState from '@/components/common/LoadingState'
 import { cn } from '@/lib/cn'
 
@@ -21,7 +17,7 @@ function templateHasIssue(t: ParityTemplate): boolean {
     t.legacy_table ||
     (t.sync_enabled && !t.table_present) ||
     (t.sync_enabled && t.view_present === false) ||
-    (t.counts_comparable && !t.counts_match) ||
+    (t.counts_comparable && t.counts_match === false) ||
     t.missing_columns.length > 0 ||
     t.error
   )
@@ -38,7 +34,7 @@ function TemplateIssueRow({ t }: { t: ParityTemplate }) {
           </span>
         )}
         {t.counts_comparable && t.actual_rows != null && t.expected_documents != null && (
-          <span className={cn(t.counts_match ? 'text-gray-400' : 'text-danger')}>
+          <span className={cn(t.counts_match === false ? 'text-danger' : 'text-gray-400')}>
             {t.actual_rows.toLocaleString()} rows / {t.expected_documents.toLocaleString()} docs
           </span>
         )}
@@ -62,7 +58,7 @@ function TemplateIssueRow({ t }: { t: ParityTemplate }) {
       {t.missing_columns.length > 0 && (
         <p className="text-danger">Missing columns: {t.missing_columns.join(', ')}</p>
       )}
-      {t.counts_comparable && !t.counts_match && (
+      {t.counts_comparable && t.counts_match === false && (
         <p className="text-danger">Row count does not match document count.</p>
       )}
       {t.error && <p className="text-danger font-mono">{t.error}</p>}
@@ -158,6 +154,7 @@ function NamespaceParityCard({ parity }: { parity: NamespaceParity }) {
  * count checks against the document store), fetched in parallel.
  */
 export default function ParityPanel() {
+  const client = useWipClient()
   const queryClient = useQueryClient()
   const { data: inventory, isLoading } = useReportingInventory()
   const namespaces = [...new Set((inventory?.tables ?? []).map(t => t.namespace))].sort()
@@ -165,7 +162,7 @@ export default function ParityPanel() {
   const results = useQueries({
     queries: namespaces.map(ns => ({
       queryKey: PARITY_QUERY_KEY(ns),
-      queryFn: () => fetchNamespaceParity(ns),
+      queryFn: () => client.reporting.getParity(ns),
       staleTime: 60_000,
     })),
   })

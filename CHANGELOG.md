@@ -1,5 +1,12 @@
 # RC-Console — Changelog
 
+## 2026-10-19 — @wip/client 0.61.0 and @wip/react 0.21.0
+
+- Changed: the Parity tab, the Table Browser's CSV download and the Query Pad's CSV export use the typed client (`reporting.getParity`, `exportTableCsv`, `exportQueryCsv`); RC's own parity types and raw reporting-sync fetches are gone. A parity result whose counts were not compared (`counts_match: null`) is no longer shown as a mismatch.
+- Fixed: a failed CSV export (bad query, missing table, refused request) showed nothing; it was only logged to the browser console. The error now appears next to the button that started the export.
+- Changed: single-template Batch Sync goes through `useTriggerBatchSync`, which now forwards the namespace scope (required for a forced rebuild), and the namespace-scoped template lookup behind the document pages uses `useTemplateByValue` with a namespace.
+- Added E2E tests for both CSV exports, the Parity tab and a forced Batch Sync. 48 tests.
+
 ## 2026-10-18 — Template editor: identity locked; versioning and access E2E
 
 - Fixed: the template editor let identity fields be changed on an existing template and said it was safe when the template had no documents or only pinned ones. The platform rejects every identity change (a different identity is a different template). The identity selector is now locked when editing, and any identity change, including removing or renaming an identity field, blocks the save.

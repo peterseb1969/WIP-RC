@@ -77,16 +77,9 @@
 ### E2E suite: local only
 **Status:** known (phase 1 complete, local)
 **Severity:** low
-**Description:** `npm run test:e2e` (Playwright) covers smoke, the data lifecycle, imports, same-named templates across namespaces, relationships, reporting, template versioning, access control and the infrastructure pages: 44 tests, about 42 s against wip-local. Not yet covered: files, the API Keys and Registry pages, form validation errors, and the Integrity, Table Browser, Batch Sync and Parity views. It does not run in CI.
+**Description:** `npm run test:e2e` (Playwright) covers smoke, the data lifecycle, imports, same-named templates across namespaces, relationships, reporting (incl. CSV export, Table Browser download, Parity and a forced Batch Sync), template versioning, access control and the infrastructure pages: 48 tests, about 50 s against wip-local. Not yet covered: files, the API Keys and Registry pages, form validation errors, and the Integrity page. It does not run in CI.
 **Context:** Phase 1 is local only, by decision (2026-10-18). Run it before image builds. CI would need a WIP install per run (phase 2, not planned). NL Query and backup/restore are deliberately excluded for now.
 
-### @wip/react: useTemplateByValue has no namespace
-**Status:** worked around; library fix requested (CASE-905)
-**Severity:** medium (data written to the wrong namespace before the workaround)
-**Description:** `useTemplateByValue(value)` (and `useFormSchema`, unused by RC) calls `GET /templates/by-value/{value}` without a namespace, and its query key ignores namespace. A template value is unique only within its namespace, so the unscoped lookup returns whichever namespace's template comes first (on wip-local, `CASE_RECORD` resolves to kb's).
-**Context:** RC no longer uses the hook: `src/hooks/use-route-template.ts` resolves by `?template_id=` or by value in the selected namespace (2026-10-18). A namespace-scoped by-value lookup does not fall back to `wip`; a value-only URL for a template owned by another namespace needs the id.
-
-## Resolved Issues
 
 ### Query editors were plain textareas; no MongoDB query editor
 **Resolved:** 2026-10-18. The shared CodeMirror 6 `CodeEditor` serves the Query Pad, the registered-view editor and the new MongoDB query pad: highlighting, autocomplete, Ctrl/Cmd+Enter, Format.

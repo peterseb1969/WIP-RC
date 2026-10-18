@@ -18,6 +18,7 @@ import {
   useTriggerTerminologySync,
   useTriggerTermSync,
   useTriggerTermRelationSync,
+  useTriggerBatchSync,
   useCancelBatchJob,
   useClearCompletedJobs,
   useWipClient,
@@ -43,10 +44,9 @@ import { cn } from '@/lib/cn'
 
 const ACTIVE_STATUSES = new Set<BatchSyncStatus>(['pending', 'running'])
 
-// The @wip/react 0.19.0 trigger hooks predate the namespace option: their vars
-// types omit it, and useTriggerBatchSync *destructures* {template_value, force,
-// page_size}, so a namespace passed through it would be silently dropped rather
-// than rejected. Call the typed client directly until @wip/react catches up.
+// useTriggerBatchSync forwards namespace since @wip/react 0.21.0 (CASE-905).
+// useTriggerBatchSyncAll still types its vars without namespace (it passes
+// them through at runtime), so sync-all calls the typed client directly.
 
 interface SyncOptions { namespace?: string; page_size?: number; force?: boolean }
 
@@ -55,17 +55,6 @@ function useScopedBatchSyncAll(onError: (e: Error) => void) {
   const queryClient = useQueryClient()
   return useMutation<BatchSyncResponse[], Error, SyncOptions>({
     mutationFn: vars => client.reporting.triggerBatchSyncAll(vars),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: wipKeys.reporting.batchJobs() }),
-    onError,
-  })
-}
-
-function useScopedBatchSync(onError: (e: Error) => void) {
-  const client = useWipClient()
-  const queryClient = useQueryClient()
-  return useMutation<BatchSyncResponse, Error, SyncOptions & { template_value: string }>({
-    mutationFn: ({ template_value, ...opts }) =>
-      client.reporting.triggerBatchSync(template_value, opts),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: wipKeys.reporting.batchJobs() }),
     onError,
   })
@@ -98,7 +87,7 @@ export default function BatchSyncPanel() {
   const liveJobs = liveJobsQ.data ?? jobs
 
   const triggerAll = useScopedBatchSyncAll(e => setError(e.message))
-  const triggerOne = useScopedBatchSync(e => setError(e.message))
+  const triggerOne = useTriggerBatchSync({ onError: e => setError(e.message) })
   const triggerTerminologies = useTriggerTerminologySync({ onError: e => setError(e.message) })
   const triggerTerms = useTriggerTermSync({ onError: e => setError(e.message) })
   const triggerRelations = useTriggerTermRelationSync({ onError: e => setError(e.message) })

@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useWipClient } from '@wip/react'
 import type { ReportQueryResult, ReportTable, ReportEntity, WipClient } from '@wip/client'
-import { apiUrl } from '@/lib/wip'
 
 // ---------------------------------------------------------------------------
 // Types — matched to actual reporting-sync API responses
@@ -35,19 +34,6 @@ export type QueryResult = ReportQueryResult
 // SyncStatus is now exported from @wip/client; re-export for callers that
 // still import it from this module.
 export type { SyncStatus } from '@wip/client'
-
-// ---------------------------------------------------------------------------
-// Fetch helpers
-// ---------------------------------------------------------------------------
-
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(apiUrl(`/wip/api/reporting-sync${path}`), init)
-  if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    throw new Error(`reporting-sync ${path}: HTTP ${res.status} — ${body}`)
-  }
-  return res.json()
-}
 
 // ---------------------------------------------------------------------------
 // Hooks
@@ -85,45 +71,8 @@ export function useReportTables() {
 }
 
 // ---------------------------------------------------------------------------
-// Parity (CASE-710 fields: version_tables / view_present / legacy_table)
+// Parity — fetched through client.reporting.getParity (@wip/client 0.61.0)
 // ---------------------------------------------------------------------------
-
-export interface ParityTemplate {
-  template_value: string
-  sync_enabled: boolean
-  table_present: boolean
-  missing_columns: string[]
-  bookkeeping_row: boolean
-  counts_comparable: boolean
-  expected_documents: number | null
-  actual_rows: number | null
-  counts_match: boolean
-  error: string | null
-  version_tables?: number[]
-  view_present?: boolean
-  legacy_table?: boolean
-}
-
-export interface NamespaceParity {
-  namespace: string
-  schema_name: string
-  schema_present: boolean
-  table_count: number
-  bookkeeping_tables_ok: boolean
-  bookkeeping_error: string | null
-  templates_skipped_sync_disabled: number
-  structural_issues: number
-  count_mismatches: number
-  ok: boolean
-  templates: ParityTemplate[]
-}
-
-/**
- * One namespace's reporting parity report (reporting-sync `/parity`): schema and
- * bookkeeping health plus per-template table/count checks against the document store.
- */
-export const fetchNamespaceParity = (namespace: string) =>
-  fetchJson<NamespaceParity>(`/parity?namespace=${encodeURIComponent(namespace)}`)
 
 /** Query key for a namespace's parity report — shared so the panel can fan out with useQueries. */
 export const PARITY_QUERY_KEY = (namespace: string) =>

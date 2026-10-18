@@ -1,6 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
-import { useTemplate, useWipClient } from '@wip/react'
-import type { Template } from '@wip/client'
+import { useTemplate, useTemplateByValue } from '@wip/react'
 
 /**
  * The template behind a `/documents/:templateValue/...` route.
@@ -19,15 +17,12 @@ export function useRouteTemplate(templateValue: string | undefined, opts: {
   namespace?: string
   enabled?: boolean
 }) {
-  const client = useWipClient()
   const enabled = opts.enabled ?? true
   const byId = useTemplate(opts.templateId ?? '', { enabled: enabled && !!opts.templateId })
-  const ns = opts.namespace || undefined
-  const byValue = useQuery<Template>({
-    queryKey: ['wip', 'templates', 'by-value', templateValue, ns ?? null],
-    queryFn: () => client.templates.getTemplateByValue(templateValue!, ns ? { namespace: ns } : undefined),
+  // Namespace-scoped since @wip/react 0.21.0 (CASE-905): request and cache key.
+  const byValue = useTemplateByValue(templateValue ?? '', {
+    namespace: opts.namespace || undefined,
     enabled: enabled && !opts.templateId && !!templateValue,
-    staleTime: 30_000,
     retry: false,
   })
   return opts.templateId ? byId : byValue

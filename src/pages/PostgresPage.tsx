@@ -34,7 +34,8 @@ import {
   type ReportEntity,
 } from '@/hooks/use-reporting'
 import ParityPanel from '@/components/reporting/ParityPanel'
-import { useSyncStatus } from '@wip/react'
+import { useSyncStatus, useWipClient } from '@wip/react'
+import type { WipClient } from '@wip/client'
 import DataTable from '@/components/common/DataTable'
 import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
@@ -42,7 +43,6 @@ import ErrorState from '@/components/common/ErrorState'
 import BatchSyncPanel from '@/components/reporting/BatchSyncPanel'
 import RegisteredViewsPanel from '@/components/reporting/RegisteredViewsPanel'
 import { cn } from '@/lib/cn'
-import { apiUrl } from '@/lib/wip'
 import { useIsServiceInactive } from '@/hooks/use-service-health'
 import LazyCodeEditor from '@/components/editor/LazyCodeEditor'
 import { formatCode } from '@/lib/format-code'
@@ -121,24 +121,26 @@ function SyncStatusBar() {
 
 const TABLE_PAGE_SIZES = [25, 50, 100] as const
 
-// Download the whole reporting table as CSV via a blob + <a download>, matching
-// the document Table View's export UX (client-controlled filename) rather than
-// opening a raw server response in a new tab.
-async function downloadTableCsv(table: ReportTable): Promise<void> {
-  const res = await fetch(
-    apiUrl(
-      `/wip/api/reporting-sync/export/csv?table=${encodeURIComponent(table.name)}&namespace=${encodeURIComponent(table.namespace)}`
-    )
-  )
-  if (!res.ok) throw new Error(`CSV export failed: HTTP ${res.status}`)
-  const blob = await res.blob()
+/** Hand a downloaded blob to the browser as a file with the given name. */
+function saveBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${table.namespace}_${table.name}.csv`
+  a.download = filename
   a.click()
   URL.revokeObjectURL(url)
 }
+
+// Download the whole reporting table as CSV via a blob + <a download>, matching
+// the document Table View's export UX (client-controlled filename) rather than
+// opening a raw server response in a new tab. A missing table is a 404 error,
+// never an empty file.
+async function downloadTableCsv(client: WipClient, table: ReportTable): Promise<void> {
+  const filename = `${table.namespace}_${table.name}.csv`
+  saveBlob(await client.reporting.exportTableCsv(table.name, table.namespace, { filename }), filename)
+}
+
+const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
 // Typed cell rendering for a PostgreSQL row, mirroring the document Table View's
 // formatCell but keyed on information_schema data_type (not WIP field types).
@@ -187,11 +189,15 @@ function TableRow({
   selected: boolean
   onSelect: (table: ReportTable) => void
 }) {
+  const client = useWipClient()
+  const [exportError, setExportError] = useState<string | null>(null)
   const handleDownloadCsv = (e: MouseEvent) => {
     e.stopPropagation()
-    downloadTableCsv(table).catch(err => console.error('CSV export failed:', err))
+    setExportError(null)
+    downloadTableCsv(client, table).catch(err => setExportError(errorMessage(err)))
   }
   return (
+    <>
     <button
       onClick={() => onSelect(table)}
       className={cn(
@@ -219,6 +225,12 @@ function TableRow({
       />
       <ChevronRight size={14} className="text-gray-300 shrink-0" />
     </button>
+    {exportError && (
+      <p role="alert" className={cn('px-3 pb-2 text-xs text-danger', indent && 'pl-8')}>
+        CSV export failed: {exportError}
+      </p>
+    )}
+    </>
   )
 }
 
@@ -717,6 +729,8 @@ function TableDetail({ table }: { table: ReportTable }) {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<number>(25)
   const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+  const client = useWipClient()
   const { data: pageData, isLoading: rowsLoading, error, isPlaceholderData } = useTablePage(table, page, pageSize)
 
   // pg data_type per column name, for typed cell rendering.
@@ -732,10 +746,11 @@ function TableDetail({ table }: { table: ReportTable }) {
 
   const handleExport = async () => {
     setExporting(true)
+    setExportError(null)
     try {
-      await downloadTableCsv(table)
+      await downloadTableCsv(client, table)
     } catch (err) {
-      console.error('CSV export failed:', err)
+      setExportError(errorMessage(err))
     } finally {
       setExporting(false)
     }
@@ -759,6 +774,9 @@ function TableDetail({ table }: { table: ReportTable }) {
           {exporting ? 'Exporting…' : 'CSV'}
         </button>
       </div>
+      {exportError && (
+        <p role="alert" className="text-xs text-danger -mt-2">CSV export failed: {exportError}</p>
+      )}
 
       {/* Column schema */}
       {columnsLoading && <LoadingState label="Loading columns..." />}
@@ -869,6 +887,8 @@ function QueryPad({ initialSql, initialNamespace }: { initialSql?: string; initi
   const [showHistory, setShowHistory] = useState(false)
   const [result, setResult] = useState<QueryResult | null>(null)
   const [formatError, setFormatError] = useState<string | null>(null)
+  const [exportError, setExportError] = useState<string | null>(null)
+  const client = useWipClient()
 
   const runQuery = useRunQuery()
   const { data: tables } = useReportTables()
@@ -917,27 +937,12 @@ function QueryPad({ initialSql, initialNamespace }: { initialSql?: string; initi
 
   const handleExportCsv = async () => {
     if (!sql.trim()) return
+    setExportError(null)
+    const filename = `query-result-${Date.now()}.csv`
     try {
-      const resp = await fetch(apiUrl('/wip/api/reporting-sync/export/csv'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          namespace ? { sql: sql.trim(), namespace } : { sql: sql.trim() }
-        ),
-      })
-      if (!resp.ok) {
-        const text = await resp.text().catch(() => '')
-        throw new Error(`Export failed: HTTP ${resp.status} ${text}`)
-      }
-      const blob = await resp.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `query-result-${Date.now()}.csv`
-      a.click()
-      URL.revokeObjectURL(url)
+      saveBlob(await client.reporting.exportQueryCsv(sql.trim(), { namespace: namespace || undefined, filename }), filename)
     } catch (err) {
-      console.error('CSV export failed:', err)
+      setExportError(errorMessage(err))
     }
   }
 
@@ -960,6 +965,7 @@ function QueryPad({ initialSql, initialNamespace }: { initialSql?: string; initi
         </div>
       </div>
       {formatError && <p className="text-xs text-danger -mt-2">Could not format: {formatError}</p>}
+      {exportError && <p role="alert" className="text-xs text-danger -mt-2">CSV export failed: {exportError}</p>}
 
       {/* Actions */}
       <div className="flex items-center gap-2">
