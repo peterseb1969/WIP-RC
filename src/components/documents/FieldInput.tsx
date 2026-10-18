@@ -25,13 +25,15 @@ export interface FieldInputProps {
   /** Forwarded to file-type widgets so uploads carry the document's namespace
    *  (CASE-249). Optional for non-file fields and standalone callers. */
   namespace?: string
+  /** id for the input control, so a <label htmlFor> names it (plain text, number and choice fields). */
+  id?: string
 }
 
 /**
  * The input widget for one template field, chosen by `field.type`, with its error message underneath.
  */
-export default function FieldInput({ field, value, onChange, disabled, error, namespace }: FieldInputProps) {
-  const control = renderControl({ field, value, onChange, disabled, namespace })
+export default function FieldInput({ field, value, onChange, disabled, error, namespace, id }: FieldInputProps) {
+  const control = renderControl({ field, value, onChange, disabled, namespace, id })
   return (
     <div>
       {control}
@@ -40,7 +42,7 @@ export default function FieldInput({ field, value, onChange, disabled, error, na
   )
 }
 
-function renderControl({ field, value, onChange, disabled, namespace }: FieldInputProps) {
+function renderControl({ field, value, onChange, disabled, namespace, id }: FieldInputProps) {
   const enumValues = field.validation?.enum as (string | number)[] | undefined
 
   switch (field.type) {
@@ -49,6 +51,7 @@ function renderControl({ field, value, onChange, disabled, namespace }: FieldInp
       if (enumValues && enumValues.length > 0) {
         return (
           <SelectInput<string>
+          id={id}
             value={str || undefined}
             options={enumValues.map(String)}
             onChange={(v) => onChange(v ?? null)}
@@ -59,6 +62,7 @@ function renderControl({ field, value, onChange, disabled, namespace }: FieldInp
       }
       return (
         <TextInput
+          id={id}
           value={str}
           onChange={(v) => onChange(v === '' ? null : v)}
           placeholder={field.label}
@@ -71,6 +75,7 @@ function renderControl({ field, value, onChange, disabled, namespace }: FieldInp
       const num = typeof value === 'number' ? value : undefined
       return (
         <NumberInput
+          id={id}
           value={num}
           onChange={(v) => onChange(v == null ? null : field.type === 'integer' ? Math.trunc(v) : v)}
           disabled={disabled}

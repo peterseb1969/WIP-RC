@@ -148,6 +148,7 @@ function FieldRow({
         )}
       </Label>
       <FieldInput
+        id={id}
         field={field}
         value={value}
         onChange={onChange}
