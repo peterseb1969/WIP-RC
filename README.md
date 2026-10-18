@@ -158,7 +158,7 @@ npx tsc --noEmit -p tsconfig.json   # Type-check (also run by CI)
 npm run test:e2e    # End-to-end, against a running WIP install (default: wip-local)
 ```
 
-**Unit tests:** 183 across 19 files in `tests/unit/`. They cover:
+**Unit tests:** 189 across 20 files in `tests/unit/`. They cover:
 - UI components;
 - NL query tools: definitions, SQL guard, wire shapes, key handling, data-model scoping, result size;
 - NATS and MongoDB credentials, and the MongoDB query-pad safety checks;
@@ -169,7 +169,8 @@ npm run test:e2e    # End-to-end, against a running WIP install (default: wip-lo
 - PostgreSQL browser filters;
 - registered-view helpers;
 - reference-field target resolution;
-- the template editor's version warnings.
+- the template editor's version warnings;
+- file-field MIME type patterns.
 
 **End-to-end tests** (`tests/e2e/`, Playwright with the system Chrome) run against RC behind the install's router.
 - **Setup:** global setup deletes leftover `rc-e2e-*` namespaces, creates a disposable `rc-e2e-<timestamp>` namespace plus a `-twin` namespace for same-named-template checks, and logs in once through Dex as `e2e@wip.local`. Teardown deletes both.
@@ -177,6 +178,7 @@ npm run test:e2e    # End-to-end, against a running WIP install (default: wip-lo
   - smoke: health endpoints, and every page loads with no error state or console error;
   - the data lifecycle: terminology, term, Template Builder, document form, edit to version 2, archive;
   - imports: a terminology from a CSV, more terms into it (existing ones skipped), documents from a CSV through the column-mapping wizard (alias resolution, a bad row reported);
+  - files: upload (shown as an orphan), download returns the same bytes, a document's file field uploads and links a file, the file page lists the referencing document and warns before deleting it, deleting an orphan;
   - infrastructure: MongoDB query pad incl. the `$where` refusal, and the NATS identity;
   - same-named templates: with one template value in two namespaces, a new document, the table view and an import by value stay in the selected namespace;
   - relationships: an edge type from the Template Builder, an edge through the form's endpoint pickers, the Relationships panel on both endpoints;

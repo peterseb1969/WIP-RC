@@ -1,5 +1,11 @@
 # RC-Console — Changelog
 
+## 2026-10-19 — File fields accept wildcard types
+
+- Fixed: a file field whose allowed types use a pattern (`text/*`, `image/*`) refused every file in the document form ("File type text/plain not allowed"): the form compared the type literally. It now matches exact types, families (`image/*`) and `*`, ignoring case and parameters, and leaves a type the browser could not detect to the server.
+- Fixed: the Files page's upload form labels name their inputs.
+- Added E2E tests for files: upload, download, a document's file field, references and delete. 52 tests.
+
 ## 2026-10-19 — @wip/client 0.61.0 and @wip/react 0.21.0
 
 - Changed: the Parity tab, the Table Browser's CSV download and the Query Pad's CSV export use the typed client (`reporting.getParity`, `exportTableCsv`, `exportQueryCsv`); RC's own parity types and raw reporting-sync fetches are gone. A parity result whose counts were not compared (`counts_match: null`) is no longer shown as a mismatch.

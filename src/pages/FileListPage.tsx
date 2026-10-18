@@ -71,8 +71,9 @@ function UploadForm({ defaultNamespace, onClose }: { defaultNamespace?: string; 
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Namespace *</label>
+          <label htmlFor="upload-namespace" className="block text-xs text-gray-500 mb-1">Namespace *</label>
           <select
+            id="upload-namespace"
             value={uploadNs}
             onChange={e => setUploadNs(e.target.value)}
             className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
@@ -84,8 +85,9 @@ function UploadForm({ defaultNamespace, onClose }: { defaultNamespace?: string; 
           </select>
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Category</label>
+          <label htmlFor="upload-category" className="block text-xs text-gray-500 mb-1">Category</label>
           <input
+            id="upload-category"
             type="text"
             value={category}
             onChange={e => setCategory(e.target.value)}
@@ -95,8 +97,9 @@ function UploadForm({ defaultNamespace, onClose }: { defaultNamespace?: string; 
         </div>
       </div>
       <div>
-        <label className="block text-xs text-gray-500 mb-1">Description</label>
+        <label htmlFor="upload-description" className="block text-xs text-gray-500 mb-1">Description</label>
         <input
+          id="upload-description"
           type="text"
           value={description}
           onChange={e => setDescription(e.target.value)}
@@ -105,8 +108,9 @@ function UploadForm({ defaultNamespace, onClose }: { defaultNamespace?: string; 
         />
       </div>
       <div>
-        <label className="block text-xs text-gray-500 mb-1">Tags (comma-separated)</label>
+        <label htmlFor="upload-tags" className="block text-xs text-gray-500 mb-1">Tags (comma-separated)</label>
         <input
+          id="upload-tags"
           type="text"
           value={tags}
           onChange={e => setTags(e.target.value)}

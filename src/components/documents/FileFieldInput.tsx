@@ -3,6 +3,7 @@ import { Upload, File as FileIcon, X, Loader2 } from 'lucide-react'
 import { useUploadFile, useFile } from '@wip/react'
 import type { FieldDefinition } from '@wip/client'
 import { cn } from '@/lib/cn'
+import { mimeTypeAllowed } from '@/lib/file-types'
 
 // ---------------------------------------------------------------------------
 // FileFieldInput — drag-drop + file picker that uploads to WIP and stores
@@ -54,7 +55,8 @@ export default function FileFieldInput({ field, value, onChange, disabled, names
       setUploadError(`File exceeds ${cfg?.max_size_mb} MB limit`)
       return
     }
-    if (cfg?.allowed_types?.length && !cfg.allowed_types.includes(file.type)) {
+    // allowed_types are patterns (image/*), not a literal list.
+    if (!mimeTypeAllowed(file.type, cfg?.allowed_types)) {
       setUploadError(`File type ${file.type} not allowed`)
       return
     }
