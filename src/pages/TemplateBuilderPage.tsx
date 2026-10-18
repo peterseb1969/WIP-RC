@@ -909,9 +909,18 @@ export default function TemplateBuilderPage() {
         {/* Identity Fields */}
         {fields.length > 0 && (
           <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Identity Fields</h3>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              Identity Fields
+              {isEdit && (
+                <span className="ml-2 text-[10px] text-gray-400 font-normal normal-case tracking-normal inline-flex items-center gap-1">
+                  <Lock size={10} /> fixed after creation
+                </span>
+              )}
+            </h3>
             <p className="text-xs text-gray-400 mb-2">
-              Select fields that together uniquely identify a document. Order matters for hash computation.
+              {isEdit
+                ? 'A template keeps its identity fields for life. To identify documents differently, use Duplicate to create a new template.'
+                : 'Select fields that together uniquely identify a document. Order matters for hash computation.'}
             </p>
             <div className="flex flex-wrap gap-2">
               {fields.filter(f => !f.inherited).map(f => {
@@ -920,6 +929,8 @@ export default function TemplateBuilderPage() {
                   <button
                     key={f.name}
                     type="button"
+                    disabled={isEdit}
+                    aria-pressed={isIdentity}
                     onClick={() => {
                       setIdentityFields(prev =>
                         isIdentity
@@ -931,7 +942,9 @@ export default function TemplateBuilderPage() {
                       'inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border transition-colors',
                       isIdentity
                         ? 'bg-amber-50 border-amber-300 text-amber-700'
-                        : 'bg-white border-gray-200 text-gray-500 hover:border-amber-300'
+                        : 'bg-white border-gray-200 text-gray-500 hover:border-amber-300',
+                      isEdit && 'cursor-default hover:border-gray-200',
+                      isEdit && isIdentity && 'hover:border-amber-300',
                     )}
                   >
                     {isIdentity && <CheckCircle size={10} />}
@@ -1132,7 +1145,8 @@ export default function TemplateBuilderPage() {
         <div className="flex items-center gap-2 pb-6">
           <button
             onClick={() => handleSave('draft')}
-            disabled={isPending || (!isEdit && !namespace)}
+            disabled={isPending || hasBlockingWarning || (!isEdit && !namespace)}
+            title={hasBlockingWarning ? 'Resolve blocking warnings before saving' : undefined}
             className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-sm rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
             <Save size={14} />

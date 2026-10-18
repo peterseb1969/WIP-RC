@@ -55,9 +55,9 @@ export interface VersionWarningsProps {
 /**
  * Pre-save warnings in the template editor, from how many documents use the
  * template: a draft or unused template saves freely; a schema change on a used
- * template warns that it mints a new version; an identity-field change on a used
- * template is blocking, because documents resolving the latest version would hash
- * inconsistently. Reports blocking state through `onBlockingChange`.
+ * template warns that it mints a new version; any identity-field change is
+ * blocking, because the platform rejects it. Reports blocking state through
+ * `onBlockingChange`.
  */
 export default function VersionWarnings({
   original,
@@ -105,6 +105,20 @@ export default function VersionWarnings({
     // Create mode — no warnings needed
     if (!original) return result
 
+    // Identity is fixed for the life of a template: the platform rejects an
+    // identity_fields change on every save — draft or active, with or without documents
+    // (changing identity is a fork, not a version). Removing or renaming an
+    // identity field changes identity too.
+    const originalIdentity = original.identity_fields ?? []
+    if (!arraysEqual(originalIdentity, currentIdentityFields)) {
+      result.push({
+        level: 'blocking',
+        message:
+          `Identity fields can't change after a template is created (was: ${originalIdentity.join(', ') || 'none'}). ` +
+          'A different identity makes a different template — use Duplicate to create one.',
+      })
+    }
+
     // Draft template — just save
     if (original.status === 'draft') {
       result.push({
@@ -126,33 +140,6 @@ export default function VersionWarnings({
       result.push({
         level: 'warning',
         message: `${docCount} document${docCount !== 1 ? 's' : ''} use this template. Schema changes will create version ${version + 1}; reporting-only changes will not.`,
-      })
-    }
-
-    // Check identity field changes
-    const originalIdentity = original.identity_fields ?? []
-    const identityChanged = !arraysEqual(originalIdentity, currentIdentityFields)
-
-    if (identityChanged && docCount > 0) {
-      // This is the critical case Peter flagged:
-      // - If docs use `latest` → BLOCKING (inconsistent hashing)
-      // - If docs use pinned versions → INFO (two coexisting schemas, safe)
-      //
-      // We can't currently determine per-document version strategy from the list API,
-      // so we show a strong warning and let the user decide.
-      // TODO: When document query supports version_strategy filtering, split this into
-      //       blocking (latest) vs info (pinned) per the design spec matrix.
-      result.push({
-        level: 'blocking',
-        message:
-          'Identity fields have changed. If any documents reference this template as "latest", ' +
-          'this will cause inconsistent identity hashing. Pin existing documents to the current ' +
-          'version first, or create a new template. If all documents use pinned versions, this is safe.',
-      })
-    } else if (identityChanged) {
-      result.push({
-        level: 'info',
-        message: 'Identity fields changed. No documents exist, so this is safe.',
       })
     }
 
