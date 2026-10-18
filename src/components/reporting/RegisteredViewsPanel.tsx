@@ -365,8 +365,9 @@ function ViewEditor({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Namespace *</label>
+            <label htmlFor="view-namespace" className="block text-xs font-medium text-gray-600 mb-1">Namespace *</label>
             <select
+              id="view-namespace"
               value={namespace}
               onChange={e => setNamespace(e.target.value)}
               disabled={isEdit}
@@ -379,8 +380,9 @@ function ViewEditor({
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
+            <label htmlFor="view-name" className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
             <input
+              id="view-name"
               value={name}
               onChange={e => setName(e.target.value)}
               disabled={isEdit}

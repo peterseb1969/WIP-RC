@@ -158,7 +158,7 @@ npx tsc --noEmit -p tsconfig.json   # Type-check (also run by CI)
 npm run test:e2e    # End-to-end, against a running WIP install (default: wip-local)
 ```
 
-**Unit tests:** 175 across 17 files in `tests/unit/`. They cover:
+**Unit tests:** 180 across 18 files in `tests/unit/`. They cover:
 - UI components;
 - NL query tools: definitions, SQL guard, wire shapes, key handling, data-model scoping, result size;
 - NATS and MongoDB credentials, and the MongoDB query-pad safety checks;
@@ -167,13 +167,18 @@ npm run test:e2e    # End-to-end, against a running WIP install (default: wip-lo
 - terminology import parsing;
 - archive helpers;
 - PostgreSQL browser filters;
-- registered-view helpers.
+- registered-view helpers;
+- reference-field target resolution.
 
 **End-to-end tests** (`tests/e2e/`, Playwright with the system Chrome) run against RC behind the install's router.
-- **Setup:** global setup deletes leftover `rc-e2e-*` namespaces, creates a disposable `rc-e2e-<timestamp>` namespace and logs in once through Dex as `e2e@wip.local`. Teardown deletes the namespace.
+- **Setup:** global setup deletes leftover `rc-e2e-*` namespaces, creates a disposable `rc-e2e-<timestamp>` namespace plus a `-twin` namespace for same-named-template checks, and logs in once through Dex as `e2e@wip.local`. Teardown deletes both.
 - **Specs:**
   - smoke: health endpoints, and every page loads with no error state or console error;
   - the data lifecycle: terminology, term, Template Builder, document form, edit to version 2, archive;
-  - infrastructure: MongoDB query pad incl. the `$where` refusal, and the NATS identity.
+  - imports: a terminology from a CSV, more terms into it (existing ones skipped), documents from a CSV through the column-mapping wizard (alias resolution, a bad row reported);
+  - infrastructure: MongoDB query pad incl. the `$where` refusal, and the NATS identity;
+  - same-named templates: with one template value in two namespaces, a new document, the table view and an import by value stay in the selected namespace;
+  - relationships: an edge type from the Template Builder, an edge through the form's endpoint pickers, the Relationships panel on both endpoints;
+  - reporting: Query Pad against a table reporting-sync filled (waited for with `eventually()`), and a registered view tested, saved, read and deleted.
 - **Prerequisites:** the `e2e` user (`wip-deploy user add e2e --email e2e@wip.local --group wip-admins --name wip-local`). Secrets are read from `~/.wip-deploy/<deployment>/secrets/` (`dex-password-e2e`, `api-key`). The `E2E_*` variables in `tests/e2e/support/env.ts` override the target.
 - **Artifacts:** the HTML report, traces and screenshots of failures go to `test-results/e2e/`.

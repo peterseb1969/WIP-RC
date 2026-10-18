@@ -17,12 +17,15 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
 
   const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
   const namespace = `${NAMESPACE_PREFIX}${stamp}`
-  await postJson(api, '/api/registry/namespaces', {
-    prefix: namespace,
-    description: 'RC end-to-end test run (disposable)',
-    deletion_mode: 'full',
-  })
-  writeRun({ namespace })
+  const twin = `${namespace}-twin`
+  for (const prefix of [namespace, twin]) {
+    await postJson(api, '/api/registry/namespaces', {
+      prefix,
+      description: 'RC end-to-end test run (disposable)',
+      deletion_mode: 'full',
+    })
+  }
+  writeRun({ namespace, twin })
   await api.dispose()
 
   const browser = await chromium.launch({ channel: 'chrome' })

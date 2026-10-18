@@ -30,6 +30,8 @@ export function readSecret(file: string): string {
 
 export interface RunInfo {
   namespace: string
+  /** A second namespace, for checks that a same-named entity elsewhere is not picked up. */
+  twin: string
 }
 
 export function writeRun(info: RunInfo): void {

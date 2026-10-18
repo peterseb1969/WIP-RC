@@ -1,5 +1,14 @@
 # RC-Console — Changelog
 
+## 2026-10-18 — Document pages stay in the selected namespace; E2E phase 1 complete
+
+- Fixed: the create form, table view, import wizard and document detail page looked up templates by value without a namespace. Where the same template value exists in several namespaces, they used whichever came first. "New document" could load another namespace's template and create the document there. In-app links now carry the template's id, a bare value resolves in the selected namespace, and the detail page uses the document's own template.
+- Fixed: reference pickers resolve a bare target template value in the document's namespace, and `ns:VALUE` in the named one.
+- Fixed: after a CSV import, the document list showed the pre-import (cached) list until a reload.
+- Fixed: the document list lost its `?template=` and last-used selection when the template list came from cache.
+- Fixed: the view editor's Namespace and Name labels name their inputs.
+- Added E2E specs: imports, same-named templates across namespaces (with a second disposable namespace), relationships and reporting. 36 tests.
+
 ## 2026-10-18 — End-to-end tests (phase 1)
 
 - Added: a Playwright E2E suite (`npm run test:e2e`) against wip-local through its router, with a dedicated `e2e@wip.local` user and a disposable namespace per run. Specs: smoke, the data lifecycle and infrastructure pages, 25 tests.
