@@ -52,3 +52,6 @@ Done: bf8eb21 (foundation + smoke). Remaining spec groups, all in the run's disp
 - (5) infra: Mongo query pad finds e2e docs and refuses $where; NATS page shows react-console
 - (6) relationships: edge type + edge, relationships panel
 Notes: `npm run test:e2e`. The user is e2e@wip.local (wip-admins). When BE-YAC sets ALLOWED_GROUPS=wip-admins in RC's manifest (RC side: 3461408), in-container probes without X-WIP-User get 401, so send gateway headers. In browser automation, use only refs returned by find; set URL-synced filters through the URL, not typing.
+
+## 2026-10-18 20:51 — Usage limit hit mid-E2E: lifecycle spec unfinished (uncommitted)
+tests/e2e/lifecycle.spec.ts is left uncommitted in the working tree. Passing: create terminology, add term. Builder step being fixed: select the builder's own namespace <select> (it ignores ?ns=); add fields through the quick-add <form> that has the "Add" button; close the field slide-out via the new aria-label "Close field settings"; wait for the URL to leave /templates/new. The last run was killed by a timeout before reporting, so its outcome is unknown. Document create/edit/archive steps are unverified. A killed run may leave an rc-e2e-* namespace; the next run's global setup deletes it. Committed alongside this note: the slide-out aria-label and actionTimeout 15 s.

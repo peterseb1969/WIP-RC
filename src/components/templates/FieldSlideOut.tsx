@@ -257,6 +257,7 @@ export default function FieldSlideOut({
         </h3>
         <button
           onClick={onClose}
+          aria-label="Close field settings"
           className="p-1 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100"
         >
           <X size={16} />
