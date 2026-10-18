@@ -175,3 +175,11 @@
 **What:** src/components/editor/{CodeEditor,LazyCodeEditor}, src/lib/format-code.ts, useSqlCompletionSchema; Query Pad + view editor switched over; Format button.
 **Why:** Peter approved the editor plan (CodeMirror 6, shared editor first, then the Mongo pad).
 **Discovered:** The dev container needs a restart after dependency changes (lockfile-gated npm ci), and the restart drops the in-memory Anthropic key override.
+
+## 0d56b64 — feat: read-only MongoDB query pad
+**Time:** 18:20
+**Files:** 14 changed, +618/-58
+**Tests:** 163 passed (14 new: mongo-query, mongo-completions); tsc clean. Live on wip-local: 14 server cases against wip_def_store.terminologies (filter/projection/sort, $in/$exists, $oid round-trip, $where/$function/$code/projection-$function rejected, invalid JSON, array filter, limit bound, server-rejected operator, disallowed db; field sample 28 paths). Browser: field autocomplete (namespace, nested metadata.custom.term_names), lint marker on unfinished JSON, Cmd+Enter → "1–9 of 9 matching · 8 ms", a $where filter shows its rejection reason.
+**What:** server/infra/mongo-query.ts (EJSON parsing, findUnsafe, bounds, collectFieldPaths); /query and /fields routes; useMongoQuery/useMongoFields; mongoCompletionSource; MongoQueryPanel + shared DocumentList; Browse/Query tabs.
+**Why:** the approved editor plan, phase 2 (find + count first, aggregate later).
+**Discovered:** wip-local was fully redeployed mid-test (all containers recreated); RC stayed on the --app-source dev mount.
