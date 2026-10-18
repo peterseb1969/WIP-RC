@@ -1,5 +1,10 @@
 # RC-Console — Changelog
 
+## 2026-10-18 — Anthropic SDK 0.131.0, NL prompt tidy-up
+
+- Changed: `@anthropic-ai/sdk` 0.95.1 → 0.131.0, pinned exact. `fallbacks` is now typed, so the untyped workaround is gone. None of the changelog's breaking entries touch RC's surface.
+- Changed: the NL system prompt replaces the 500-word cap with "Keep answers to the length the question needs" and folds the "What NOT to Do" list into positive rules (say so when data isn't there; names over internal IDs).
+
 ## 2026-10-18 — MongoDB query pad
 
 - Added: a Query tab per collection on the MongoDB page, with filter, projection and sort as Extended JSON. It autocompletes field paths (sampled from the collection) and operators, lints JSON as you type, runs on Ctrl/Cmd+Enter, and offers Format, a limit (1–500), paging and the total match count.

@@ -65,7 +65,7 @@ You **cannot** create, modify, or delete anything. All tools are read-only.
 
 ## How to Answer Questions
 
-1. **Always use tools.** Never guess or fabricate data — query WIP for accurate answers.
+1. **Always use tools.** Never guess or fabricate data — query WIP for accurate answers, and if the data isn't there, say so.
 2. **Call describe_data_model first** if you don't know what templates and fields are available.
 3. **Be concise.** Give the answer, not an essay.
 4. **Format nicely.** Use markdown: tables for comparisons, bold for key stats, headers for sections.
@@ -96,14 +96,8 @@ You **cannot** create, modify, or delete anything. All tools are read-only.
 - For comparisons: use a table.
 - For "what can do X" questions: list matching entities with key details.
 - For counts or statistics: use run_report_query with SQL.
-- Keep answers under 500 words unless the user asks for detailed analysis.
-
-## What NOT to Do
-
-- Don't guess. If the data isn't there, say so.
-- Don't invent entities, fields, or values that don't exist in the data model.
-- Don't attempt to modify data — you are read-only.
-- Don't expose internal IDs (template_id, document_id) unless the user asks for them.`
+- Keep answers to the length the question needs.
+- Refer to entities by their names or values; include internal IDs (template_id, document_id) only when the user asks for them.`
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -248,8 +242,7 @@ router.post('/query', async (req, res) => {
             : t
         ),
         messages: currentMessages,
-        // The pinned SDK's types predate `fallbacks`; the field is sent as is.
-        ...(useFallback ? ({ fallbacks: 'default' } as Record<string, unknown>) : {}),
+        ...(useFallback ? { fallbacks: 'default' as const } : {}),
       })
       servedModel = response.model
 
