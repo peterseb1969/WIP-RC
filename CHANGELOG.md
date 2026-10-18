@@ -1,5 +1,9 @@
 # RC-Console — Changelog
 
+## 2026-10-18 — Reporting inventory through the typed client
+
+- Changed: the reporting inventory (`/tables`) comes from `client.reporting.listTables()`, and the Table Browser's column list from its detail mode, instead of a hand-written `information_schema` query. RC's own `ReportTable` / `ReportEntity` copies are gone in favour of the client's types, which mark `template_value` as nullable and `kind` as always present.
+
 ## 2026-10-18 — Anthropic SDK 0.131.0, NL prompt tidy-up
 
 - Changed: `@anthropic-ai/sdk` 0.95.1 → 0.131.0, pinned exact. `fallbacks` is now typed, so the untyped workaround is gone. None of the changelog's breaking entries touch RC's surface.

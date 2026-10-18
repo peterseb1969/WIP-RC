@@ -1,43 +1,19 @@
 import { useMemo } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useWipClient } from '@wip/react'
-import type { ReportQueryResult, WipClient } from '@wip/client'
+import type { ReportQueryResult, ReportTable, ReportEntity, WipClient } from '@wip/client'
 import { apiUrl } from '@/lib/wip'
 
 // ---------------------------------------------------------------------------
 // Types — matched to actual reporting-sync API responses
 // ---------------------------------------------------------------------------
 
-export interface ReportTable {
-  // Since CASE-628, reporting tables live in one PG schema per namespace;
-  // (namespace, name) identifies a table, and the same name can exist in
-  // several namespaces. qualified_name is the server-provided, ready-quoted
-  // `"<namespace>"."<name>"` form for use in SQL.
-  namespace: string
-  name: string
-  template_value: string
-  qualified_name: string
-  row_count: number
-  column_count: number
-  // CASE-710: absent on pre-split installs — its presence doubles as the
-  // detection signal for the entity-first reporting layout.
-  kind?: 'view' | 'table'
-}
-
-// CASE-710 entity-first grouping: one entry per (namespace, template),
-// owning its per-version physical tables and derived views. The entity
-// row_count is the document count — never sum sibling relations, they
-// overlap by construction.
-export interface ReportEntity {
-  namespace: string
-  entity: string
-  default_view: string
-  default_view_present: boolean
-  entities_view: string
-  legacy_table: boolean
-  versions: Array<{ version: number; table: string; row_count: number }>
-  row_count: number
-}
+// Table and entity shapes come from @wip/client, which owns the /tables
+// contract: tables are identified by (namespace, name), `qualified_name` is the
+// server-quoted `"<namespace>"."<name>"`, `template_value` is null for metadata
+// tables, and entities group a template's per-version tables and views (their
+// row_count is the document count — never sum sibling relations).
+export type { ReportTable, ReportEntity } from '@wip/client'
 
 export interface ReportingInventory {
   tables: ReportTable[]
@@ -77,19 +53,19 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 // Hooks
 // ---------------------------------------------------------------------------
 
-const fetchInventory = () =>
-  fetchJson<{ tables: ReportTable[]; entities?: ReportEntity[] }>('/tables')
-    .then(r => ({ tables: r.tables, entities: r.entities ?? [] }) as ReportingInventory)
+const fetchInventory = (client: WipClient): Promise<ReportingInventory> =>
+  client.reporting.listTables().then(r => ({ tables: r.tables, entities: r.entities ?? [] }))
 
 /**
- * The reporting layer's inventory from reporting-sync `/tables`: every table/view
+ * The reporting layer's inventory (`client.reporting.listTables()`, reporting-sync `/tables`): every table/view
  * per namespace schema, plus the per-template entity grouping (empty on installs
  * that predate it). Registered views are not part of this inventory.
  */
 export function useReportingInventory() {
+  const client = useWipClient()
   return useQuery({
     queryKey: ['rc-console', 'report-tables'],
-    queryFn: fetchInventory,
+    queryFn: () => fetchInventory(client),
     staleTime: 120_000,
   })
 }
@@ -99,9 +75,10 @@ export function useReportingInventory() {
  * entry, so the Table Browser and Query Pad trigger one `/tables` fetch between them.
  */
 export function useReportTables() {
+  const client = useWipClient()
   return useQuery({
     queryKey: ['rc-console', 'report-tables'],
-    queryFn: fetchInventory,
+    queryFn: () => fetchInventory(client),
     select: (inv: ReportingInventory) => inv.tables,
     staleTime: 120_000,
   })
@@ -167,28 +144,20 @@ function runReportQuery(
 }
 
 /**
- * Get column details for a specific table by querying information_schema.
- * The /tables endpoint only returns column_count, not names/types. The
- * table_schema filter is load-bearing: without it, tables sharing a name
- * across namespaces would merge their column lists.
+ * Column names and types of one reporting table or view, from the inventory's
+ * detail mode (`listTables(name, namespace)`). Lookup is by (namespace, name),
+ * since the same name exists in several namespaces.
  */
 export function useTableColumns(table: ReportTable | null) {
   const client = useWipClient()
   return useQuery({
     queryKey: ['rc-console', 'table-columns', table?.namespace, table?.name],
     queryFn: async (): Promise<TableColumns> => {
-      const result = await runReportQuery(
-        client,
-        'SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position',
-        undefined,
-        [table!.namespace, table!.name],
-      )
+      const { tables } = await client.reporting.listTables(table!.name, table!.namespace)
+      const detail = tables.find(t => t.namespace === table!.namespace && t.name === table!.name)
       return {
         table: table!.name,
-        columns: result.rows.map(r => ({
-          name: String(r.column_name ?? ''),
-          type: String(r.data_type ?? ''),
-        })),
+        columns: (detail?.columns ?? []).map(c => ({ name: c.name, type: c.type })),
       }
     },
     enabled: !!table,

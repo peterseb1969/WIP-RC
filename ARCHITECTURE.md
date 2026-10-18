@@ -146,7 +146,7 @@ Where @wip/react has no hook yet, or its hook drops a newer option, components c
 
 ### Reporting reads
 
-All SQL in `src/hooks/use-reporting.ts` (table columns/preview/paging, the Query Pad, view tests and previews) goes through the typed `client.reporting.runQuery` (`runReportQuery` helper). Rows come back as objects keyed by column, and `columns` is populated even for an empty result (@wip/client 0.54.0 / CASE-861). The column lookup passes schema and table names as query parameters rather than interpolating them. `/tables` and `/parity` are still read with plain `fetch` (`fetchJson`). `/parity` has no typed client method; `/tables` could move to `client.reporting.listTables()` (which returns the same `tables` + `entities` shape) — not done yet, RC's local `ReportTable`/`ReportEntity` types would need reconciling with the client's.
+All SQL in `src/hooks/use-reporting.ts` (table preview/paging, the Query Pad, view tests and previews, the editor's column autocomplete) goes through the typed `client.reporting.runQuery` (`runReportQuery` helper). Rows come back as objects keyed by column, and `columns` is populated even for an empty result (@wip/client 0.54.0 / CASE-861). The inventory comes from `client.reporting.listTables()`, and the Table Browser's column list from its detail mode (`listTables(name, namespace)`). `ReportTable` / `ReportEntity` are the client's types, re-exported, so a contract change surfaces at compile time on a lib bump. Two reporting reads remain plain `fetch`, because the client has no method for them: `/parity` (`fetchJson`) and the Query Pad's `/export/csv` of a SQL result.
 
 ### Document CRUD
 
