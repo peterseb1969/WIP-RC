@@ -15,3 +15,8 @@ dist/
 # The role marker (.session-role) IS tracked; the minted id is per-session.
 .claude/.session-id
 test-results/
+
+# Machine-specific: the scaffold refresh writes this machine's WIP clone and
+# deploy-key paths into it, so each clone keeps its own (re-run
+# create-app-project.sh in place to regenerate it).
+.mcp.json
