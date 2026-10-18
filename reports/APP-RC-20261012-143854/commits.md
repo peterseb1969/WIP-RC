@@ -151,3 +151,11 @@
 **Tests:** not run (docs). Live: RC container has NATS_URL/NATS_USER=react-console/NATS_PASSWORD injected; status/streams/consumers all return data.
 **What:** KNOWN_ISSUES entry moved to Resolved; WIP_DEPENDENCIES, ARCHITECTURE, .env.example and CHANGELOG name the nats-monitor role.
 **Why:** BE-YAC answered CASE-852#3: raw subjects are refused in app manifests (74ad391e), so it added the nats-monitor role and gave it to RC (f0fc0a64). The case is now implemented.
+
+## cba65ae — feat: MongoDB page logs in as its own read-only MongoDB user
+**Time:** 15:18
+**Files:** 11 changed, +352/-28
+**Tests:** 140 passed (12 new); tsc clean. Live on wip-local (CASE-890 rendered): all routes 200 as react-console; $where/$gt filters 400; browser shows "Read-only as react-console". Throwaway mongo:7 --auth: anonymous → not_configured, wrong pw → rejected then recovered in-process after the file was fixed, no-role user → forbidden; insert/update/delete/drop refused (13).
+**What:** mongo-auth.ts (MONGO_USER + MONGO_PASSWORD(_FILE), authSource admin, classification, filter-field guard); connector shares one connect attempt and drops the client on failed login; /databases reports one classified auth error; page notice and identity.
+**Why:** CASE-892 (MongoDB requires auth, CASE-890).
+**Discovered:** Without credentials MongoDB still accepts the connection and only refuses commands, so the old page got 200 with four per-DB errors. $where runs under the built-in read role (confirmed), so the old /docs filter let any console user run server-side JS. CASE-892 is now implemented (#2).
