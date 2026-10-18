@@ -14,3 +14,6 @@ Peter built react-console:20261018a from master 7edf6e2 (GitHub run 39119915381)
 
 ## 2026-10-18 12:43 — kb.internal endpoint repair run (CASE-858)
 Peter took a backup first and approved the run. heal-endpoints dry_run=false: kb 12 templates / 93 entries, library 1 / 2, 0 unresolvable. A dry-run re-check found 0 left to change (93 and 2 already filled). Edge-type versions unchanged (all v1). The served templates now carry resolved on every endpoint.
+
+## 2026-10-18 13:32 — NATS auth rollout complete on all installs
+Peter rolled the new platform images plus react-console:20261018a to prod-test and kb.internal. Along the way the deployer fixed a bug: NATS passwords must start with a letter, so generated ones are now prefixed. RC needs no change, since it passes the value through. Verified from inside each RC pod: prod-test and kb both connect as react-console (NATS 2.15.1), and on kb streams/consumers list too. kb.internal's healed edge endpoints are still all resolved after the update (93 + 2).
