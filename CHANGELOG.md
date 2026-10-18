@@ -1,5 +1,11 @@
 # RC-Console — Changelog
 
+## 2026-10-19 — Registry synonyms resolve
+
+- Fixed: synonyms added on the Registry page never resolved. The form sent singular entity types (`document`), but the registry's are plural (`documents`) and a lookup matches the type exactly, so a synonym stored as `document` was invisible to every lookup. The form now sends the plural type and starts from the entry's own namespace and type.
+- Fixed: the synonym and merge forms' labels name their inputs.
+- Added E2E tests for the registry: synonym add (checked by an actual key lookup), by-term search, remove, merge. 59 tests.
+
 ## 2026-10-19 — File fields accept wildcard types
 
 - Fixed: a file field whose allowed types use a pattern (`text/*`, `image/*`) refused every file in the document form ("File type text/plain not allowed"): the form compared the type literally. It now matches exact types, families (`image/*`) and `*`, ignoring case and parameters, and leaves a type the browser could not detect to the server.

@@ -179,6 +179,7 @@ npm run test:e2e    # End-to-end, against a running WIP install (default: wip-lo
   - the data lifecycle: terminology, term, Template Builder, document form, edit to version 2, archive;
   - imports: a terminology from a CSV, more terms into it (existing ones skipped), documents from a CSV through the column-mapping wizard (alias resolution, a bad row reported);
   - API keys: a namespace-scoped key with a write grant created in the UI, then used against WIP (writes in its namespace, refused in the twin), revoked and rejected (allows for the services' key cache, up to ~30 s each way);
+  - registry: add a synonym to a document's entry and confirm a lookup by that key resolves it, find it with the by-term search, remove it, merge a duplicate entry so its ID resolves to the preferred one;
   - files: upload (shown as an orphan), download returns the same bytes, a document's file field uploads and links a file, the file page lists the referencing document and warns before deleting it, deleting an orphan;
   - infrastructure: MongoDB query pad incl. the `$where` refusal, and the NATS identity;
   - same-named templates: with one template value in two namespaces, a new document, the table view and an import by value stay in the selected namespace;

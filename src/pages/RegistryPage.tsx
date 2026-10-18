@@ -302,7 +302,12 @@ function EntryDetail({ entryId }: { entryId: string }) {
             </Link>
           )}
           <button
-            onClick={() => { setShowAddSynonym(s => !s); setShowMerge(false); setConfirmDeactivate(false); setActionError(null) }}
+            onClick={() => {
+              setShowAddSynonym(s => !s); setShowMerge(false); setConfirmDeactivate(false); setActionError(null)
+              // A synonym usually lives beside its entry: start from the entry's own namespace and type.
+              if (!synNs) setSynNs(entry.namespace)
+              if (!synType) setSynType(entry.entity_type)
+            }}
             className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 px-2 py-1 border border-gray-200 rounded"
           >
             <Plus size={10} />
@@ -335,8 +340,9 @@ function EntryDetail({ entryId }: { entryId: string }) {
           <h4 className="text-xs font-medium text-gray-600">Add Synonym</h4>
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="block text-[10px] text-gray-500 mb-0.5">Namespace</label>
+              <label htmlFor="syn-namespace" className="block text-[10px] text-gray-500 mb-0.5">Namespace</label>
               <select
+                id="syn-namespace"
                 value={synNs}
                 onChange={e => setSynNs(e.target.value)}
                 className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-primary-light"
@@ -346,19 +352,23 @@ function EntryDetail({ entryId }: { entryId: string }) {
               </select>
             </div>
             <div>
-              <label className="block text-[10px] text-gray-500 mb-0.5">Entity Type</label>
+              <label htmlFor="syn-type" className="block text-[10px] text-gray-500 mb-0.5">Entity Type</label>
               <select
+                id="syn-type"
                 value={synType}
                 onChange={e => setSynType(e.target.value)}
                 className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-primary-light"
               >
                 <option value="">Select...</option>
-                {ENTITY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                {/* The registry's entity types are plural ("documents"); a synonym
+                    stored under the singular form is never found by a lookup. */}
+                {ENTITY_TYPES.map(t => <option key={t} value={ENTITY_TYPE_PLURAL[t]}>{t}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-[10px] text-gray-500 mb-0.5">Composite Key (JSON)</label>
+              <label htmlFor="syn-key" className="block text-[10px] text-gray-500 mb-0.5">Composite Key (JSON)</label>
               <input
+                id="syn-key"
                 type="text"
                 value={synKey}
                 onChange={e => setSynKey(e.target.value)}
@@ -397,8 +407,9 @@ function EntryDetail({ entryId }: { entryId: string }) {
           <h4 className="text-xs font-medium text-amber-700">Merge Into This Entry</h4>
           <p className="text-[10px] text-amber-600">The other entry will be deactivated and its synonyms transferred here.</p>
           <div>
-            <label className="block text-[10px] text-gray-500 mb-0.5">Entry ID to merge (will be deprecated)</label>
+            <label htmlFor="merge-id" className="block text-[10px] text-gray-500 mb-0.5">Entry ID to merge (will be deprecated)</label>
             <input
+              id="merge-id"
               type="text"
               value={mergeTargetId}
               onChange={e => setMergeTargetId(e.target.value)}
