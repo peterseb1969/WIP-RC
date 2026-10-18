@@ -1,5 +1,10 @@
 # RC-Console — Changelog
 
+## 2026-10-18 — Code editor for the SQL surfaces
+
+- Added: the Query Pad and the registered-view editor use a CodeMirror 6 editor. It highlights the PostgreSQL dialect, matches brackets and autocompletes table and column names: every namespace's tables, plus the chosen namespace's tables and views with their columns. Ctrl/Cmd+Enter runs the query (in the view editor it runs Test), and Shift+Alt+F or the new Format button reformats it.
+- Bundle: the editor loads as its own chunk (~404 kB, ~134 kB gzipped) on first use, and sql-formatter loads when you first format. The main bundle is unchanged.
+
 ## 2026-10-18 — NL Query on Claude Sonnet 5.5
 
 - Changed: the NL Query agent defaults to `claude-sonnet-5-5` (was `claude-sonnet-4-6`), at effort `low` (`NL_QUERY_EFFORT` overrides). `max_tokens` 4096 → 16000, because thinking is on by default and counts toward it.

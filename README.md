@@ -17,7 +17,7 @@ The sidebar is flat, grouped into Overview / Data / Infrastructure / Health / Ad
 - **PostgreSQL** — five tabs:
   - **Table Browser**: an entity-first inventory grouped by namespace, with filters in the URL. Selecting a table shows its columns and a paginated data view with CSV export.
   - **Views**: list, create, edit, delete and preview **registered reporting views** in every namespace.
-  - **Query Pad**: SQL scoped to a namespace, with history and CSV export.
+  - **Query Pad**: SQL scoped to a namespace, with history and CSV export. The editor highlights PostgreSQL, autocompletes table, view and column names, runs on Ctrl/Cmd+Enter and formats on Shift+Alt+F (also in the registered-view editor).
   - **Batch Sync**: namespace-scopable sync with an optional force rebuild.
   - **Parity**: per-namespace documents-vs-reporting checks.
 - **MongoDB** — database → collection → document drill-down with indexes.

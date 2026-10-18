@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useWipClient } from '@wip/react'
 import type { ReportQueryResult, WipClient } from '@wip/client'
@@ -265,6 +266,54 @@ export function useQueryRows(sql: string, namespace: string | undefined, enabled
     staleTime: 30_000,
     retry: false,
   })
+}
+
+/** Autocomplete schema for the SQL editor: namespaces → tables (→ columns). */
+export type SqlCompletionSchema = { [name: string]: SqlCompletionSchema | readonly string[] }
+
+/**
+ * Autocomplete schema for a SQL editor. Every namespace from the reporting
+ * inventory appears with its table names, for schema-qualified queries. With
+ * `namespace` set, that namespace's tables and views (registered views
+ * included) are also offered unqualified with their columns, as the server
+ * resolves unqualified names there. Undefined until the inventory loads.
+ */
+export function useSqlCompletionSchema(namespace?: string): SqlCompletionSchema | undefined {
+  const client = useWipClient()
+  const { data: tables } = useReportTables()
+  const { data: columns } = useQuery({
+    queryKey: ['rc-console', 'sql-completion-columns', namespace],
+    queryFn: async () => {
+      const result = await runReportQuery(
+        client,
+        'SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = $1 ORDER BY table_name, ordinal_position',
+        undefined,
+        [namespace],
+      )
+      const byTable: Record<string, string[]> = {}
+      for (const row of result.rows) {
+        const table = String(row.table_name ?? '')
+        ;(byTable[table] ??= []).push(String(row.column_name ?? ''))
+      }
+      return byTable
+    },
+    enabled: !!namespace,
+    staleTime: 300_000,
+  })
+  return useMemo(() => {
+    if (!tables) return undefined
+    const schema: SqlCompletionSchema = {}
+    for (const t of tables) {
+      const ns = (schema[t.namespace] ??= {}) as SqlCompletionSchema
+      ns[t.name] = []
+    }
+    if (namespace && columns) {
+      for (const [table, cols] of Object.entries(columns)) {
+        if (!(table in schema)) schema[table] = cols
+      }
+    }
+    return schema
+  }, [tables, namespace, columns])
 }
 
 // useSyncStatus is now provided by @wip/react@0.9.0 (CASE-283).

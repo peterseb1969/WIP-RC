@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo, type MouseEvent } from 'react'
+import { useState, useCallback, useMemo, type MouseEvent } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import {
   Database,
@@ -20,6 +20,7 @@ import {
   X,
   ListFilter,
   Eye,
+  WrapText,
 } from 'lucide-react'
 import {
   useReportTables,
@@ -27,6 +28,7 @@ import {
   useTableColumns,
   useTablePage,
   useRunQuery,
+  useSqlCompletionSchema,
   type QueryResult,
   type ReportTable,
   type ReportEntity,
@@ -42,6 +44,8 @@ import RegisteredViewsPanel from '@/components/reporting/RegisteredViewsPanel'
 import { cn } from '@/lib/cn'
 import { apiUrl } from '@/lib/wip'
 import { useIsServiceInactive } from '@/hooks/use-service-health'
+import LazyCodeEditor from '@/components/editor/LazyCodeEditor'
+import { formatCode } from '@/lib/format-code'
 
 // ---------------------------------------------------------------------------
 // Query History (persisted in localStorage)
@@ -864,10 +868,11 @@ function QueryPad({ initialSql, initialNamespace }: { initialSql?: string; initi
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory)
   const [showHistory, setShowHistory] = useState(false)
   const [result, setResult] = useState<QueryResult | null>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [formatError, setFormatError] = useState<string | null>(null)
 
   const runQuery = useRunQuery()
   const { data: tables } = useReportTables()
+  const completionSchema = useSqlCompletionSchema(namespace || undefined)
   const namespaces = [...new Set((tables ?? []).map(t => t.namespace))].sort()
 
   const handleExecute = useCallback(() => {
@@ -893,22 +898,16 @@ function QueryPad({ initialSql, initialNamespace }: { initialSql?: string; initi
     })
   }, [sql, namespace, history, runQuery])
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      // Ctrl/Cmd + Enter to execute
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        e.preventDefault()
-        handleExecute()
-      }
-    },
-    [handleExecute]
-  )
+  const handleFormat = () => {
+    formatCode('sql', sql)
+      .then(text => { setSql(text); setFormatError(null) })
+      .catch(err => setFormatError(err instanceof Error ? err.message : 'Could not format this SQL'))
+  }
 
   const handleLoadFromHistory = (entry: HistoryEntry) => {
     setSql(entry.sql)
     setNamespace(entry.namespace ?? '')
     setShowHistory(false)
-    textareaRef.current?.focus()
   }
 
   const handleClearHistory = () => {
@@ -942,32 +941,25 @@ function QueryPad({ initialSql, initialNamespace }: { initialSql?: string; initi
     }
   }
 
-  // Auto-resize textarea
-  useEffect(() => {
-    const ta = textareaRef.current
-    if (ta) {
-      ta.style.height = 'auto'
-      ta.style.height = `${Math.max(120, Math.min(ta.scrollHeight, 300))}px`
-    }
-  }, [sql])
-
   return (
     <div className="space-y-4">
       {/* Editor */}
       <div className="relative">
-        <textarea
-          ref={textareaRef}
+        <LazyCodeEditor
+          language="sql"
           value={sql}
-          onChange={e => setSql(e.target.value)}
-          onKeyDown={handleKeyDown}
-          className="w-full font-mono text-sm bg-gray-900 text-success/60 rounded-lg border border-gray-700 p-4 resize-none focus:outline-none focus:border-primary placeholder-gray-600"
+          onChange={text => { setSql(text); setFormatError(null) }}
+          onRun={handleExecute}
+          sqlSchema={completionSchema}
+          ariaLabel="SQL query"
           placeholder={namespace ? 'SELECT * FROM doc_...' : 'SELECT * FROM "namespace"."doc_..."'}
-          spellCheck={false}
+          autoFocus
         />
-        <div className="absolute bottom-2 right-2 text-xs text-gray-500">
-          {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Enter to run
+        <div className="absolute bottom-2 right-3 text-xs text-gray-500 pointer-events-none">
+          {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Enter to run · Shift+Alt+F to format
         </div>
       </div>
+      {formatError && <p className="text-xs text-danger -mt-2">Could not format: {formatError}</p>}
 
       {/* Actions */}
       <div className="flex items-center gap-2">
@@ -1005,6 +997,15 @@ function QueryPad({ initialSql, initialNamespace }: { initialSql?: string; initi
         >
           <History size={14} />
           History ({history.length})
+        </button>
+
+        <button
+          onClick={handleFormat}
+          disabled={!sql.trim()}
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-200 rounded-md text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+        >
+          <WrapText size={14} />
+          Format
         </button>
 
         {result && (

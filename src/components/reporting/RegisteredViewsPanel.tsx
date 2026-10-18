@@ -20,7 +20,8 @@ import SearchInput from '@/components/common/SearchInput'
 import LoadingState from '@/components/common/LoadingState'
 import { cn } from '@/lib/cn'
 import { useAuth } from '@/hooks/use-auth'
-import { useQueryRows, useRunQuery } from '@/hooks/use-reporting'
+import { useQueryRows, useRunQuery, useSqlCompletionSchema } from '@/hooks/use-reporting'
+import LazyCodeEditor from '@/components/editor/LazyCodeEditor'
 import { useDeleteView, useRegisterView, useRegisteredViews } from '@/hooks/use-registered-views'
 import {
   consoleRegistrant,
@@ -331,6 +332,7 @@ function ViewEditor({
   const [sql, setSql] = useState(existing?.sql ?? 'SELECT ')
   const register = useRegisterView()
   const test = useRunQuery()
+  const completionSchema = useSqlCompletionSchema(namespace || undefined)
 
   const canRun = !!namespace && !!sql.trim()
   const canSave = canRun && !!name.trim() && name.trim() !== 'v_'
@@ -395,12 +397,14 @@ function ViewEditor({
 
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">SQL *</label>
-          <textarea
+          <LazyCodeEditor
+            language="sql"
             value={sql}
-            onChange={e => setSql(e.target.value)}
-            spellCheck={false}
-            rows={10}
-            className="w-full font-mono text-sm bg-gray-900 text-success/60 rounded-lg border border-gray-700 p-3 focus:outline-none focus:border-primary"
+            onChange={setSql}
+            onRun={() => { if (canRun && !test.isPending) handleTest() }}
+            sqlSchema={completionSchema}
+            ariaLabel="View SQL"
+            minHeight={200}
           />
           <p className="text-[11px] text-gray-400 mt-1">
             One read-only SELECT (a WITH … SELECT is fine). Unqualified names — doc_&lt;template&gt;, terms,

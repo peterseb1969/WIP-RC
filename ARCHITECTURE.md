@@ -81,6 +81,8 @@ The sidebar used to be an accordion with sub-menus. It was flattened because the
 
 **`src/components/common/`** — shared primitives: `DataTable` (sortable, row click), `JsonViewer`, `StatusBadge`, `SearchInput` (debounced), `Pagination`, `SortSelect` (per-page sort choice, persisted in localStorage), `LoadingState` / `ErrorState` / `EmptyState`, and `FormInputs` (`TextInput`, `NumberInput`, `SelectInput`, `Toggle`, `Label`, `Section`), which the Template Builder and Document Form share.
 
+**`src/components/editor/`** — `CodeEditor`, the query-surface editor (CodeMirror 6): SQL (PostgreSQL dialect, schema-driven autocomplete) or JSON (parse-error lint, optional completion source), Ctrl/Cmd+Enter to run, Shift+Alt+F to format (`src/lib/format-code.ts`; sql-formatter is loaded on first use). It is controlled and built once per mount, so undo history survives re-renders. Pages use `LazyCodeEditor`, which loads it as its own chunk and shows a plain textarea until then. The SQL autocomplete schema comes from `useSqlCompletionSchema(namespace)`: every namespace's tables from the inventory, plus the chosen namespace's tables and views with their columns from `information_schema`.
+
 **`src/components/layout/`** — `AppLayout`, `Sidebar`, `TopBar`, `Breadcrumbs`.
 
 **`src/components/templates/`** — builder internals.

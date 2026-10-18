@@ -56,19 +56,19 @@
 **Description:** The NL Query page shows an "unavailable" notice unless `ANTHROPIC_API_KEY` is set, or a key is provided at runtime on the API Keys page (held in memory only, lost on restart). wip-local currently has neither, so the agent's end-to-end behaviour, including the `list_registered_views` tool added 2026-10-12, has only been verified at the tool level (`executeTool` against live WIP), not through Claude.
 **Context:** Everything else in the app works without it.
 
-### Query editors: plain textareas, and no MongoDB query editor
-**Status:** backlog (requested 2026-10-18)
+### Query editors: no MongoDB query editor yet
+**Status:** in progress (SQL editors done 2026-10-18; MongoDB query pad next)
 **Severity:** low
 **Description:** Two parts, to be built as one shared editor:
 - **MongoDB query editor.** The MongoDB page can only page through a collection, with no query UI (the backend `/docs` route takes one string equality filter, which nothing exposes). Wanted: a query pad for MongoDB like the PostgreSQL Query Pad, for `find` (filter, projection, sort, limit) and probably read-only `aggregate`.
-- **Richer editing for both.** The Query Pad and the registered-view editor are plain monospace textareas. Wanted: syntax highlighting (SQL; JSON / MongoDB query syntax) and further editor features, e.g. bracket matching, autocomplete of table, view, column or collection and field names, and run-on-shortcut. One editor component would serve the SQL editors and the new MongoDB one.
+- **Richer editing for both.** Done for SQL: the Query Pad and the registered-view editor use the shared `CodeEditor` (CodeMirror 6). The MongoDB pad reuses it in JSON mode.
 
 **Context:** Constraints for whoever builds it:
 - **Server-side only.** MongoDB queries must run in Express, as today, through the console's own MongoDB user.
 - **Writes are blocked by the role.** That user holds only the built-in `read` role on the four platform databases, so the server refuses writes, including aggregation `$out` / `$merge`.
 - **JavaScript is not blocked by the role.** The `read` role does not stop server-side JavaScript. `$where`, `$function` and `$accumulator` must be rejected anywhere in a filter or pipeline. `isSafeFilterField` in `server/infra/mongo-auth.ts` does this for the one existing filter; a query editor needs the same check applied recursively.
 - **Bound every query** with `maxTimeMS` and a result cap.
-- **Stack:** no editor library is in the stack yet. Check `docs/technology-stack.md` before adding one (CodeMirror 6 is the likely candidate).
+- **Design (approved 2026-10-18):** separate Extended JSON fields (filter, projection, sort, limit), `find` + count first, `aggregate` later.
 
 ### No ontology graph visualization
 **Status:** deferred
