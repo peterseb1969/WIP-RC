@@ -56,3 +56,11 @@
 **What:** getParity / exportTableCsv / exportQueryCsv replace raw fetches; local parity types gone; export errors shown next to their buttons; single-template batch sync via useTriggerBatchSync; useRouteTemplate's by-value branch on useTemplateByValue({ namespace }). E2E: both exports, Parity card, forced scoped batch sync.
 **Why:** CASE-898 and CASE-905 adoption.
 **Discovered:** Export failures were only console-logged before (no user feedback). Playwright fill() on CodeMirror leaves the completion list open over the buttons below it; with real typing, clicking elsewhere closes it, so this is not a UI bug (verified with keyboard.type). The spec presses Escape. useTriggerBatchSyncAll's BatchSyncAllVars lacks namespace (comment CASE-905#3). wip-local reporting-sync already has the export fix (namespaced export 200; bad query 400). Commented CASE-898#3.
+
+## 946cab0 — chore: stop tracking .mcp.json (machine-specific paths)
+**Time:** 00:08
+**Files:** 2 files changed, 5 insertions(+), 18 deletions(-)
+**Tests:** not run (config only)
+**What:** .mcp.json added to .gitignore and removed from the index; the local file (this machine's /Users/peter paths) stays.
+**Why:** Peter approved. The tracked copy held /Users/sebbelp paths, so the wip MCP server failed to start on this machine (macmini) all session.
+**Discovered:** Pulling this on the other machine deletes its .mcp.json; restore with git show 740a6a7:.mcp.json > .mcp.json, or re-run the scaffold refresh.
