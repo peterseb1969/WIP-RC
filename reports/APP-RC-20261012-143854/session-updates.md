@@ -20,3 +20,10 @@ Peter rolled the new platform images plus react-console:20261018a to prod-test a
 
 ## 2026-10-18 15:07 — CASE-892 responded (MongoDB auth for RC)
 BE-YAC filed CASE-892: RC's MongoDB page must send MONGO_USER/MONGO_PASSWORD once installs are re-rendered with CASE-890 (WIP 97970506; RC manifest already holds read-all). Response #1 confirms it and adds three RC-side items: (1) with auth on, /databases answers 200 with four per-DB Unauthorized errors, so classify not_configured (13) vs rejected (18); (2) the cached client is set before connect() resolves, so cache the promise, reset on failure, and drop it on auth failure for rotation; (3) /docs passes filter_field straight through, so $where would run server-side JS under the read role; reject $-prefixed fields. Status responded; implementation awaits Peter. wip-local is not yet re-rendered (the RC container has no MONGO_USER).
+
+## 2026-10-18 15:27 — dev-test: RC 20261018b verified with MongoDB + NATS auth
+Peter rolled new platform images (CASE-890 MongoDB auth) plus react-console:20261018b (digest sha256:96038815…, includes cba65ae) to dev-test. From inside pod wip-react-console-7fd5fbdd84-g4zgv:
+- MongoDB: /databases lists the 4 DBs as react-console; collections and docs work; a $where filter gets 400.
+- NATS: connected as react-console; streams and consumers listed.
+- Health: all services healthy; ingest-gateway is inactive (not deployed on dev-test).
+- dev-test MongoDB refuses anonymous listCollections and an insertOne as react-console (13 Unauthorized).
