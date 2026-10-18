@@ -10,7 +10,7 @@ interface ErrorStateProps {
 /** Centred error message with an optional Retry button. */
 export default function ErrorState({ message, onRetry, className }: ErrorStateProps) {
   return (
-    <div className={cn('flex flex-col items-center justify-center gap-3 py-12', className)}>
+    <div role="alert" className={cn('flex flex-col items-center justify-center gap-3 py-12', className)}>
       <AlertTriangle size={24} className="text-danger/60" />
       <p className="text-sm text-danger text-center max-w-md">{message}</p>
       {onRetry && (

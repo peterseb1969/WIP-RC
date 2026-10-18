@@ -14,3 +14,4 @@ dist/
 # Ephemeral per-session sentinel minted by /wip-setup + /wip-wake (CASE-389).
 # The role marker (.session-role) IS tracked; the minted id is per-session.
 .claude/.session-id
+test-results/
