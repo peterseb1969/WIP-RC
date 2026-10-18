@@ -32,3 +32,11 @@
 **What:** versioning.spec.ts (4) and access.spec.ts (4); shared Dex login in support/login.ts; viewer settings in env.ts; docs.
 **Why:** Peter's top two coverage gaps: versioning (PoNIF #2) and the ALLOWED_GROUPS fix 3461408, which until now was checked only by hand.
 **Discovered:** Deactivating a template version navigates to the template list. In the dev container the SPA shell renders for the viewer (Vite serves it); the denial shows on the API and proxy calls and in page error states. Not verified that the access spec fails on pre-3461408 server code: reverting server/auth.ts would restart the dev server and drop the in-memory Anthropic key.
+
+## 810ca72 — fix(docker): run tsx from the image, not via npx
+**Time:** 23:44
+**Files:** 3 files changed, 8 insertions(+), 36 deletions(-)
+**Tests:** unit 183 passed; local production build started under --network none: /health ok in ~2 s, tsx v4.21.0
+**What:** tsx moved from devDependencies to dependencies, pinned to 4.21.0. The Dockerfile CMD is ./node_modules/.bin/tsx instead of npx tsx.
+**Why:** Seen while verifying the 20261018c roll on dev-test: the pod log showed npx installing tsx@4.23.15 at startup (the --omit=dev image had no tsx). Present since the Dockerfile was written; not from this session's changes.
+**Discovered:** Lockfile change is only the dev flags on tsx/esbuild/get-tsconfig; no version changes. The wip-local dev container needs no restart (node_modules unchanged).
