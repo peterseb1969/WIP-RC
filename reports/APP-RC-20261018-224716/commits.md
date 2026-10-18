@@ -95,3 +95,18 @@
 **What:** Synonym form sends plural entity types (singular labels kept), defaults to the entry's namespace and type; synonym/merge labels associated; registry spec with real by-key / by-id lookups.
 **Why:** API probe before writing the spec: lookups match entity_type exactly; RC sent "document" while the registry uses "documents", so RC-added synonyms never resolved.
 **Discovered:** The registry accepts any entity_type string on synonyms/add without validation (stored "document"), so the mistake was silent. Possible platform case: validate synonym_entity_type against known types. Existing wip-local or deployed data may hold such dead synonyms from RC; not checked.
+
+## 695fedc — fix: document edit conflicts detected by error code and explained; E2E validation
+**Time:** 00:44
+**Files:** 5 files changed, 115 insertions(+), 6 deletions(-)
+**Tests:** E2E validation 3/3 (alone); unit 189 passed
+**What:** Conflict flag from WipBulkItemError.errorCode === 'concurrency_conflict' (or WipConflictError) instead of message sniffing; clear banner text plus Reload; banner role="alert"; validation spec (mandatory, server-rejected pattern, edit conflict).
+**Why:** Found by the validation spec: the platform's conflict message "Expected version 1, current is 2" contains neither "conflict" nor "concurrency", so RC showed the bare line with no Reload.
+**Discovered:** DocumentTablePage maps any 500 to "ensure sync_enabled" (unverified whether the table view depends on reporting); left as is.
+
+## 82c7cdc — test: E2E integrity — a planted orphaned term reference is reported
+**Time:** 00:44
+**Files:** 3 files changed, 51 insertions(+), 2 deletions(-)
+**Tests:** E2E integrity 1/1 alone (25.8 s). Full suite: 58 passed, 2 failed late on platform timeouts, then wip-local and podman became unresponsive.
+**What:** Integrity spec (hard-deleted term in a mutable terminology → orphaned_term_ref for our document); README notes on load and on keys in failure logs.
+**Discovered:** The integrity check scans every document (~250k on wip-local, ~23–25 s per call). Playwright failure logs include request headers, so the deploy API key, in test-results/.
