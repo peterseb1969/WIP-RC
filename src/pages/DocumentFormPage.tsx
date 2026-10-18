@@ -1,8 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { ArrowLeft, Save, AlertTriangle } from 'lucide-react'
 import {
-  useTemplateByValue,
   useDocument,
   useCreateDocument,
   useUpdateDocument,
@@ -14,6 +13,7 @@ import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import DocumentForm from '@/components/documents/DocumentForm'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
+import { useRouteTemplate } from '@/hooks/use-route-template'
 import { cn } from '@/lib/cn'
 
 // ---------------------------------------------------------------------------
@@ -37,9 +37,12 @@ export default function DocumentFormPage({ mode }: { mode: Mode }) {
   const navigate = useNavigate()
   const { namespace: globalNs } = useNamespaceFilter()
 
-  // Create mode — load latest template by value.
-  const createModeTemplateQ = useTemplateByValue(templateValue ?? '', {
-    enabled: mode === 'create' && !!templateValue,
+  // Create mode — the latest version of the route's template.
+  const [searchParams] = useSearchParams()
+  const createModeTemplateQ = useRouteTemplate(templateValue, {
+    templateId: searchParams.get('template_id'),
+    namespace: globalNs,
+    enabled: mode === 'create',
   })
 
   // Edit mode — load document first, then its pinned template version.

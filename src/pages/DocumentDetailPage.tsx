@@ -25,7 +25,7 @@ import {
   Eye,
   X,
 } from 'lucide-react'
-import { useDocument, useDocumentVersions, useTemplateByValue, useWipClient, useArchiveDocument } from '@wip/react'
+import { useDocument, useDocumentVersions, useTemplate, useWipClient, useArchiveDocument } from '@wip/react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import type { Document, FieldDefinition, TermReference, Reference, Term } from '@wip/client'
 import JsonViewer from '@/components/common/JsonViewer'
@@ -622,7 +622,9 @@ export default function DocumentDetailPage() {
   const navigate = useNavigate()
   const { data: doc, isLoading, error } = useDocument(id ?? '')
   const { data: versions } = useDocumentVersions(id ?? '')
-  const { data: template } = useTemplateByValue(templateValue ?? '')
+  // The document names its template; resolving the route's value instead could
+  // pick a same-named template in another namespace.
+  const { data: template } = useTemplate(doc?.template_id ?? '')
   const client = useWipClient()
   const [validating, setValidating] = useState(false)
   const [validationResult, setValidationResult] = useState<{ valid: boolean; errors: Array<{ field: string | null; message: string }>; warnings: string[] } | null>(null)

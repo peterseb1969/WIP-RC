@@ -11,9 +11,11 @@ import {
   Layers,
 } from 'lucide-react'
 import Papa from 'papaparse'
-import { useTemplates, useTemplateByValue, useWipClient } from '@wip/react'
+import { useQueryClient } from '@tanstack/react-query'
+import { useTemplates, useWipClient } from '@wip/react'
 import type { FieldDefinition, ImportDocumentsResponse } from '@wip/client'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
+import { useRouteTemplate } from '@/hooks/use-route-template'
 import LoadingState from '@/components/common/LoadingState'
 import StatusBadge from '@/components/common/StatusBadge'
 import { cn } from '@/lib/cn'
@@ -68,12 +70,12 @@ function StepIndicator({ current }: { current: Step }) {
 // ---------------------------------------------------------------------------
 
 function TemplateStep({
-  selectedValue,
+  selectedId,
   onSelect,
   onNext,
 }: {
-  selectedValue: string | null
-  onSelect: (value: string) => void
+  selectedId: string | null
+  onSelect: (templateId: string, value: string) => void
   onNext: () => void
 }) {
   const { namespace } = useNamespaceFilter()
@@ -90,10 +92,10 @@ function TemplateStep({
         {templates.map(t => (
           <button
             key={t.template_id}
-            onClick={() => onSelect(t.value)}
+            onClick={() => onSelect(t.template_id, t.value)}
             className={cn(
               'text-left p-3 rounded-lg border transition-all',
-              selectedValue === t.value
+              selectedId === t.template_id
                 ? 'border-primary/30 bg-primary/5 shadow-sm'
                 : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
             )}
@@ -110,7 +112,7 @@ function TemplateStep({
       <div className="flex justify-end">
         <button
           onClick={onNext}
-          disabled={!selectedValue}
+          disabled={!selectedId}
           className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary disabled:opacity-50"
         >
           Next
@@ -499,19 +501,28 @@ export default function DocumentImportPage() {
   const [searchParams] = useSearchParams()
   const { namespace } = useNamespaceFilter()
   const client = useWipClient()
+  const queryClient = useQueryClient()
 
   const templateParam = searchParams.get('template') || ''
-  const [step, setStep] = useState<Step>(templateParam ? 'upload' : 'template')
+  const templateIdParam = searchParams.get('template_id') || null
+  const [step, setStep] = useState<Step>(templateParam || templateIdParam ? 'upload' : 'template')
   const [selectedTemplateValue, setSelectedTemplateValue] = useState<string | null>(templateParam || null)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(templateIdParam)
   const [parsed, setParsed] = useState<ParsedCSV | null>(null)
   const [mapping, setMapping] = useState<Record<string, string>>({})
   const [importResult, setImportResult] = useState<ImportDocumentsResponse | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
 
-  const { data: template } = useTemplateByValue(selectedTemplateValue ?? '')
+  // By id when known (a picked card, or the list page's link); a bare
+  // ?template= value resolves in the selected namespace only.
+  const { data: template } = useRouteTemplate(selectedTemplateValue ?? undefined, {
+    templateId: selectedTemplateId,
+    namespace,
+  })
   const fields = template?.fields ?? []
 
-  const handleTemplateSelect = useCallback((value: string) => {
+  const handleTemplateSelect = useCallback((templateId: string, value: string) => {
+    setSelectedTemplateId(templateId)
     setSelectedTemplateValue(value)
   }, [])
 
@@ -546,19 +557,20 @@ export default function DocumentImportPage() {
       })
       setImportResult(result)
       setStep('results')
+      queryClient.invalidateQueries({ queryKey: ['wip', 'documents'] })
     } catch (err: unknown) {
       setImportError(err instanceof Error ? err.message : String(err))
       setStep('mapping')
     }
-  }, [template, parsed, mapping, namespace, client])
+  }, [template, parsed, mapping, namespace, client, queryClient])
 
   const handleReset = useCallback(() => {
-    setStep(templateParam ? 'upload' : 'template')
+    setStep(templateParam || templateIdParam ? 'upload' : 'template')
     setParsed(null)
     setMapping({})
     setImportResult(null)
     setImportError(null)
-  }, [templateParam])
+  }, [templateParam, templateIdParam])
 
   return (
     <div className="space-y-4 max-w-4xl">
@@ -584,7 +596,7 @@ export default function DocumentImportPage() {
       )}
 
       {/* Template summary (visible after selection) */}
-      {selectedTemplateValue && template && step !== 'template' && (
+      {template && step !== 'template' && (
         <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
           <Layers size={14} className="text-indigo-500" />
           <span className="font-medium text-gray-700">{template.label || template.value}</span>
@@ -609,7 +621,7 @@ export default function DocumentImportPage() {
       {/* Steps */}
       {step === 'template' && (
         <TemplateStep
-          selectedValue={selectedTemplateValue}
+          selectedId={selectedTemplateId}
           onSelect={handleTemplateSelect}
           onNext={() => setStep('upload')}
         />
@@ -637,10 +649,10 @@ export default function DocumentImportPage() {
 
       {step === 'importing' && <ImportingStep />}
 
-      {step === 'results' && importResult && selectedTemplateValue && (
+      {step === 'results' && importResult && template && (
         <ResultsStep
           result={importResult}
-          templateValue={selectedTemplateValue}
+          templateValue={template.value}
           onImportMore={handleReset}
         />
       )}

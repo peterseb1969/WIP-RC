@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useSearchParams, Link } from 'react-router-dom'
 import {
   ArrowLeft,
   RefreshCw,
@@ -8,7 +8,8 @@ import {
   Archive,
   FileCode2,
 } from 'lucide-react'
-import { useTemplateByValue, useWipClient } from '@wip/react'
+import { useWipClient } from '@wip/react'
+import { useRouteTemplate } from '@/hooks/use-route-template'
 import { useQuery } from '@tanstack/react-query'
 import type { TableColumn } from '@wip/client'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
@@ -57,8 +58,12 @@ const PAGE_SIZES = [25, 50, 100] as const
 
 export default function DocumentTablePage() {
   const { templateValue } = useParams()
+  const [searchParams] = useSearchParams()
   const { namespace } = useNamespaceFilter()
-  const { data: template, isLoading: templateLoading } = useTemplateByValue(templateValue ?? '')
+  const { data: template, isLoading: templateLoading } = useRouteTemplate(templateValue, {
+    templateId: searchParams.get('template_id'),
+    namespace,
+  })
   const client = useWipClient()
 
   const [page, setPage] = useState(1)

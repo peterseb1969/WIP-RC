@@ -117,7 +117,7 @@ function renderControl({ field, value, onChange, disabled, namespace, id }: Fiel
       )
     case 'reference':
       return (
-        <ReferenceFieldInput field={field} value={value} onChange={onChange} disabled={disabled} />
+        <ReferenceFieldInput field={field} value={value} onChange={onChange} disabled={disabled} namespace={namespace} />
       )
     case 'file':
       return (

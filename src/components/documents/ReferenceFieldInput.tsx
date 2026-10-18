@@ -3,6 +3,7 @@ import { ChevronDown, Search, X, Link2, Layers, FolderTree, FileText } from 'luc
 import { useDocuments, useTemplates, useTerms, useTerminologies } from '@wip/react'
 import type { FieldDefinition, Document, Template, Term, Terminology } from '@wip/client'
 import { cn } from '@/lib/cn'
+import { resolveTargetTemplate } from '@/lib/reference-targets'
 
 // ---------------------------------------------------------------------------
 // ReferenceFieldInput — polymorphic reference picker.
@@ -27,6 +28,8 @@ export interface ReferenceFieldInputProps {
   value: unknown
   onChange: (v: unknown) => void
   disabled?: boolean
+  /** The referring document's namespace: bare target template values resolve in it. */
+  namespace?: string
 }
 
 type Item = {
@@ -73,7 +76,7 @@ function pickDocLabel(doc: Document): string {
   return doc.document_id.slice(0, 8)
 }
 
-function DocumentRefPicker({ field, value, onChange, disabled }: ReferenceFieldInputProps) {
+function DocumentRefPicker({ field, value, onChange, disabled, namespace }: ReferenceFieldInputProps) {
   const targets = field.target_templates ?? []
   // If no targets configured, fall back to all documents (capped).
   const firstTarget = targets[0]
@@ -85,12 +88,8 @@ function DocumentRefPicker({ field, value, onChange, disabled }: ReferenceFieldI
   const { data: templatesData } = useTemplates({ status: 'active', latest_only: true, page_size: 1000 })
   const resolvedTemplateId = useMemo(() => {
     if (!firstTarget) return undefined
-    const t = templatesData?.items ?? []
-    const byId = t.find((x) => x.template_id === firstTarget)
-    if (byId) return byId.template_id
-    const byValue = t.find((x) => x.value === firstTarget)
-    return byValue?.template_id
-  }, [firstTarget, templatesData])
+    return resolveTargetTemplate(firstTarget, templatesData?.items ?? [], namespace)?.template_id
+  }, [firstTarget, templatesData, namespace])
 
   const { data: docsData, isLoading } = useDocuments(
     {

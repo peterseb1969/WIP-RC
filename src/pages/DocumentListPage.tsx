@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { useTemplates, useDocuments } from '@wip/react'
 import type { TemplateUsage } from '@wip/client'
+import { templateIdParam } from '@/hooks/use-route-template'
 import { useNamespaceFilter, useSyncNamespaceFromUrl } from '@/hooks/use-namespace-filter'
 import { useExternalTemplates } from '@/hooks/use-external-templates'
 import SortSelect, { loadSort, saveSort } from '@/components/common/SortSelect'
@@ -460,7 +461,7 @@ function DocumentTable({
           {templateValue && (
             <>
               <Link
-                to={`/documents/${templateValue}/table`}
+                to={`/documents/${templateValue}/table?${templateIdParam(templateId)}`}
                 className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded-md text-gray-600 hover:bg-gray-50"
                 title="Spreadsheet view with all fields as columns"
               >
@@ -468,7 +469,7 @@ function DocumentTable({
                 Table
               </Link>
               <Link
-                to={`/documents/import?template=${templateValue}`}
+                to={`/documents/import?template=${templateValue}&${templateIdParam(templateId)}`}
                 className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded-md text-gray-600 hover:bg-gray-50"
                 title="Import documents from CSV"
               >
@@ -476,7 +477,7 @@ function DocumentTable({
                 Import
               </Link>
               <Link
-                to={`/documents/${templateValue}/new`}
+                to={`/documents/${templateValue}/new?${templateIdParam(templateId)}`}
                 className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-white bg-primary hover:bg-primary rounded-md"
                 title="Create a new document from this template"
               >
@@ -643,12 +644,18 @@ export default function DocumentListPage() {
     }
   }, [nsKey, selectedTemplateId, templateParam, allMode])
 
-  // reset selection when namespace changes
-  useEffect(() => {
+  // Reset the selection when the namespace changes, during render rather than
+  // in an effect: the selector's load callback runs in its own effect, before
+  // a parent effect would, so with cached templates an effect-based reset
+  // wiped the selection that ?template= or the last-used recall had just made
+  // (on mount too, where there is nothing to reset).
+  const [selectionNamespace, setSelectionNamespace] = useState(namespace)
+  if (selectionNamespace !== namespace) {
+    setSelectionNamespace(namespace)
     setSelectedTemplateId(null)
     setSelectedTemplateValue('')
     setAllMode(false)
-  }, [namespace])
+  }
 
   return (
     <div className="space-y-4 max-w-6xl">
