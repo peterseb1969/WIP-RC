@@ -146,7 +146,7 @@ Where @wip/react has no hook yet, or its hook drops a newer option, components c
 
 ### Reporting reads
 
-All SQL in `src/hooks/use-reporting.ts` (table preview/paging, the Query Pad, view tests and previews, the editor's column autocomplete) goes through the typed `client.reporting.runQuery` (`runReportQuery` helper). Rows come back as objects keyed by column, and `columns` is populated even for an empty result (@wip/client 0.54.0 / CASE-861). The inventory comes from `client.reporting.listTables()`, and the Table Browser's column list from its detail mode (`listTables(name, namespace)`). `ReportTable` / `ReportEntity` are the client's types, re-exported, so a contract change surfaces at compile time on a lib bump. Two reporting reads remain plain `fetch`, because the client has no method for them: `/parity` (`fetchJson`) and the Query Pad's `/export/csv` of a SQL result.
+All SQL in `src/hooks/use-reporting.ts` (table preview/paging, the Query Pad, view tests and previews, the editor's column autocomplete) goes through the typed `client.reporting.runQuery` (`runReportQuery` helper). Rows come back as objects keyed by column, and `columns` is populated even for an empty result (@wip/client 0.54.0 / CASE-861). The inventory comes from `client.reporting.listTables()`, and the Table Browser's column list from its detail mode (`listTables(name, namespace)`). `ReportTable` / `ReportEntity` are the client's types, re-exported, so a contract change surfaces at compile time on a lib bump. Two reporting reads remain plain `fetch`, because the client has no method for them: `/parity` (`fetchJson`) and the two `/export/csv` forms (Table Browser CSV, Query Pad CSV). Typed methods are requested in CASE-898.
 
 ### Document CRUD
 
@@ -201,10 +201,10 @@ Tools:
 - `list_registered_views`
 - `get_document`
 - `list_terms`
-- `describe_data_model`
+- `describe_data_model` (no arguments: names per namespace; `namespaces: [...]`: fields, identity, usage, term counts)
 
 They talk to WIP's actual wire shapes, which lack test coverage elsewhere, so `tests/unit/nl-tools.test.ts` pins them:
-- List endpoints return `{items}` with `terminology_id` / `template_id`, paginate with `page_size` (WIP silently ignores `limit`), and `describe_data_model` passes `latest_only=true`.
+- List endpoints return `{items}` with `terminology_id` / `template_id`, paginate with `page_size` (WIP silently ignores `limit`), and `describe_data_model` passes `latest_only=true`. Every tool result goes through `serializeToolResult`: above 30k characters it drops whole trailing items of the longest array and records `<key>_omitted`, so the model always gets valid JSON and knows to narrow.
 - `/documents/query` takes `template_id` (a value resolves within `?namespace=`), `page`/`page_size`, and `filters: [{field: 'data.<name>', operator, value}]`. That's why `query_by_template` requires `namespace`.
 - `list_registered_views` fans out across namespaces when none is given, because `/tables` does not include views.
 

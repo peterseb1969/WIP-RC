@@ -11,7 +11,7 @@
  */
 import { Router } from 'express'
 import Anthropic from '@anthropic-ai/sdk'
-import { toolDefinitions, executeTool } from './tools.js'
+import { toolDefinitions, executeTool, serializeToolResult } from './tools.js'
 import {
   NL_QUERY_MODEL,
   resolveAnthropicKey,
@@ -278,11 +278,9 @@ router.post('/query', async (req, res) => {
               output: result,
             })
 
-            // Truncate large results to avoid token bloat
-            let resultStr = JSON.stringify(result)
-            if (resultStr.length > 30000) {
-              resultStr = resultStr.slice(0, 30000) + '\n... [truncated, result too large]'
-            }
+            // Bound the result size; oversized results lose whole trailing
+            // items (noted in the result), never their JSON structure.
+            const resultStr = serializeToolResult(result)
 
             toolResults.push({
               type: 'tool_result',

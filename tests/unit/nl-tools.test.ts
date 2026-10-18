@@ -3,7 +3,7 @@
  * and the SQL safety check in executeTool.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { toolDefinitions, executeTool } from '../../server/nl/tools'
+import { toolDefinitions, executeTool, serializeToolResult } from '../../server/nl/tools'
 
 describe('toolDefinitions', () => {
   it('defines 8 tools', () => {
@@ -261,31 +261,81 @@ describe('executeTool — describe_data_model', () => {
     mockFetch.mockReset()
   })
 
-  it('reads list items and maps template_id / terminology_id', async () => {
-    mockFetch.mockImplementation((url: string) =>
-      Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve(
-            url.includes('/template-store/')
-              ? { items: [{ template_id: 'tpl-1', value: 'PERSON', namespace: 'hr', version: 3, fields: [{}, {}], identity_fields: ['email'] }] }
-              : { items: [{ terminology_id: 'trm-1', value: 'COUNTRY', namespace: 'wip', term_count: 250 }] },
-          ),
-      }),
-    )
+  const ok = (body: unknown) => Promise.resolve({ ok: true, json: () => Promise.resolve(body) })
 
-    const result = (await executeTool('describe_data_model', {})) as {
-      templates: Array<Record<string, unknown>>
-      terminologies: Array<Record<string, unknown>>
-    }
+  it('without arguments: names grouped by namespace, from the latest active templates', async () => {
+    mockFetch.mockImplementation((url: string) =>
+      ok(url.includes('/template-store/')
+        ? { items: [
+            { template_id: 'tpl-1', value: 'PERSON', namespace: 'hr', fields: [{}, {}] },
+            { template_id: 'tpl-2', value: 'ADDRESS', namespace: 'hr' },
+            { template_id: 'tpl-3', value: 'BOOK', namespace: 'library' },
+          ] }
+        : { items: [{ terminology_id: 'trm-1', value: 'COUNTRY', namespace: 'hr', term_count: 250 }] }),
+    )
+    const result = (await executeTool('describe_data_model', {})) as { namespaces: unknown[]; next: string }
     const urls = mockFetch.mock.calls.map((c) => c[0] as string)
     expect(urls.some((u) => u.includes('latest_only=true') && u.includes('page_size=1000'))).toBe(true)
-    expect(result.templates).toEqual([
-      expect.objectContaining({ id: 'tpl-1', value: 'PERSON', namespace: 'hr', field_count: 2 }),
+    expect(urls.some((u) => u.includes('namespace='))).toBe(false)
+    expect(result.namespaces).toEqual([
+      { namespace: 'hr', templates: ['ADDRESS', 'PERSON'], terminologies: ['COUNTRY'] },
+      { namespace: 'library', templates: ['BOOK'], terminologies: [] },
     ])
-    expect(result.terminologies).toEqual([
-      expect.objectContaining({ id: 'trm-1', value: 'COUNTRY', term_count: 250 }),
-    ])
+    expect(result.next).toMatch(/namespaces/)
+  })
+
+  it('with namespaces: per-namespace detail with fields, identity, usage and term counts', async () => {
+    mockFetch.mockImplementation((url: string) =>
+      ok(url.includes('/template-store/')
+        ? { items: [{ template_id: 'tpl-1', value: 'PERSON', namespace: 'hr', version: 3, usage: 'entity', identity_fields: ['email'],
+            fields: [{ name: 'email', type: 'string' }, { name: 'country', type: 'term', terminology_ref: 'COUNTRY' }] }] }
+        : { items: [{ terminology_id: 'trm-1', value: 'COUNTRY', namespace: 'hr', term_count: 250 }] }),
+    )
+    const result = (await executeTool('describe_data_model', { namespaces: ['hr', 'hr', ' '] })) as { namespaces: Array<Record<string, unknown>> }
+    const urls = mockFetch.mock.calls.map((c) => c[0] as string)
+    expect(urls).toHaveLength(2)
+    expect(urls.every((u) => u.includes('namespace=hr'))).toBe(true)
+    expect(result.namespaces).toEqual([{
+      namespace: 'hr',
+      templates: [expect.objectContaining({ id: 'tpl-1', value: 'PERSON', usage: 'entity', identity_fields: ['email'],
+        fields: [{ name: 'email', type: 'string' }, { name: 'country', type: 'term', terminology: 'COUNTRY' }] })],
+      terminologies: [expect.objectContaining({ id: 'trm-1', value: 'COUNTRY', term_count: 250 })],
+    }])
+  })
+
+  it('refuses more than 10 namespaces', async () => {
+    const result = await executeTool('describe_data_model', { namespaces: Array.from({ length: 11 }, (_, i) => `ns${i}`) })
+    expect(result).toEqual({ error: expect.stringMatching(/at most 10/) })
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+})
+
+describe('serializeToolResult', () => {
+  it('returns small results unchanged', () => {
+    expect(serializeToolResult({ a: [1, 2] }, 100)).toBe('{"a":[1,2]}')
+  })
+
+  it('cuts the longest array, keeps valid JSON and records how many items were omitted', () => {
+    const big = { columns: ['id', 'name'], rows: Array.from({ length: 200 }, (_, i) => ({ id: i, name: `name-${i}` })) }
+    const text = serializeToolResult(big, 1000)
+    expect(text.length).toBeLessThanOrEqual(1000)
+    const parsed = JSON.parse(text)
+    expect(parsed.columns).toEqual(['id', 'name'])
+    expect(parsed.rows[0]).toEqual({ id: 0, name: 'name-0' })
+    expect(parsed.rows.length + parsed.rows_omitted).toBe(200)
+  })
+
+  it('trims nested arrays and wraps a top-level array', () => {
+    const nested = { namespaces: [{ namespace: 'kb', templates: Array.from({ length: 300 }, (_, i) => `T_${i}`) }] }
+    const parsed = JSON.parse(serializeToolResult(nested, 800))
+    expect(parsed.namespaces[0].templates_omitted).toBeGreaterThan(0)
+    const top = JSON.parse(serializeToolResult(Array.from({ length: 300 }, (_, i) => i), 300))
+    expect(top.items.length + top.items_omitted).toBe(300)
+  })
+
+  it('falls back to a marked string cut when nothing can be trimmed', () => {
+    const text = serializeToolResult({ blob: 'x'.repeat(500) }, 100)
+    expect(text).toMatch(/truncated/)
   })
 })
 

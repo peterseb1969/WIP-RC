@@ -1,5 +1,11 @@
 # RC-Console — Changelog
 
+## 2026-10-18 — NL data-model tool scoped by namespace
+
+- Changed: `describe_data_model` returns an overview (template and terminology names per namespace) without arguments, and full detail (fields with types and terminologies, identity fields, usage, term counts, IDs) for up to 10 `namespaces`. On wip-local the overview is ~7k characters; the old all-in-one listing was ~45k and got cut mid-JSON at the 30k tool-result limit.
+- Fixed: oversized tool results lose whole trailing items, with a `<key>_omitted` count, and stay valid JSON instead of being sliced mid-string.
+- Verified live: "terminologies in library" took 1 tool call / 3.1 s (was 4 calls, 75k input tokens, 15.8 s).
+
 ## 2026-10-18 — Reporting inventory through the typed client
 
 - Changed: the reporting inventory (`/tables`) comes from `client.reporting.listTables()`, and the Table Browser's column list from its detail mode, instead of a hand-written `information_schema` query. RC's own `ReportTable` / `ReportEntity` copies are gone in favour of the client's types, which mark `template_value` as nullable and `kind` as always present.

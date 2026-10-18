@@ -202,10 +202,19 @@ export const toolDefinitions: Anthropic.Tool[] = [
   {
     name: 'describe_data_model',
     description:
-      'Get a summary of all templates and terminologies in the WIP instance. Call this first if you are unsure what data is available.',
+      'Describe the data model. Without arguments it returns an overview: for every namespace, the names of its templates and terminologies. ' +
+      'With `namespaces` it returns full detail for those namespaces: each template\'s fields (name, type, terminology), identity fields and usage ' +
+      '(entity, reference or relationship), and each terminology\'s term count, with their IDs. Call it without arguments when you do not know ' +
+      'where the data lives, then again with the namespaces the question is about.',
     input_schema: {
       type: 'object' as const,
-      properties: {},
+      properties: {
+        namespaces: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Namespace prefixes to describe in detail, e.g. ["kb"]. At most 10. Omit for the overview.',
+        },
+      },
       required: [],
     },
   },
@@ -319,30 +328,61 @@ export async function executeTool(
     }
 
     case 'describe_data_model': {
-      const [templates, terminologies] = await Promise.all([
-        wipGet('/api/template-store/templates?status=active&latest_only=true&page_size=1000') as Promise<{
-          items?: Array<Record<string, unknown>>
-        }>,
-        wipGet('/api/def-store/terminologies?status=active&page_size=1000') as Promise<{
-          items?: Array<Record<string, unknown>>
-        }>,
-      ])
+      const requested = Array.isArray(input.namespaces)
+        ? [...new Set((input.namespaces as unknown[]).filter((n): n is string => typeof n === 'string' && !!n.trim()).map(n => n.trim()))]
+        : []
+      if (requested.length > 10) return { error: 'Describe at most 10 namespaces per call.' }
+      if (requested.length === 0) {
+        const [templates, terminologies] = await Promise.all([
+          wipGet('/api/template-store/templates?status=active&latest_only=true&page_size=1000') as Promise<{ items?: Array<Record<string, unknown>> }>,
+          wipGet('/api/def-store/terminologies?status=active&page_size=1000') as Promise<{ items?: Array<Record<string, unknown>> }>,
+        ])
+        const byNs = new Map<string, { templates: string[]; terminologies: string[] }>()
+        const entry = (ns: unknown) => {
+          const key = String(ns ?? '')
+          if (!byNs.has(key)) byNs.set(key, { templates: [], terminologies: [] })
+          return byNs.get(key)!
+        }
+        for (const t of templates.items ?? []) entry(t.namespace).templates.push(String(t.value))
+        for (const t of terminologies.items ?? []) entry(t.namespace).terminologies.push(String(t.value))
+        return {
+          namespaces: [...byNs.entries()]
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([namespace, v]) => ({ namespace, templates: v.templates.sort(), terminologies: v.terminologies.sort() })),
+          next: 'Call describe_data_model with namespaces: [...] for fields, identity fields, usage and term counts.',
+        }
+      }
       return {
-        templates: (templates.items ?? []).map((t) => ({
-          id: t.template_id,
-          value: t.value,
-          label: t.label,
-          namespace: t.namespace,
-          version: t.version,
-          field_count: Array.isArray(t.fields) ? t.fields.length : 0,
-          identity_fields: t.identity_fields,
-        })),
-        terminologies: (terminologies.items ?? []).map((t) => ({
-          id: t.terminology_id,
-          value: t.value,
-          label: t.label,
-          namespace: t.namespace,
-          term_count: t.term_count,
+        namespaces: await Promise.all(requested.map(async namespace => {
+          const ns = encodeURIComponent(namespace)
+          const [templates, terminologies] = await Promise.all([
+            wipGet(`/api/template-store/templates?status=active&latest_only=true&page_size=1000&namespace=${ns}`) as Promise<{ items?: Array<Record<string, unknown>> }>,
+            wipGet(`/api/def-store/terminologies?status=active&page_size=1000&namespace=${ns}`) as Promise<{ items?: Array<Record<string, unknown>> }>,
+          ])
+          return {
+            namespace,
+            templates: (templates.items ?? []).map(t => ({
+              id: t.template_id,
+              value: t.value,
+              label: t.label,
+              version: t.version,
+              usage: t.usage,
+              identity_fields: t.identity_fields,
+              fields: Array.isArray(t.fields)
+                ? (t.fields as Array<Record<string, unknown>>).map(f => ({
+                    name: f.name,
+                    type: f.type,
+                    ...(f.terminology_ref ? { terminology: f.terminology_ref } : {}),
+                  }))
+                : [],
+            })),
+            terminologies: (terminologies.items ?? []).map(t => ({
+              id: t.terminology_id,
+              value: t.value,
+              label: t.label,
+              term_count: t.term_count,
+            })),
+          }
         })),
       }
     }
@@ -350,4 +390,54 @@ export async function executeTool(
     default:
       return { error: `Unknown tool: ${name}` }
   }
+}
+
+// ─── Result size ────────────────────────────────────────────────────
+
+/** Largest tool result handed back to the model, in characters of JSON. */
+export const MAX_TOOL_RESULT_CHARS = 30_000
+
+/**
+ * Serialise a tool result for the model, keeping it valid JSON when it is too
+ * large. The longest array (found up to three levels deep) is cut in half
+ * until the result fits, and the parent object gets a `<key>_omitted` count,
+ * so the model knows items are missing and can narrow its request. A string
+ * cut is only the last resort, for results without arrays to trim.
+ */
+export function serializeToolResult(result: unknown, max = MAX_TOOL_RESULT_CHARS): string {
+  let text = JSON.stringify(result) ?? 'null'
+  if (text.length <= max) return text
+
+  const root: Record<string, unknown> = Array.isArray(result)
+    ? { items: [...result] }
+    : JSON.parse(text) as Record<string, unknown>
+  type Slot = { arr: unknown[]; parent: Record<string, unknown>; key: string }
+  const slots = (v: unknown, depth: number, out: Slot[]) => {
+    if (depth > 3 || !v || typeof v !== 'object') return
+    for (const [key, child] of Object.entries(v as Record<string, unknown>)) {
+      if (Array.isArray(child)) {
+        if (!Array.isArray(v)) out.push({ arr: child, parent: v as Record<string, unknown>, key })
+        child.forEach(item => slots(item, depth + 1, out))
+      } else {
+        slots(child, depth + 1, out)
+      }
+    }
+  }
+
+  for (let round = 0; round < 40 && text.length > max; round++) {
+    const found: Slot[] = []
+    slots(root, 0, found)
+    const target = found
+      .filter(s => s.arr.length > 1)
+      .sort((a, b) => JSON.stringify(b.arr).length - JSON.stringify(a.arr).length)[0]
+    if (!target) break
+    const keep = Math.floor(target.arr.length / 2)
+    const removed = target.arr.length - keep
+    target.arr.splice(keep)
+    const noteKey = `${target.key}_omitted`
+    target.parent[noteKey] = ((target.parent[noteKey] as number | undefined) ?? 0) + removed
+    text = JSON.stringify(root)
+  }
+  if (text.length <= max) return text
+  return text.slice(0, max) + '\n... [truncated: result too large; narrow the request]'
 }
