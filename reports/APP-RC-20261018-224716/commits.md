@@ -64,3 +64,11 @@
 **What:** .mcp.json added to .gitignore and removed from the index; the local file (this machine's /Users/peter paths) stays.
 **Why:** Peter approved. The tracked copy held /Users/sebbelp paths, so the wip MCP server failed to start on this machine (macmini) all session.
 **Discovered:** Pulling this on the other machine deletes its .mcp.json; restore with git show 740a6a7:.mcp.json > .mcp.json, or re-run the scaffold refresh.
+
+## b4deeec — fix: unknown API routes get a 404 JSON, not the SPA (CASE-888)
+**Time:** 00:11
+**Files:** 1 file changed, 13 insertions(+)
+**Tests:** unit 183 passed; local production image (NODE_ENV=production, --network none, /apps/rc) curl matrix: missing API GET/POST/DELETE, bare /api, /auth, /server-api, POST /mcp → 404 JSON; deep links and /apiary → index.html; health/app-config/me unchanged
+**What:** The scaffold's API_PREFIXES exclusion after express.static, ahead of the index.html fallback.
+**Why:** CASE-888 umbrella; confirmed live on dev-test 20261018c (missing API GET → 200 text/html). Reported as CASE-888#3.
+**Discovered:** /wip/api/<unknown service>/… returns 200 HTML through the proxy, from WIP itself; the exclusion can't reach it, since the proxy answers first. Noted on the case, origin not traced.
