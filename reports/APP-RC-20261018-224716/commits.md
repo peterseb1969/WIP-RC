@@ -87,3 +87,11 @@
 **What:** api-keys spec (create a scoped write key in the UI, use it against WIP, revoke, rejected); afterAll revoke; create-form labels; banner hint "WIP may take up to 30 seconds to accept it".
 **Why:** Coverage gap (write path with real consequences).
 **Discovered:** A new key took ~14 s on wip-local to be accepted, revocation ~28 s. The first run's 401 can't be attributed: the locator then read the first <code> on the page (the tier advisory's command), and I fixed that and added the wait at the same time.
+
+## 5541416 — fix: registry synonyms added in RC resolve; E2E registry
+**Time:** 00:33
+**Files:** 5 files changed, 125 insertions(+), 7 deletions(-)
+**Tests:** E2E registry 4/4; unit 189 passed
+**What:** Synonym form sends plural entity types (singular labels kept), defaults to the entry's namespace and type; synonym/merge labels associated; registry spec with real by-key / by-id lookups.
+**Why:** API probe before writing the spec: lookups match entity_type exactly; RC sent "document" while the registry uses "documents", so RC-added synonyms never resolved.
+**Discovered:** The registry accepts any entity_type string on synonyms/add without validation (stored "document"), so the mistake was silent. Possible platform case: validate synonym_entity_type against known types. Existing wip-local or deployed data may hold such dead synonyms from RC; not checked.
