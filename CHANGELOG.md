@@ -1,5 +1,13 @@
 # RC-Console — Changelog
 
+## 2026-10-19 — Term picker searches the whole terminology
+
+- Fixed: a term field could only pick from the first 1000 terms of its terminology, and its search matched only values and labels, in the browser. Typing now runs the platform's term search over the whole terminology, which also matches a term's names: a name shows as "also known as …". On wip-local this makes all 11,210 terms of `PCT_MOLECULE` reachable, including by name (e.g. "pembrolizumab", where the term's value and label are codes).
+- Fixed: an existing document whose term lies past the first 1000 showed the raw value and "(not found)". The value is now looked up on its own; a deprecated or inactive term shows its status.
+- Fixed: a term field's `terminology_ref` given as a bare value resolves in the document's namespace, not in whichever namespace was listed first. A reference that resolves nowhere is reported instead of the picker loading forever.
+- Fixed: a term field's label names its picker.
+- Added E2E tests for the term picker on a 1,050-term terminology. 66 tests.
+
 ## 2026-10-19 — Edit conflicts explained
 
 - Fixed: saving a document that someone else had changed since it was opened showed only "Expected version 1, current is 2", with no explanation and no Reload button. RC recognised a conflict by looking for "conflict" or "concurrency" in the message text, which this message doesn't contain. It now uses the platform's `concurrency_conflict` error code, says the changes were not saved because the document changed, and offers Reload.

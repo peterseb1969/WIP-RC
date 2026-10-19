@@ -26,12 +26,6 @@
 **Description:** `DocumentRefPicker` (`src/components/documents/ReferenceFieldInput.tsx`) only queries the first entry in `target_templates` — templates allowing several targets offer candidates from the first only — and loads at most 50 candidate documents.
 **Context:** Merging several `useDocuments` queries and adding search are the fixes. (Target resolution used to run against a 100-template list and could find nothing on installs with more templates; fixed 2026-10-12 — every all-templates list now fetches the API maximum of 1000.)
 
-### Document form: term fields load at most 1000 terms
-**Status:** deferred
-**Severity:** low
-**Description:** `TermFieldInput` loads up to 1000 active terms from the referenced terminology (the API's page maximum). Larger terminologies have unreachable terms in the picker.
-**Context:** The cap was raised from 100 (comment and the "showing the first N" notice now match, 2026-10-12). Beyond 1000 a debounced scoped search is needed; the pattern exists in `TermSearchPicker`.
-
 ### Document form: nested-object arrays are read-only placeholders
 **Status:** deferred
 **Severity:** low
@@ -77,7 +71,7 @@
 ### E2E suite: local only
 **Status:** known (phase 1 complete, local)
 **Severity:** low
-**Description:** `npm run test:e2e` (Playwright) covers smoke, the data lifecycle, imports, same-named templates across namespaces, relationships, reporting (incl. CSV export, Table Browser download, Parity and a forced Batch Sync), template versioning, access control, files, API keys, the registry, form validation, integrity and the infrastructure pages: 63 tests, about 2.5 min against wip-local (the API key tests wait out the key cache; the integrity check scans the whole instance). Every sidebar page has at least a smoke test; the main write paths have functional tests. It does not run in CI.
+**Description:** `npm run test:e2e` (Playwright) covers smoke, the data lifecycle, imports, same-named templates across namespaces, relationships, reporting (incl. CSV export, Table Browser download, Parity and a forced Batch Sync), template versioning, access control, files, API keys, the registry, form validation, the term picker on a terminology larger than one page, integrity and the infrastructure pages: 66 tests, about 2.5 min against wip-local (the API key tests wait out the key cache; the integrity check scans the whole instance). Every sidebar page has at least a smoke test; the main write paths have functional tests. It does not run in CI.
 **Context:** Phase 1 is local only, by decision (2026-10-18). Run it before image builds. CI would need a WIP install per run (phase 2, not planned). NL Query and backup/restore are deliberately excluded for now.
 
 
@@ -104,10 +98,15 @@
 **Description:** `GET /api/document-store/table/{template_id}` returned 500 for some templates (e.g. `aa.AA_CHARACTER`).
 **Resolution:** Fixed in WIP. The current `AA_CHARACTER` template's table view returns 200 on wip-local (checked 2026-10-12).
 
+### Term picker reached only the first 1000 terms
+**Resolved:** 2026-10-19
+**Description:** `TermFieldInput` loaded at most 1000 terms (the list endpoints' page maximum) and filtered them in the browser by value and label. On wip-local, `pbs-clintrial-ref.PCT_MOLECULE` has 11,210 terms whose readable names are names (aliases), not labels, so most terms could not be picked, and an existing document holding one showed "(not found)".
+**Resolution:** Typing now runs the platform's term search (`defStore.searchTerms`, substring, scoped to the field's terminology, best 100 matches), which also matches names. A stored value outside the first page is looked up directly. The unsearched dropdown still lists the first 1000 terms.
+
 ### Term picker capped at 100 terms
 **Resolved:** before 2026-10-12
 **Description:** `TermFieldInput` loaded only 100 terms per terminology.
-**Resolution:** It now requests `page_size: 1000`. See the open issue for the remaining 1000 cap.
+**Resolution:** It requested `page_size: 1000`. Superseded by the search above.
 
 ### OIDC auth not tested end-to-end
 **Resolved:** 2026-04-09

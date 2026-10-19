@@ -22,10 +22,11 @@ export interface FieldInputProps {
   onChange: (v: unknown) => void
   disabled?: boolean
   error?: string
-  /** Forwarded to file-type widgets so uploads carry the document's namespace
-   *  (CASE-249). Optional for non-file fields and standalone callers. */
+  /** The document's namespace. File widgets upload into it (CASE-249); term and
+   *  reference widgets resolve bare terminology/template values in it. Optional
+   *  for standalone callers. */
   namespace?: string
-  /** id for the input control, so a <label htmlFor> names it (plain text, number and choice fields). */
+  /** id for the input control, so a <label htmlFor> names it (plain text, number, choice and term fields). */
   id?: string
 }
 
@@ -113,7 +114,7 @@ function renderControl({ field, value, onChange, disabled, namespace, id }: Fiel
       )
     case 'term':
       return (
-        <TermFieldInput field={field} value={value} onChange={onChange} disabled={disabled} />
+        <TermFieldInput id={id} field={field} value={value} onChange={onChange} disabled={disabled} namespace={namespace} />
       )
     case 'reference':
       return (

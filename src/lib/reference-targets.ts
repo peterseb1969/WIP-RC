@@ -5,6 +5,13 @@ export interface TemplateIdentity {
   value: string
 }
 
+/** The fields of a terminology that identify it: canonical id, namespace and value. */
+export interface TerminologyIdentity {
+  terminology_id: string
+  namespace: string
+  value: string
+}
+
 /**
  * The template a reference field's `target_templates` entry names, resolved the
  * way the platform resolves it: a canonical id matches exactly; `ns:VALUE`
@@ -17,14 +24,36 @@ export function resolveTargetTemplate<T extends TemplateIdentity>(
   templates: T[],
   namespace?: string,
 ): T | undefined {
-  const byId = templates.find(t => t.template_id === target)
+  return resolveByIdentity(target, templates, t => t.template_id, namespace)
+}
+
+/**
+ * The terminology a term field's `terminology_ref` names, by the same rules as
+ * {@link resolveTargetTemplate}: canonical id, `ns:VALUE`, or a bare value in
+ * the document's own namespace.
+ */
+export function resolveTerminologyRef<T extends TerminologyIdentity>(
+  ref: string,
+  terminologies: T[],
+  namespace?: string,
+): T | undefined {
+  return resolveByIdentity(ref, terminologies, t => t.terminology_id, namespace)
+}
+
+function resolveByIdentity<T extends { namespace: string; value: string }>(
+  ref: string,
+  items: T[],
+  idOf: (item: T) => string,
+  namespace?: string,
+): T | undefined {
+  const byId = items.find(t => idOf(t) === ref)
   if (byId) return byId
-  const colon = target.indexOf(':')
+  const colon = ref.indexOf(':')
   if (colon > 0) {
-    const ns = target.slice(0, colon)
-    const value = target.slice(colon + 1)
-    return templates.find(t => t.namespace === ns && t.value === value)
+    const ns = ref.slice(0, colon)
+    const value = ref.slice(colon + 1)
+    return items.find(t => t.namespace === ns && t.value === value)
   }
-  if (namespace) return templates.find(t => t.namespace === namespace && t.value === target)
-  return templates.find(t => t.value === target)
+  if (namespace) return items.find(t => t.namespace === namespace && t.value === ref)
+  return items.find(t => t.value === ref)
 }
