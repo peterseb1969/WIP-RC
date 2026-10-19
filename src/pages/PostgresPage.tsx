@@ -369,9 +369,11 @@ function FilterBar({
         )}
       </div>
 
-      {/* Namespace multiselect chips */}
+      {/* Namespace multiselect chips. Capped and scrolled: an install with
+          many reporting schemas would otherwise fill the panel and leave no
+          room for the table list below. */}
       {allNamespaces.length > 1 && (
-        <div className="flex flex-wrap items-center gap-1">
+        <div role="group" aria-label="Namespaces" className="flex flex-wrap items-center gap-1 max-h-24 overflow-y-auto">
           {allNamespaces.map(ns => {
             const active = filters.namespaces.includes(ns)
             return (
