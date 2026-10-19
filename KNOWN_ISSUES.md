@@ -44,11 +44,17 @@
 **Description:** An `object` field (or array of objects) that names no template renders as a plain textarea with JSON parse validation (`ObjectFieldInput.tsx`). Objects shaped by a template get a sub-form.
 **Context:** Without a template there is no schema to build a form from. This is an admin tool, and the textarea is enough for users who understand the JSON structure.
 
+### Platform: reporting schemas reappear after namespace deletion
+**Status:** known (platform)
+**Severity:** low
+**Description:** On wip-local, 34 of 47 reporting schemas belong to no namespace. They are left behind by deleted test namespaces. The Table Browser lists one namespace chip per schema, so dead namespaces show up there (the chip area is capped so they no longer crowd out the table list).
+**Context:** Filed as CASE-916. The evidence suggests a document event applied after the namespace's schema was dropped re-creates the schema.
+
 ### Platform: terms inside nested objects are not validated or resolved
 **Status:** known (platform)
 **Severity:** low
 **Description:** A `term` field inside a nested template object (an array item or object field with a template ref) is stored as submitted. An unknown value is accepted, and a term name is not resolved to the term's value. No term reference is recorded. Probed on wip-local 2026-10-19; mandatory, type and unknown-key checks do apply to nested fields. RC's sub-form offers only real terms, so values entered through RC are valid; values written through the API may not be.
-**Context:** Platform behaviour. Top-level term fields are resolved.
+**Context:** Platform behaviour, filed as CASE-915. Top-level term fields are resolved.
 
 ### NL Query needs an Anthropic key
 **Status:** known
