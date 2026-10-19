@@ -46,3 +46,11 @@ All pushed; master ae7b1c5, tree clean. Context at 37%.
   - **Noticed, not acted on:** in create mode a document is created in its template's namespace, regardless of the selected global namespace.
   - **Backlog:** NL Query, Mongo aggregation, ontology graph, bundle size, E2E CI.
   - **Next:** Peter's call.
+
+## 2026-10-20 00:15 — Filed CASE-917 (namespace selector review, target APP-RC)
+Peter asked for a case reviewing the top-bar namespace selector. CASE-917 (01a1563b-f29b-71e1-94de-142a7454af2c), target APP-RC, request. Survey of the code:
+- The selector is one global value in localStorage, read by 10 pages; it is disabled only on PostgreSQL, MongoDB and NATS.
+- It looks active but has no effect on Integrity, Activity, Audit Explorer, NL Query, Namespaces, API Keys and the detail pages.
+- Create flows disagree on where an entity lands: a document goes to its template namespace, an import to the selected namespace, the template builder and terminologies use their own pickers.
+- ?ns= links are consumed into the global filter, so a list URL never says which namespace it shows.
+Not started; Peter decides when.
