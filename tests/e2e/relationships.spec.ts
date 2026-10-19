@@ -77,13 +77,12 @@ test.describe('relationships', () => {
     await expect(page.getByText('Endpoints')).toBeVisible()
 
     // Source: the picker offers this namespace's people only.
-    await page.getByRole('button', { name: 'Select a document...' }).first().click()
+    await page.getByLabel('Source').click()
     await expect(page.getByRole('button', { name: /Alice/ })).toBeVisible()
     await expect(page.getByRole('button', { name: /Bob/ })).toBeVisible()
     await expect(page.getByRole('button', { name: /Mallory/ })).toHaveCount(0)
     await page.getByRole('button', { name: /Alice/ }).click()
-    // Target: the remaining empty picker.
-    await page.getByRole('button', { name: 'Select a document...' }).first().click()
+    await page.getByLabel('Target').click()
     await page.getByRole('button', { name: /Bob/ }).click()
     await page.getByLabel('since').fill('2020')
     await page.getByRole('button', { name: 'Create', exact: true }).click()

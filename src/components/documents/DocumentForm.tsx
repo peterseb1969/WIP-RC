@@ -19,6 +19,8 @@ export interface DocumentFormProps {
   errors: Record<string, string>
   identityFieldNames: Set<string>
   mode: 'create' | 'edit'
+  /** The document's namespace (a document may live outside its template's namespace). Defaults to the template's. */
+  namespace?: string
 }
 
 /**
@@ -34,7 +36,9 @@ export default function DocumentForm({
   errors,
   identityFieldNames,
   mode,
+  namespace: docNamespace,
 }: DocumentFormProps) {
+  const namespace = docNamespace ?? template.namespace
   const fields = template.fields ?? []
   const isEdgeType = template.usage === 'relationship'
 
@@ -77,7 +81,8 @@ export default function DocumentForm({
                 onChange={(v) => updateField(f.name, v)}
                 error={errors[f.name]}
                 disabled={mode === 'edit' && identityFieldNames.has(f.name)}
-                namespace={template.namespace}
+                namespace={namespace}
+                ownNamespaceOnly
               />,
             ] : []
           })}
@@ -105,7 +110,7 @@ export default function DocumentForm({
             onChange={(v) => updateField(f.name, v)}
             error={errors[f.name]}
             disabled={mode === 'edit' && identityFieldNames.has(f.name)}
-            namespace={template.namespace}
+            namespace={namespace}
           />
         ))}
       </Section>
@@ -124,6 +129,7 @@ function FieldRow({
   error,
   disabled,
   namespace,
+  ownNamespaceOnly,
 }: {
   field: FieldDefinition
   value: unknown
@@ -131,6 +137,7 @@ function FieldRow({
   error?: string
   disabled?: boolean
   namespace?: string
+  ownNamespaceOnly?: boolean
 }) {
   const id = `df-${field.name}`
   return (
@@ -155,6 +162,7 @@ function FieldRow({
         disabled={disabled}
         error={error}
         namespace={namespace}
+        ownNamespaceOnly={ownNamespaceOnly}
       />
     </div>
   )

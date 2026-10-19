@@ -1,10 +1,11 @@
 /**
  * Tests for resolving a reference field's target template: by id, by
  * ns:VALUE, and a bare value in the referring document's namespace only;
- * a term field's terminology_ref by the same rules.
+ * a term field's terminology_ref by the same rules; and the namespaces a
+ * document may reference into.
  */
 import { describe, it, expect } from 'vitest'
-import { resolveTargetTemplate, resolveTerminologyRef } from '../../src/lib/reference-targets'
+import { referenceNamespaces, resolveTargetTemplate, resolveTerminologyRef } from '../../src/lib/reference-targets'
 
 const templates = [
   { template_id: 'id-kb', namespace: 'kb', value: 'CASE_RECORD' },
@@ -56,5 +57,23 @@ describe('resolveTerminologyRef', () => {
 
   it('resolves ns:VALUE in the named namespace', () => {
     expect(resolveTerminologyRef('wip:COUNTRY', terminologies, 'kb')?.terminology_id).toBe('tid-wip')
+  })
+})
+
+describe('referenceNamespaces', () => {
+  it('an open namespace may reference its own, wip and its allowed namespaces', () => {
+    expect(referenceNamespaces('library', { isolation_mode: 'open', allowed_external_refs: ['kb'] })).toEqual(['library', 'wip', 'kb'])
+  })
+
+  it('a strict namespace does not get wip automatically', () => {
+    expect(referenceNamespaces('lab', { isolation_mode: 'strict', allowed_external_refs: ['ref'] })).toEqual(['lab', 'ref'])
+  })
+
+  it('without the config only its own namespace is offered', () => {
+    expect(referenceNamespaces('kb', undefined)).toEqual(['kb'])
+  })
+
+  it('lists each namespace once', () => {
+    expect(referenceNamespaces('kb', { isolation_mode: 'open', allowed_external_refs: ['wip', 'kb'] })).toEqual(['kb', 'wip'])
   })
 })

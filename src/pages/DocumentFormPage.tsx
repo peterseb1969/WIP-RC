@@ -285,6 +285,7 @@ export default function DocumentFormPage({ mode }: { mode: Mode }) {
         errors={fieldErrors}
         identityFieldNames={identityFieldNames}
         mode={mode}
+        namespace={mode === 'edit' ? docQ.data?.namespace : undefined}
       />
     </div>
   )

@@ -26,15 +26,17 @@ export interface FieldInputProps {
    *  reference widgets resolve bare terminology/template values in it. Optional
    *  for standalone callers. */
   namespace?: string
-  /** id for the input control, so a <label htmlFor> names it (plain text, number, choice and term fields). */
+  /** Document references may point only into `namespace` itself (edge endpoints). */
+  ownNamespaceOnly?: boolean
+  /** id for the input control, so a <label htmlFor> names it (plain text, number, choice, term and reference fields). */
   id?: string
 }
 
 /**
  * The input widget for one template field, chosen by `field.type`, with its error message underneath.
  */
-export default function FieldInput({ field, value, onChange, disabled, error, namespace, id }: FieldInputProps) {
-  const control = renderControl({ field, value, onChange, disabled, namespace, id })
+export default function FieldInput({ field, value, onChange, disabled, error, namespace, ownNamespaceOnly, id }: FieldInputProps) {
+  const control = renderControl({ field, value, onChange, disabled, namespace, ownNamespaceOnly, id })
   return (
     <div>
       {control}
@@ -43,7 +45,7 @@ export default function FieldInput({ field, value, onChange, disabled, error, na
   )
 }
 
-function renderControl({ field, value, onChange, disabled, namespace, id }: FieldInputProps) {
+function renderControl({ field, value, onChange, disabled, namespace, ownNamespaceOnly, id }: FieldInputProps) {
   const enumValues = field.validation?.enum as (string | number)[] | undefined
 
   switch (field.type) {
@@ -118,7 +120,7 @@ function renderControl({ field, value, onChange, disabled, namespace, id }: Fiel
       )
     case 'reference':
       return (
-        <ReferenceFieldInput field={field} value={value} onChange={onChange} disabled={disabled} namespace={namespace} />
+        <ReferenceFieldInput id={id} field={field} value={value} onChange={onChange} disabled={disabled} namespace={namespace} ownNamespaceOnly={ownNamespaceOnly} />
       )
     case 'file':
       return (

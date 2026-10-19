@@ -20,11 +20,17 @@
 **Description:** The Source/Target template pickers in the template builder list only entity and reference templates in the edge type's namespace.
 **Context:** An edge document's `source_ref`/`target_ref` must resolve within the edge's own namespace (the platform rejects cross-namespace edges), and a bare value resolves only there. Endpoints that don't exist in the selected namespace (e.g. a duplicate retargeted to another namespace) are listed ticked with "not in <ns>" so they can be removed.
 
-### Document form: reference picker queries only the first target, at most 50 candidates
+### Document form: reference search depends on reporting sync
+**Status:** known (by design)
+**Severity:** low
+**Description:** Typing in a document reference picker searches through reporting-sync (`POST /api/reporting-sync/search`, substring). A document becomes searchable once reporting-sync has it, normally within seconds. A target template with `reporting.sync_enabled: false` is not searchable, and the picker says so. Its documents can still be picked from the unsearched list, which shows the 100 most recently updated per namespace.
+**Context:** The document store's own query (`/documents/query`) filters on fields with AND only, so it can't search "any column" across templates. Reporting search is the platform's search primitive for that.
+
+### Document form: reference fields of type term offer the first target terminology only
 **Status:** known
 **Severity:** low
-**Description:** `DocumentRefPicker` (`src/components/documents/ReferenceFieldInput.tsx`) only queries the first entry in `target_templates` — templates allowing several targets offer candidates from the first only — and loads at most 50 candidate documents.
-**Context:** Merging several `useDocuments` queries and adding search are the fixes. (Target resolution used to run against a 100-template list and could find nothing on installs with more templates; fixed 2026-10-12 — every all-templates list now fetches the API maximum of 1000.)
+**Description:** A `reference` field with `reference_type: term` and several `target_terminologies` offers terms from the first one; a note under the picker names the others. None exist on wip-local.
+**Context:** Term search takes one terminology per call. Merging several searches is the fix if such a field ever appears.
 
 ### Document form: nested-object arrays are read-only placeholders
 **Status:** deferred
@@ -71,7 +77,7 @@
 ### E2E suite: local only
 **Status:** known (phase 1 complete, local)
 **Severity:** low
-**Description:** `npm run test:e2e` (Playwright) covers smoke, the data lifecycle, imports, same-named templates across namespaces, relationships, reporting (incl. CSV export, Table Browser download, Parity and a forced Batch Sync), template versioning, access control, files, API keys, the registry, form validation, the term picker on a terminology larger than one page, integrity and the infrastructure pages: 66 tests, about 2.5 min against wip-local (the API key tests wait out the key cache; the integrity check scans the whole instance). Every sidebar page has at least a smoke test; the main write paths have functional tests. It does not run in CI.
+**Description:** `npm run test:e2e` (Playwright) covers smoke, the data lifecycle, imports, same-named templates across namespaces, relationships, reporting (incl. CSV export, Table Browser download, Parity and a forced Batch Sync), template versioning, access control, files, API keys, the registry, form validation, the term and document-reference pickers past their first page, integrity and the infrastructure pages: 70 tests, about 2.5 min against wip-local (the API key tests wait out the key cache; the integrity check scans the whole instance). Every sidebar page has at least a smoke test; the main write paths have functional tests. It does not run in CI.
 **Context:** Phase 1 is local only, by decision (2026-10-18). Run it before image builds. CI would need a WIP install per run (phase 2, not planned). NL Query and backup/restore are deliberately excluded for now.
 
 
@@ -97,6 +103,11 @@
 **Resolved:** before 2026-10-12 (CASE-35 closed, platform side)
 **Description:** `GET /api/document-store/table/{template_id}` returned 500 for some templates (e.g. `aa.AA_CHARACTER`).
 **Resolution:** Fixed in WIP. The current `AA_CHARACTER` template's table view returns 200 on wip-local (checked 2026-10-12).
+
+### Reference picker offered the first target template only, at most 50 documents
+**Resolved:** 2026-10-19
+**Description:** `DocumentRefPicker` listed the first 50 documents of the field's first target template and filtered those in the browser. A field allowing several templates (e.g. kb `FLAG_RECORD.flagged_document`, nine) offered one of them. A field with no targets listed documents from every namespace. An existing reference outside the 50 showed "(not found)". Documents were named by guessing at `name`/`title` keys.
+**Resolution:** Candidates are the active documents of every target template, in the namespaces the document may reference: its own, `wip` when open, and `allowed_external_refs`. Edge endpoints are limited to the edge's own namespace. The unsearched list shows the 100 most recently updated per namespace. Typing searches all of them through reporting search. A stored id is looked up on its own. Documents are named by the template's header fields, else its identity fields. In edit mode the form now uses the document's namespace, which can differ from its template's.
 
 ### Term picker reached only the first 1000 terms
 **Resolved:** 2026-10-19

@@ -1,5 +1,17 @@
 # RC-Console — Changelog
 
+## 2026-10-19 — Reference picker offers every target and searches all documents
+
+- Fixed: a document reference field offered documents of its first target template only. Fields allowing several (kb `FLAG_RECORD.flagged_document` allows nine) now offer all of them.
+- Fixed: the picker loaded 50 documents and searched only those. The list now shows the 100 most recently updated, and typing searches every candidate through the platform's document search (substring, all columns).
+- Fixed: the picker offered documents from namespaces the platform would refuse to reference, e.g. every namespace for a field with no target templates. It now offers the document's own namespace, `wip` when the namespace is open, and its allowed external namespaces. An edge's endpoints come from the edge's own namespace only.
+- Fixed: an existing reference outside the loaded list showed "(not found)". It is now looked up on its own.
+- Changed: documents in the picker are named by their template's header fields, else their identity fields, as the platform's header projection does. A document from another namespace shows that namespace.
+- Fixed: when editing a document, reference, term and file fields used the template's namespace, not the document's. The two can differ.
+- Changed: `reference_type: term` fields use the term picker with server-side search (first target terminology).
+- Fixed: a reference field's label names its picker.
+- Added E2E tests for the reference picker: a document past the list found by search, a second target template, a namespace that may not be referenced, an existing reference past the list. 70 tests.
+
 ## 2026-10-19 — Term picker searches the whole terminology
 
 - Fixed: a term field could only pick from the first 1000 terms of its terminology, and its search matched only values and labels, in the browser. Typing now runs the platform's term search over the whole terminology, which also matches a term's names: a name shows as "also known as …". On wip-local this makes all 11,210 terms of `PCT_MOLECULE` reachable, including by name (e.g. "pembrolizumab", where the term's value and label are codes).

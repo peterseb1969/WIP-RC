@@ -40,6 +40,22 @@ export function resolveTerminologyRef<T extends TerminologyIdentity>(
   return resolveByIdentity(ref, terminologies, t => t.terminology_id, namespace)
 }
 
+/**
+ * The namespaces a document in `namespace` may reference documents in: its
+ * own; `wip` when its isolation mode is open; and its `allowed_external_refs`.
+ * The platform refuses a reference into any other namespace. Without the
+ * namespace's config, only its own namespace is certain.
+ */
+export function referenceNamespaces(
+  namespace: string,
+  config?: { isolation_mode?: string; allowed_external_refs?: string[] } | null,
+): string[] {
+  const out = [namespace]
+  if (config?.isolation_mode === 'open') out.push('wip')
+  out.push(...(config?.allowed_external_refs ?? []))
+  return [...new Set(out)]
+}
+
 function resolveByIdentity<T extends { namespace: string; value: string }>(
   ref: string,
   items: T[],
