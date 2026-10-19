@@ -20,3 +20,12 @@ Peter restarted the podman machine. wip-caddy (the ingress publishing 8443) did 
 
 ## 2026-10-19 01:00 — Filed CASE-908 (registry synonym entity_type validation)
 Peter approved. CASE-908 (01a1513e-c001-77ba-9943-9fa80c30f471), target BE-YAC, annoying: /synonyms/add and /remove take any entity_type string, and /entries/lookup/by-key answers not_found for an unknown type. Register, provision and reserve already validate against VALID_ENTITY_TYPES. Read-only check on wip-local, dev-test, prod-test and kb.internal: 0 registry entries carry a synonym with an invalid type, so no clean-up is needed. RC's side was fixed in 5541416.
+
+## 2026-10-19 22:35 — RC 20261019a verified on dev-test, prod-test, kb.internal
+Peter rolled react-console:20261019a (run 39320001383, from c302180; all fixes through 695fedc) to all three installs; the deployer state pins it on each. Every pod runs digest sha256:4024033a…. From inside each pod:
+- access: app-config none=401 / viewer=403 / admin=200; viewer through the proxy 403.
+- CASE-888: missing API GET/POST and bare /api → 404 application/json; deep link → 200 text/html.
+- Services healthy (dev-test ingest-gateway inactive, not deployed). MongoDB 4/4 ok; NATS connected as react-console.
+- tsx 4.21.0 from node_modules; 0 "will be installed" lines in the pod log (the npx download is gone).
+- The bundle contains the conflict message, the key-banner hint and the export-error text. The registry plural fix has no unique marker, so it is not verified by this check.
+- A namespaced query CSV export through the proxy → 200 text/csv on all three. The earlier worry (a 422 before reporting-sync 4353611d) does not apply to these installs.
