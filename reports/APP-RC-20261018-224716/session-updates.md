@@ -29,3 +29,6 @@ Peter rolled react-console:20261019a (run 39320001383, from c302180; all fixes t
 - tsx 4.21.0 from node_modules; 0 "will be installed" lines in the pod log (the npx download is gone).
 - The bundle contains the conflict message, the key-banner hint and the export-error text. The registry plural fix has no unique marker, so it is not verified by this check.
 - A namespaced query CSV export through the proxy → 200 text/csv on all three. The earlier worry (a 422 before reporting-sync 4353611d) does not apply to these installs.
+
+## 2026-10-19 22:38 — CASE-908#3: no scope-mismatched synonyms on any install
+BE-YAC's #1 widened CASE-908: synonym namespace and type should come from the entry; merges should stay within one namespace and type; the namespace-authorization gap is now CASE-910. Its open data question was dev-test, prod-test and kb.internal. A read-only $expr find on registry_entries (a synonym's namespace or entity_type differs from its entry's), first validated on wip-local with a planted control (0 → 1 → 0, throwaway namespace deleted), found 0 entries on wip-local (246,498), dev-test (7,307), prod-test (67,531) and kb.internal (5,526). Posted as CASE-908#3, with the RC impact: the form defaults to the entry's own values since 5541416; the pickers can go once fix (1) ships.
