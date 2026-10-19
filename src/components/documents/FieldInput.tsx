@@ -6,13 +6,15 @@ import ReferenceFieldInput from './ReferenceFieldInput'
 import FileFieldInput from './FileFieldInput'
 import ArrayFieldInput from './ArrayFieldInput'
 import ObjectFieldInput from './ObjectFieldInput'
+import NestedObjectInput from './NestedObjectInput'
 
 // ---------------------------------------------------------------------------
 // FieldInput — dispatcher that renders the right widget per field.type.
 //
 // Every template field type has a widget: scalars (string — a select when the
 // field declares an enum — number/integer, boolean, date, datetime), plus
-// term, reference, file, array and object. A type this console doesn't know
+// term, reference, file, array and object (a sub-form when the object is
+// shaped by a template, else JSON). A type this console doesn't know
 // renders a "not supported" notice instead of crashing the form.
 // ---------------------------------------------------------------------------
 
@@ -128,9 +130,27 @@ function renderControl({ field, value, onChange, disabled, namespace, ownNamespa
       )
     case 'array':
       return (
-        <ArrayFieldInput field={field} value={value} onChange={onChange} disabled={disabled} namespace={namespace} />
+        <ArrayFieldInput field={field} value={value} onChange={onChange} disabled={disabled} namespace={namespace} id={id} />
       )
     case 'object':
+      // An object shaped by a template gets a sub-form; an emptied one is
+      // cleared rather than sent as {} (its nested mandatory fields would fail).
+      if (field.template_ref) {
+        return (
+          <div className="border border-gray-200 rounded-md p-2.5 bg-gray-50/50">
+            <NestedObjectInput
+              templateRef={field.template_ref}
+              templateVersion={field.template_ref_version}
+              value={value}
+              onChange={(v) => onChange(Object.keys(v).length > 0 ? v : null)}
+              disabled={disabled}
+              namespace={namespace}
+              idPrefix={id ?? `nested-${field.name}`}
+              groupLabel={field.label || field.name}
+            />
+          </div>
+        )
+      }
       return (
         <ObjectFieldInput value={value} onChange={onChange} disabled={disabled} />
       )

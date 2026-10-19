@@ -32,23 +32,23 @@
 **Description:** A `reference` field with `reference_type: term` and several `target_terminologies` offers terms from the first one; a note under the picker names the others. None exist on wip-local.
 **Context:** Term search takes one terminology per call. Merging several searches is the fix if such a field ever appears.
 
-### Document form: nested-object arrays are read-only placeholders
-**Status:** deferred
-**Severity:** low
-**Description:** Array fields whose items are nested template objects (`array_template_ref` set, `array_item_type` unset) render a gray "Nested object arrays aren't editable in the form view yet" notice (`ArrayFieldInput.tsx`). Encountered on `aa.AA_CHARACTER.relationships`.
-**Context:** Editing them needs a per-item sub-form with its own dirty tracking and validation. Until then, edit via the API, MCP tools, or a JSON tool.
-
 ### Document form: file uploads orphan on form abandonment
 **Status:** known
 **Severity:** low
 **Description:** A file uploaded into a `file` field stays in storage with `reference_count = 0` if the form is cancelled or abandoned.
 **Context:** The Files page flags orphans (`reference_count === 0` / status `orphan`) for manual cleanup. Possible fixes are tracking pending uploads and prompting on unload, or a server-side TTL on unreferenced files.
 
-### Document form: object fields use a JSON textarea
+### Document form: object fields without a template use a JSON textarea
 **Status:** known (by design)
 **Severity:** cosmetic
-**Description:** Object-type fields render as a plain textarea with JSON parse validation, not a keyed form (`ObjectFieldInput.tsx`).
-**Context:** This is an admin tool. The textarea is enough for users who understand the JSON structure.
+**Description:** An `object` field (or array of objects) that names no template renders as a plain textarea with JSON parse validation (`ObjectFieldInput.tsx`). Objects shaped by a template get a sub-form.
+**Context:** Without a template there is no schema to build a form from. This is an admin tool, and the textarea is enough for users who understand the JSON structure.
+
+### Platform: terms inside nested objects are not validated or resolved
+**Status:** known (platform)
+**Severity:** low
+**Description:** A `term` field inside a nested template object (an array item or object field with a template ref) is stored as submitted. An unknown value is accepted, and a term name is not resolved to the term's value. No term reference is recorded. Probed on wip-local 2026-10-19; mandatory, type and unknown-key checks do apply to nested fields. RC's sub-form offers only real terms, so values entered through RC are valid; values written through the API may not be.
+**Context:** Platform behaviour. Top-level term fields are resolved.
 
 ### NL Query needs an Anthropic key
 **Status:** known
@@ -77,7 +77,7 @@
 ### E2E suite: local only
 **Status:** known (phase 1 complete, local)
 **Severity:** low
-**Description:** `npm run test:e2e` (Playwright) covers smoke, the data lifecycle, imports, same-named templates across namespaces, relationships, reporting (incl. CSV export, Table Browser download, Parity and a forced Batch Sync), template versioning, access control, files, API keys, the registry, form validation, the term and document-reference pickers past their first page, integrity and the infrastructure pages: 70 tests, about 2.5 min against wip-local (the API key tests wait out the key cache; the integrity check scans the whole instance). Every sidebar page has at least a smoke test; the main write paths have functional tests. It does not run in CI.
+**Description:** `npm run test:e2e` (Playwright) covers smoke, the data lifecycle, imports, same-named templates across namespaces, relationships, reporting (incl. CSV export, Table Browser download, Parity and a forced Batch Sync), template versioning, access control, files, API keys, the registry, form validation, the term and document-reference pickers past their first page, nested template objects, integrity and the infrastructure pages: 74 tests, about 2.5 min against wip-local (the API key tests wait out the key cache; the integrity check scans the whole instance). Every sidebar page has at least a smoke test; the main write paths have functional tests. It does not run in CI.
 **Context:** Phase 1 is local only, by decision (2026-10-18). Run it before image builds. CI would need a WIP install per run (phase 2, not planned). NL Query and backup/restore are deliberately excluded for now.
 
 
@@ -103,6 +103,11 @@
 **Resolved:** before 2026-10-12 (CASE-35 closed, platform side)
 **Description:** `GET /api/document-store/table/{template_id}` returned 500 for some templates (e.g. `aa.AA_CHARACTER`).
 **Resolution:** Fixed in WIP. The current `AA_CHARACTER` template's table view returns 200 on wip-local (checked 2026-10-12).
+
+### Nested-object arrays were read-only; their items edited as JSON
+**Resolved:** 2026-10-19
+**Description:** Arrays of template objects without an item type showed a read-only notice. The three real ones on wip-local (`aa.AA_BOOK_STRUCTURE.chapters`, `aa.AA_CHARACTER.relationships`, `pbs-clintrial.PCT_TRIAL_ELIGIBILITY.criteria`) declare `array_item_type: object` and rendered one JSON textarea per item. Items were keyed by position while each textarea kept its own text, so removing an item showed another item's JSON. Editing an object field sent the whole new object as the merge patch, which kept any key removed from it.
+**Resolution:** Template-shaped objects (array items and object fields) get a sub-form at the pinned template version (`NestedObjectInput`), recursing through FieldInput. Array items keep stable keys. Edits are sent as a real merge patch (`mergePatch`), with removed nested keys as `null`.
 
 ### Reference picker offered the first target template only, at most 50 documents
 **Resolved:** 2026-10-19

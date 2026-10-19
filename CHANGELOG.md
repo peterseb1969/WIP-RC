@@ -1,5 +1,12 @@
 # RC-Console — Changelog
 
+## 2026-10-19 — Nested template objects get sub-forms
+
+- Added: array items and object fields shaped by a template (`array_template_ref` / `template_ref`) are edited in a sub-form of that template's fields, at the version the field pins. Nested term, reference, date, file and array fields work as at the top level. Arrays of template objects without an item type, previously read-only, are editable.
+- Fixed: removing an item from an array of objects showed the next item's JSON in its place: items were keyed by position.
+- Fixed: removing a key inside an object field and saving kept the key: the edit sent the whole object, and the document PATCH merges objects. Edits are now sent as a merge patch with removed keys as `null`, at every depth.
+- Added E2E tests for nested objects: filling items and an object through sub-forms, removing an item, clearing a nested field, a missing nested mandatory field. 74 tests.
+
 ## 2026-10-19 — Reference picker offers every target and searches all documents
 
 - Fixed: a document reference field offered documents of its first target template only. Fields allowing several (kb `FLAG_RECORD.flagged_document` allows nine) now offer all of them.

@@ -15,6 +15,7 @@ import DocumentForm from '@/components/documents/DocumentForm'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 import { useRouteTemplate } from '@/hooks/use-route-template'
 import { cn } from '@/lib/cn'
+import { mergePatch } from '@/lib/merge-patch'
 
 // ---------------------------------------------------------------------------
 // DocumentFormPage — create + edit shell.
@@ -90,7 +91,7 @@ export default function DocumentFormPage({ mode }: { mode: Mode }) {
 
   const isDirty = useMemo(() => {
     if (!initialized) return false
-    return !shallowEqualJSON(formData, initialDataRef.current)
+    return Object.keys(mergePatch(initialDataRef.current, formData)).length > 0
   }, [formData, initialized])
 
   // Unsaved-changes guard
@@ -159,16 +160,9 @@ export default function DocumentFormPage({ mode }: { mode: Mode }) {
         created_by: 'rc-console',
       })
     } else if (mode === 'edit' && documentId) {
-      // Compute dirty patch: fields that differ from the initial load. null
-      // for deletions so the server drops them.
-      const patch: Record<string, unknown> = {}
-      const initial = initialDataRef.current
-      const keys = new Set([...Object.keys(initial), ...Object.keys(formData)])
-      for (const k of keys) {
-        if (!shallowEqualJSON(formData[k], initial[k])) {
-          patch[k] = k in formData ? formData[k] : null
-        }
-      }
+      // The merge patch from the loaded data to the form: changed fields,
+      // null for cleared ones, nested objects diffed key by key.
+      const patch = mergePatch(initialDataRef.current, formData)
       if (Object.keys(patch).length === 0) {
         setBanner('No changes to save.')
         return
@@ -336,10 +330,6 @@ function validateMandatory(
     }
   }
   return errs
-}
-
-function shallowEqualJSON(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a) === JSON.stringify(b)
 }
 
 // FieldDefinition re-export (to keep the import surface tidy in tests)
