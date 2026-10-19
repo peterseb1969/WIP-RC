@@ -29,3 +29,20 @@
 - documents/query accepts template_id and document_id "in" filters; its page_size max is 1000. Reporting search per-type max is 100, and its document hits carry only id plus a generic label.
 - On wip-local no field uses reference_type term; 11 use document, 1 terminology.
 - Edit mode was passing template.namespace to the field widgets, although a document may live outside its template's namespace.
+
+## 78fac0e — feat: sub-forms for nested template objects; edits sent as a real merge patch
+**Time:** 00:10
+**Files:** 9 changed, +446/-65
+**Tests:** 208 unit passed; E2E 74 passed (2.7 min). The clear-nested-field test fails with the old patch loop (kind: beta survived on the server). The other three can only fail on the old form for lack of sub-forms. Real wip-local documents were checked in the edit form, without saving: AA_BOOK_STRUCTURE (13 items, nested array inside each) and PCT_TRIAL_ELIGIBILITY (9 items, term fields resolved). No page errors, and neither is dirty on load.
+**What:** NestedObjectInput (pinned template version, recursing through FieldInput, JSON fallback if the template can't load). ArrayFieldInput: stable keys and item cards. FieldInput: object + template_ref → sub-form; emptied → null. mergePatch (RFC 7396 diff) replaces the top-level shallow diff for both save and dirty check.
+**Why:** Peter's third item. The three real nested arrays rendered as per-item JSON textareas. Keyed by position, removing an item showed the next item's JSON. Object-field edits kept removed keys.
+**PoNIF:** none. Note: the platform requires array_template_ref_version on array-item template refs.
+**Discovered:** Probe (throwaway namespace, deleted): nested mandatory fields, types and unknown keys are validated (paths like items[0].name). Nested **term** fields are neither validated nor resolved: an unknown value is accepted, a name is stored as written, and term_references stays empty. Candidate case, pending Peter.
+
+## 69b1251 — fix: Table Browser namespace chips no longer crowd out the table list
+**Time:** 00:10
+**Files:** 1 changed
+**Tests:** reporting spec 6/6, full E2E 74/74 with the fix.
+**What:** Chip area capped (max-h-24, own scroll), named as a group.
+**Why:** The full run failed the Table Browser test: 44 namespace chips filled the panel, and the sticky header covered the table button.
+**Discovered:** 34 of 47 reporting schemas on wip-local have no registry namespace. They are left behind inconsistently by namespace deletion. Cause unverified; candidate case, pending Peter.
