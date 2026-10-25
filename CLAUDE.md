@@ -123,7 +123,7 @@ Otherwise start with:
 Every WIP-consuming app must follow the **offer-on-empty / use-on-exists** discipline at runtime. This is a **runtime** discipline (triggered at app launch, when a user is present to act), **not a setup precondition** — a namespace absent at `/wip-setup` time is expected and creates no obligation; it is created here, at bootstrap, only when there is data to put in it. Three rules:
 
 1. **Namespace missing on launch** → show the user an explicit bootstrap offer. Do **not** auto-bootstrap silently. The user can either (a) confirm bootstrap or (b) restore from a backup via the WIP console / `wip-deploy` first and reload.
-2. **Namespace exists on launch** → use it as-is. **No** schema reconciliation, **no** "templates differ" check, **no** merge logic. Rolling redeploys against an existing namespace must come up clean. The one exception is a bootstrap that never finished — the namespace exists but holds no `<NS_PREFIX>_BOOTSTRAP_RECORD`, which the bootstrap writes last. The gate shows that as **incomplete** and *offers* to resume (every step is idempotent); it never re-bootstraps on its own, and starting over is a console action.
+2. **Namespace exists on launch** → use it as-is. **No** schema reconciliation, **no** "templates differ" check, **no** merge logic. Rolling redeploys against an existing namespace must come up clean. The one exception is a bootstrap that never finished — the namespace exists but holds no `<NS_PREFIX>_BOOTSTRAP_RECORD`, which the bootstrap writes last. The gate shows that as **incomplete** and *offers* to resume, but only while the namespace holds no documents: a resume re-posts the seed templates, and template create is an upsert, so a seed that differs from a live template becomes its new version. A namespace with documents but no record is in use, not half-built; the gate shows it as **resume blocked** with the namespace and document count, and offers no resume. It never re-bootstraps on its own, and starting over is a console action. A namespace bootstrapped before the record value was prefixed carries the literal `BOOTSTRAP_RECORD`; the server template accepts it as the app's record.
 3. **On user-initiated bootstrap** → write one **`<NS_PREFIX>_BOOTSTRAP_RECORD`** audit doc (the template value is namespace-prefixed, e.g. `KB_BOOTSTRAP_RECORD` — derived from your namespace in the server template's `BOOTSTRAP_RECORD_VALUE`; a shared literal value made every app-to-app merge collide on this one template, and the prefix also makes a merged-in record self-labeling about its origin) capturing: `bootstrap_id`, `app_version`, `bootstrapped_at`, `commit_sha`, `templates_created`, `edge_types_created`, `terminologies_created`. This is the provenance trail any future YAC reading the namespace can rely on.
 
 **Restore is not an app concern.** The bootstrap UI mentions restore as an alternative the user may prefer; it does not provide UI for it. Restore is console-initiated.
@@ -158,7 +158,7 @@ Read these before starting:
 
 ## MCP
 
-WIP is accessed exclusively via MCP tools (101 tools, 5 resources). Before starting:
+WIP is accessed exclusively via MCP tools (108 tools, 5 resources). Before starting:
 - Read `wip://conventions` — bulk-first API, identity hashing, versioning
 - Read `wip://data-model` — terminologies, templates, documents, fields, term-relations
 - Read `wip://ponifs` — 8 behaviours that trip up every new developer
@@ -197,11 +197,13 @@ The WIP libs are tarballs in `libs/`. `@tanstack/react-query` is the peer depend
 
 ## WIP Toolkit
 
-`wip-toolkit` is a CLI for backup, export, import, and data migration. Install from the wheel in `libs/`:
+`wip-toolkit` is a CLI for backup, export, import, and data migration. Install it together with the `wip-archive` wheel it depends on, both from `libs/`, in one command:
 
 ```bash
-pip install libs/wip_toolkit-*.whl
+pip install libs/wip_archive-*.whl libs/wip_toolkit-*.whl
 ```
+
+`wip-archive` is not on PyPI, so the toolkit wheel alone cannot resolve its dependency — and naming both local files keeps pip from ever looking for that name elsewhere.
 
 Key commands:
 - `wip-toolkit export <namespace> <output.zip>` — Export namespace to archive
