@@ -9,7 +9,7 @@ import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
-import { useNamespaceFilter, useSyncNamespaceFromUrl } from '@/hooks/use-namespace-filter'
+import { useNamespaceFilter, useNamespaceInUrl } from '@/hooks/use-namespace-filter'
 
 // ---------------------------------------------------------------------------
 // Create Terminology Form
@@ -235,7 +235,7 @@ function CreateTerminologyForm({ defaultNamespace, onClose }: { defaultNamespace
 // ---------------------------------------------------------------------------
 
 export default function TerminologyListPage() {
-  useSyncNamespaceFromUrl()
+  useNamespaceInUrl()
   const { namespace } = useNamespaceFilter()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')

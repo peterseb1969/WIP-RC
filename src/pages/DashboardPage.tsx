@@ -33,7 +33,7 @@ import {
 import { useReportTables } from '@/hooks/use-reporting'
 import { useServiceHealth, useIsServiceInactive, type ServiceHealth } from '@/hooks/use-service-health'
 import { useNamespaceStats, type NamespaceWithStats } from '@/hooks/use-namespace-stats'
-import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
+import { useNamespaceFilter, useNamespaceInUrl } from '@/hooks/use-namespace-filter'
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import { cn } from '@/lib/cn'
@@ -689,6 +689,7 @@ function ReportingSyncCTA() {
 // ---------------------------------------------------------------------------
 
 export default function DashboardPage() {
+  useNamespaceInUrl()
   return (
     <div className="space-y-8 max-w-7xl">
       <div>

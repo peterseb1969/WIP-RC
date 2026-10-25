@@ -8,7 +8,7 @@ import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
-import { useNamespaceFilter, useSyncNamespaceFromUrl } from '@/hooks/use-namespace-filter'
+import { useNamespaceFilter, useNamespaceInUrl } from '@/hooks/use-namespace-filter'
 
 type UsageFilter = 'all' | 'entity' | 'relationship'
 
@@ -17,7 +17,7 @@ type UsageFilter = 'all' | 'entity' | 'relationship'
  * sort remembered per page.
  */
 export default function TemplateListPage() {
-  useSyncNamespaceFromUrl()
+  useNamespaceInUrl()
   const { namespace } = useNamespaceFilter()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)

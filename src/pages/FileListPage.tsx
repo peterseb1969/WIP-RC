@@ -8,7 +8,7 @@ import Pagination from '@/components/common/Pagination'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
-import { useNamespaceFilter, useSyncNamespaceFromUrl } from '@/hooks/use-namespace-filter'
+import { useNamespaceFilter, useNamespaceInUrl } from '@/hooks/use-namespace-filter'
 
 // ---------------------------------------------------------------------------
 // Upload form
@@ -143,7 +143,7 @@ function UploadForm({ defaultNamespace, onClose }: { defaultNamespace?: string; 
 // ---------------------------------------------------------------------------
 
 export default function FileListPage() {
-  useSyncNamespaceFromUrl()
+  useNamespaceInUrl()
   const { namespace } = useNamespaceFilter()
   const [page, setPage] = useState(1)
   // Default to All (not Active) so freshly uploaded files appear — the

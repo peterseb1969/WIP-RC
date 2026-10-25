@@ -671,7 +671,7 @@ export default function DocumentDetailPage() {
             </h1>
             <div className="flex items-center gap-3 mt-0.5">
               <Link
-                to={`/templates/${template?.template_id ?? ''}${doc.namespace ? `?ns=${doc.namespace}` : ''}`}
+                to={`/templates/${template?.template_id ?? ''}`}
                 className="inline-flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-700"
               >
                 <FileCode2 size={10} />

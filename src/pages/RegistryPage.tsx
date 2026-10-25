@@ -73,11 +73,10 @@ function CopyButton({ value }: { value: string }) {
 // ---------------------------------------------------------------------------
 
 function entityLink(entry: { entry_id: string; entity_type: string; namespace: string; primary_composite_key: Record<string, unknown> }): string | null {
-  const ns = entry.namespace ? `?ns=${entry.namespace}` : ''
   switch (entry.entity_type) {
-    case 'terminology': return `/terminologies/${entry.entry_id}${ns}`
+    case 'terminology': return `/terminologies/${entry.entry_id}`
     case 'term': return null // terms don't have their own page — they're inline on terminology detail
-    case 'template': return `/templates/${entry.entry_id}${ns}`
+    case 'template': return `/templates/${entry.entry_id}`
     case 'document': {
       const templateValue = entry.primary_composite_key?.template_value as string | undefined
       return `/documents/${templateValue ?? '_'}/${entry.entry_id}`

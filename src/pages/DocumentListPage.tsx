@@ -18,7 +18,7 @@ import {
 import { useTemplates, useDocuments } from '@wip/react'
 import type { TemplateUsage } from '@wip/client'
 import { templateIdParam } from '@/hooks/use-route-template'
-import { useNamespaceFilter, useSyncNamespaceFromUrl } from '@/hooks/use-namespace-filter'
+import { useNamespaceFilter, useNamespaceInUrl } from '@/hooks/use-namespace-filter'
 import { useExternalTemplates } from '@/hooks/use-external-templates'
 import SortSelect, { loadSort, saveSort } from '@/components/common/SortSelect'
 import Pagination from '@/components/common/Pagination'
@@ -595,7 +595,7 @@ function DocumentTable({
 // ---------------------------------------------------------------------------
 
 export default function DocumentListPage() {
-  useSyncNamespaceFromUrl()
+  useNamespaceInUrl()
   const { namespace } = useNamespaceFilter()
   const [searchParams] = useSearchParams()
   const templateParam = searchParams.get('template') || ''
