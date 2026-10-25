@@ -155,7 +155,7 @@ The @wip/* libs are pinned to versioned, immutable tarballs (`file:libs/wip-<lib
 npm test            # Run once
 npm run test:watch  # Watch mode
 npx tsc --noEmit -p tsconfig.json   # Type-check (also run by CI)
-npm run test:e2e    # End-to-end, against a running WIP install (default: wip-local)
+npm run test:e2e    # End-to-end, against a running WIP install (default: default)
 ```
 
 **Unit tests:** 189 across 20 files in `tests/unit/`. They cover:
@@ -189,6 +189,6 @@ npm run test:e2e    # End-to-end, against a running WIP install (default: wip-lo
   - reporting: Query Pad against a table reporting-sync filled (waited for with `eventually()`), CSV export from the Query Pad (and its error on a bad query) and the Table Browser, the Parity tab, a registered view tested, saved, read and deleted, and a forced Batch Sync of one template in a namespace;
   - template versioning: a schema change mints version 2 with version 1 still active, existing documents stay on version 1, deactivate and reactivate a single version, identity fields locked in the editor;
   - access control: a user outside `ALLOWED_GROUPS` (the deployer's `viewer@wip.local`) gets 403 from RC's server and its `/wip` proxy, a write through the proxy does not land, and pages show the denial.
-- **Prerequisites:** the `e2e` user (`wip-deploy user add e2e --email e2e@wip.local --group wip-admins --name wip-local`), and `ALLOWED_GROUPS` set on the install for the access spec. Secrets are read from `~/.wip-deploy/<deployment>/secrets/` (`dex-password-e2e`, `dex-password-viewer`, `api-key`); the access spec skips its viewer checks when the viewer password is absent. The `E2E_*` variables in `tests/e2e/support/env.ts` override the target.
+- **Prerequisites:** the `e2e` user (`wip-deploy user add e2e --email e2e@wip.local --group wip-admins --name default`), and `ALLOWED_GROUPS` set on the install for the access spec. Secrets are read from `~/.wip-deploy/<deployment>/secrets/` (`dex-password-e2e`, `dex-password-viewer`, `api-key`); the access spec skips its viewer checks when the viewer password is absent. The `E2E_*` variables in `tests/e2e/support/env.ts` override the target.
 - **Artifacts:** the HTML report, traces and screenshots of failures go to `test-results/e2e/` (gitignored). A failed API call's log in them includes the request headers, so the deploy API key: don't share the report or traces.
 - **Load:** the integrity spec runs the instance-wide check (a full document scan, ~25 s on wip-local) and the reporting spec force-rebuilds one table; run the full suite when the install is otherwise idle.

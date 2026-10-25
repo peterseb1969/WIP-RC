@@ -2,10 +2,10 @@ import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { homedir } from 'os'
 import path from 'path'
 
-// E2E settings. Defaults target the local wip-local install through its
+// E2E settings. Defaults target the local `default` install through its
 // router; every value can be overridden from the environment. Secrets are
 // read from the deployer's secret files, never stored in the repo.
-const secrets = path.join(homedir(), '.wip-deploy', process.env.E2E_DEPLOYMENT ?? 'wip-local', 'secrets')
+const secrets = path.join(homedir(), '.wip-deploy', process.env.E2E_DEPLOYMENT ?? 'default', 'secrets')
 
 export const E2E = {
   /** RC behind the WIP router (trailing slash: page paths resolve under it). */

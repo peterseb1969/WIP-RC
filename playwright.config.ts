@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test'
 import { E2E } from './tests/e2e/support/env'
 
-// End-to-end tests against a running WIP install (default: wip-local through
+// End-to-end tests against a running WIP install (default: `default` through
 // its router). Run with `npm run test:e2e`. Serial on purpose: the specs share
 // one disposable namespace, and later specs read what earlier ones created.
 export default defineConfig({
