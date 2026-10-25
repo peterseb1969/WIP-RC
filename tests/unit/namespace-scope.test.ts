@@ -12,13 +12,13 @@ describe('namespaceScope', () => {
   it.each([
     '/', '/terminologies', '/templates', '/templates/new', '/documents',
     '/documents/import', '/documents/PERSON/table', '/documents/PERSON/new',
-    '/files', '/registry', '/backup',
+    '/files', '/registry',
   ])('applies on %s', p => {
     expect(applies(p)).toBe(true)
   })
 
   it.each([
-    '/namespaces', '/integrity', '/activity', '/audit-explorer', '/query', '/api-keys',
+    '/backup', '/namespaces', '/integrity', '/activity', '/audit-explorer', '/query', '/api-keys',
     '/terminologies/abc', '/terminologies/abc/terms/def', '/templates/abc',
     '/templates/abc/edit', '/documents/PERSON/abc', '/documents/PERSON/abc/edit',
     '/files/abc', '/postgres', '/mongodb', '/nats',
