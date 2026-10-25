@@ -32,6 +32,7 @@ import StatusBadge from '@/components/common/StatusBadge'
 import JsonViewer from '@/components/common/JsonViewer'
 import { cn } from '@/lib/cn'
 import { readCrossVersionView, formatVersionsInput } from '@/lib/reporting-types'
+import NamespaceMismatchBadge from '@/components/common/NamespaceMismatchBadge'
 
 
 // ---------------------------------------------------------------------------
@@ -304,6 +305,7 @@ export default function TemplateDetailPage() {
                   {template.namespace}
                 </span>
               )}
+              <NamespaceMismatchBadge namespace={template.namespace} />
               <StatusBadge status={template.status === 'active' ? 'active' : 'inactive'} label={template.status} />
             </div>
           </div>

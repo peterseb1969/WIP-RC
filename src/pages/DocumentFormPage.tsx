@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
-import { ArrowLeft, Save, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Save, AlertTriangle, FolderTree } from 'lucide-react'
 import {
   useDocument,
   useCreateDocument,
@@ -31,6 +31,16 @@ import { mergePatch } from '@/lib/merge-patch'
 // ---------------------------------------------------------------------------
 
 type Mode = 'create' | 'edit'
+
+/**
+ * The namespace a new document lands in: RC creates it in its template's
+ * namespace, falling back to the top-bar selection only when the template
+ * carries none. Shown on the form before saving, because it can differ from
+ * the selection (a document of a shared `wip` template, say).
+ */
+function createNamespace(templateNamespace: string | null | undefined, selected: string): string {
+  return templateNamespace || selected
+}
 
 /** Create or edit a document from its template (see header above). */
 export default function DocumentFormPage({ mode }: { mode: Mode }) {
@@ -150,7 +160,7 @@ export default function DocumentFormPage({ mode }: { mode: Mode }) {
     }
 
     if (mode === 'create') {
-      const ns = template.namespace || globalNs
+      const ns = createNamespace(template.namespace, globalNs)
       if (!ns) { setBanner('Namespace could not be resolved for this template.'); return }
       createDoc.mutate({
         template_id: template.template_id,
@@ -219,6 +229,16 @@ export default function DocumentFormPage({ mode }: { mode: Mode }) {
           </h1>
           {template.description && (
             <p className="text-sm text-gray-400 mt-0.5">{template.description}</p>
+          )}
+          {mode === 'create' && createNamespace(template.namespace, globalNs) && (
+            <p className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+              <FolderTree size={10} />
+              Will be created in
+              <span className="font-mono font-medium text-gray-700">{createNamespace(template.namespace, globalNs)}</span>
+              {template.namespace && globalNs && template.namespace !== globalNs && (
+                <span className="text-amber-700">(the template's namespace, not the selected {globalNs})</span>
+              )}
+            </p>
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">

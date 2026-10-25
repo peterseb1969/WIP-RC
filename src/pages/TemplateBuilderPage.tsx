@@ -197,7 +197,8 @@ export default function TemplateBuilderPage() {
     setValue(isEdit ? (existing.value ?? '') : '') // blank value for clones — user must choose
     setLabel(isEdit ? (existing.label ?? '') : `${existing.label ?? existing.value ?? ''} (copy)`)
     setDescription(existing.description ?? '')
-    setNamespace(isEdit ? (existing.namespace ?? '') : (globalNs || (existing.namespace ?? '')))
+    // A duplicate starts in its source's namespace; the picker below can move it.
+    setNamespace(isEdit ? (existing.namespace ?? '') : (existing.namespace || globalNs || ''))
     setExtendsTemplate(existing.extends ?? undefined)
     setExtendsVersion(existing.extends_version ?? undefined)
     setIdentityFields(existing.identity_fields ?? [])
@@ -1137,7 +1138,7 @@ export default function TemplateBuilderPage() {
         {!namespace && !isEdit && (
           <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
             <AlertTriangle size={14} />
-            Select a namespace in the top bar before saving.
+            Choose a namespace above before saving.
           </div>
         )}
 

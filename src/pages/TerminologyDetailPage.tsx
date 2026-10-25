@@ -38,6 +38,7 @@ import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
 import JsonViewer from '@/components/common/JsonViewer'
+import NamespaceMismatchBadge from '@/components/common/NamespaceMismatchBadge'
 
 // ---------------------------------------------------------------------------
 // Create Term Form (inline)
@@ -774,6 +775,7 @@ export default function TerminologyDetailPage() {
                   {terminology.namespace}
                 </span>
               )}
+              <NamespaceMismatchBadge namespace={terminology.namespace} />
               <StatusBadge
                 status={terminology.status === 'active' ? 'active' : 'inactive'}
                 label={terminology.status}

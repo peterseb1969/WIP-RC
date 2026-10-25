@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   Loader2,
   Layers,
+  FolderTree,
 } from 'lucide-react'
 import Papa from 'papaparse'
 import { useQueryClient } from '@tanstack/react-query'
@@ -602,6 +603,12 @@ export default function DocumentImportPage() {
           <span className="font-medium text-gray-700">{template.label || template.value}</span>
           <span className="text-xs text-gray-400 font-mono">{template.value}</span>
           <span className="text-xs text-gray-400">{fields.length} fields</span>
+          {namespace && (
+            <span className="flex items-center gap-1 text-xs text-gray-500">
+              <FolderTree size={10} />
+              importing into <span className="font-mono font-medium text-gray-700">{namespace}</span>
+            </span>
+          )}
           {step === 'upload' && (
             <button onClick={() => { setStep('template'); setParsed(null); setMapping({}) }} className="ml-auto text-xs text-gray-400 hover:text-gray-600">
               Change

@@ -24,6 +24,7 @@ import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
 import JsonViewer from '@/components/common/JsonViewer'
 import { apiUrl } from '@/lib/wip'
+import NamespaceMismatchBadge from '@/components/common/NamespaceMismatchBadge'
 
 // ---------------------------------------------------------------------------
 // Content-type-aware icon
@@ -320,6 +321,7 @@ export default function FileDetailPage() {
                   {file.namespace}
                 </Link>
               )}
+              <NamespaceMismatchBadge namespace={file.namespace} />
               <StatusBadge status={fileStatus} label={file.status} />
               {isOrphan && (
                 <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">

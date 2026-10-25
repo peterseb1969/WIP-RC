@@ -4,10 +4,10 @@ import { matchPath } from 'react-router-dom'
  * Whether the top-bar namespace selector does anything on a given page.
  *
  * The selector is an allowlist, not a blocklist: it is live only on pages that
- * read it — list pages it filters, and the create flows it scopes (template
- * builder, document form and import). Backup & Restore is not one of them: it
- * reads the selection only once, as the starting value of its own namespace
- * pickers, so the selector does nothing there after load. Everywhere else it is
+ * read it — list pages it filters, and the create flows it scopes (document
+ * form and import). Backup & Restore and the Template Builder are not among
+ * them: each reads the selection only once, as the starting value of its own
+ * namespace picker, so the selector does nothing there after load. Everywhere else it is
  * shown disabled with the reason, so it never looks active on a page that
  * ignores it. A new page is therefore "doesn't apply" until it is added here
  * deliberately.
@@ -22,7 +22,6 @@ const APPLIES: string[] = [
   '/',
   '/terminologies',
   '/templates',
-  '/templates/new',
   '/documents',
   '/documents/import',
   '/documents/:templateValue/table',

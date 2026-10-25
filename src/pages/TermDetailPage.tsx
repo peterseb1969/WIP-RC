@@ -34,6 +34,7 @@ import JsonViewer from '@/components/common/JsonViewer'
 import AddRelationshipSlideOut from '@/components/ontology/AddRelationshipSlideOut'
 import HierarchyTab from '@/components/ontology/HierarchyTab'
 import { cn } from '@/lib/cn'
+import NamespaceMismatchBadge from '@/components/common/NamespaceMismatchBadge'
 
 // ---------------------------------------------------------------------------
 // TermDetailPage — step 2 of the Ontology UI build (DESIGN.md).
@@ -232,6 +233,7 @@ function TermHeader({
               }
               label={term.status}
             />
+            <NamespaceMismatchBadge namespace={term.namespace} />
           </div>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-xs font-mono text-gray-500">{term.value}</span>

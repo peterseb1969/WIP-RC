@@ -36,6 +36,7 @@ import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
 import { cn } from '@/lib/cn'
+import NamespaceMismatchBadge from '@/components/common/NamespaceMismatchBadge'
 
 
 // ---------------------------------------------------------------------------
@@ -689,6 +690,7 @@ export default function DocumentDetailPage() {
                   {doc.namespace}
                 </Link>
               )}
+              <NamespaceMismatchBadge namespace={doc.namespace} />
               <span className="flex items-center gap-1 text-xs text-gray-400">
                 <Layers size={10} /> v{doc.version ?? 1}
               </span>
