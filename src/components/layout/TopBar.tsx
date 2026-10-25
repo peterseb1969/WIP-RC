@@ -4,22 +4,20 @@ import { useNamespaces } from '@wip/react'
 import { useAuth } from '@/hooks/use-auth'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 import { apiUrl, basePath } from '@/lib/wip'
-
-// Routes where the namespace filter has no effect — infrastructure
-// inspection pages read across the whole WIP instance.
-const CROSS_NAMESPACE_PATHS = ['/postgres', '/mongodb', '/nats']
+import { namespaceScope } from '@/lib/namespace-scope'
 
 /**
  * Top bar: home link, the global namespace filter, and the signed-in user. The
- * namespace selector is disabled on the infrastructure pages (PostgreSQL, MongoDB,
- * NATS), which always read across the whole instance.
+ * namespace selector is live only on the pages that read it (see
+ * namespaceScope); elsewhere it is disabled and its tooltip says why.
  */
 export default function TopBar() {
   const { user, isAuthenticated, isAnonymous, isLoading } = useAuth()
   const { namespace, setNamespace } = useNamespaceFilter()
   const { data: namespaces } = useNamespaces()
   const { pathname } = useLocation()
-  const namespaceInactive = CROSS_NAMESPACE_PATHS.some(p => pathname === p || pathname.startsWith(`${p}/`))
+  const scope = namespaceScope(pathname)
+  const namespaceInactive = !scope.applies
 
   return (
     <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6">
@@ -32,7 +30,7 @@ export default function TopBar() {
         {/* Namespace selector */}
         <div
           className="flex items-center gap-1.5 ml-2 pl-3 border-l border-gray-200"
-          title={namespaceInactive ? 'Namespace filter does not apply on this page — data is shown across all namespaces.' : undefined}
+          title={scope.applies ? undefined : scope.reason}
         >
           <FolderTree size={14} className={namespaceInactive ? 'text-gray-300' : 'text-gray-400'} />
           <select
