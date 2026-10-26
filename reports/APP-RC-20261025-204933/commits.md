@@ -52,3 +52,17 @@
 
 ## Rebase onto origin/master (23:14)
 This clone was 14 commits behind origin/master (last fetch Oct 20) and never had the previous session's Oct 19–20 work. Rebased the 7 local commits onto bb9911a. The trial merge was clean, tsc is clean, and unit tests pass 247/247. New hashes: ec915ce→cedc821, 10a46c6→fa27cdc, 29a15b7→0c2f1b2, a51208b→a71500a, 944dfc6→910a827, fe68591→5e72988, 277fa85→1afef39.
+
+## 799a7eb — feat: document Archive replaced by soft Delete
+**Time:** 22:29
+**Files:** 5 changed
+**Tests:** E2E 74/74 on the old platform (before re-vendor) and 74/74 on the upgraded platform with the new libs; unit 247/247
+**What:** Detail-page Archive → soft Delete (useDeleteDocument), list and table toggles → Active / Incl. deleted, relationship help text, E2E lifecycle step.
+**Why:** CASE-952. The platform removed document archive (f14c4bf2).
+
+## 1e17eec — chore: scaffold refresh — @wip/client 0.63.0, @wip/react 0.23.0, wip-archive 0.3.0
+**Time:** 22:29
+**Files:** 14 changed
+**Tests:** tsc clean, unit 247/247, E2E 74/74 on the upgraded default install
+**What:** Libs re-vendored; the pre-commit gate (.githooks) is shipped and enabled; .claude/kb.json untracked (kb.json.example added). CLAUDE.md.refresh differed only in app lines, so nothing to merge.
+**Why:** CASE-952 re-vendor step. CASE-952#1 records it as implemented.
