@@ -13,3 +13,4 @@ I told Peter that putting the key in ~/.wip-deploy/<deployment>/secrets/anthropi
 ## 2026-10-26 22:55 — Filed CASE-954 (optional from_secret never injected, target BE-YAC)
 Filed at Peter's request: CASE-954 (01a17a36-53d2-7725-b3b9-c3245f7bb49d), bug, annoying, topic wip-deploy. Expected: an optional from_secret is filled when the secret exists, and a warning is given when it is skipped. Line refs were verified at World-in-a-Pie develop 9c08cbcf. Peter is adding ANTHROPIC_API_KEY to WIP-RC/.env as the dev workaround; still to check that RC picks it up after a restart.
 ## 2026-10-26 23:03 — .env Anthropic key verified by Peter; CASE-954 comment added
+## 2026-10-26 23:38 — Closed APP-RC-20261019-230436 (pointer here, KB mirror updated); filed CASE-958 (namespace dropdown grouping, CASE-917 follow-up, target APP-RC)
