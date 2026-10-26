@@ -407,6 +407,9 @@ Add, remove and list users with `wip-deploy user`:
 # Declare a user and apply; the password is printed once and kept in the secret backend
 wip-deploy user add e2e --email e2e@wip.local --group wip-editors --name <install>
 
+# Change a user's groups in place; the password is kept
+wip-deploy user set-groups e2e --group wip-editors,wip-admins --name <install>
+
 # What's declared, and whether each password secret exists yet
 wip-deploy user list --name <install>
 
@@ -414,16 +417,19 @@ wip-deploy user list --name <install>
 wip-deploy user remove e2e --name <install>
 ```
 
-- `--group` is the user's authorization group: `wip-admins`, `wip-editors`,
-  `wip-viewers`, or a group an app defines.
+- `--group` is the user's authorization group, or a comma-separated list
+  of groups: `wip-admins`, `wip-editors`, `wip-viewers`, or groups an app
+  defines. Dex puts every group into the login's token.
+- `set-groups` replaces the user's whole group set. Tokens issued before
+  the apply carry the old groups; a fresh login picks up the new ones.
 - The username names the password secret, so it must start with a letter or
   digit and use only letters, digits, `.`, `_` and `-`. Emails must be
   unique on the install, because Dex identifies static users by email.
 - There is no password-rotate verb. To give a user a fresh password,
   `remove` it and `add` it again.
-- `remove` refuses to delete the last `wip-admins` user. Add another admin
-  first.
-- `user add` and `user remove` re-render the install's files from the
+- `remove` refuses to delete the last `wip-admins` user, and `set-groups`
+  refuses to take `wip-admins` away from it. Add another admin first.
+- `user add`, `user set-groups` and `user remove` re-render the install's files from the
   current repo but apply only to Dex: Dex is recreated with the new user
   set, and every other container keeps running.
 
@@ -783,8 +789,11 @@ services (MongoDB, PostgreSQL, NATS, Garage, Dex) are not restarted this way.
 | **Declared keys** (`auth.api_keys`, e.g. agent keys) | install secret + rendered `api-keys.json` | `wip-deploy rotate-key <key-name> --name <install>` |
 | **Runtime keys** (console / `POST /api/registry/api-keys`) | Registry (MongoDB, bcrypt hash) | revoke + create a new one; other services see the change within the 30 s key sync |
 
-`rotate-key` prints the new plaintext **once**, names the services the apply
-restarted, and then probes the install's public URL: the Registry must
+`rotate-key` names the secret file that holds the new value
+(`~/.wip-deploy/<name>/secrets/<secret>`), not the value itself, so the key
+does not land in a terminal log or an agent's transcript; `--show-key` also
+prints the plaintext once. It then names the services the apply
+restarted, and probes the install's public URL: the Registry must
 accept the new key and refuse the old one, or the command fails (`--no-check`
 skips the probe). There is no grace window — once the apply completes, the
 old value gets 401.
@@ -792,10 +801,10 @@ old value gets 401.
 After rotating:
 
 - Clients that read the key **file** need no config change, but only some
-  re-read it while running: `kbc` reads it on every call and follows at once;
-  an MCP server configured with `WIP_API_KEY_FILE` reads it once at start, so
-  open MCP sessions get 401 until they are reconnected (e.g. `/mcp` in Claude
-  Code); app servers using `apiKeyFile` follow on their next restart.
+  re-read it while running: `kbc` reads it on every call and an MCP server
+  configured with `WIP_API_KEY_FILE` re-reads it when it changes, so both
+  follow at once; app servers using `apiKeyFile` follow on their next
+  restart.
 - Anyone holding a **copy** of the key (scripts, other machines, people)
   must be given the new value.
 - For zero downtime with external consumers that cannot switch at once,
@@ -818,6 +827,26 @@ Rotation cadences worth defaulting to:
 | Database passwords | Annually | Coordinate with maintenance window |
 | Dex client secret | Annually | Affects active sessions |
 | TLS (Let's Encrypt) | Automatic | Caddy renews 30 days before expiry |
+
+**The secret store travels with the install, whole.** An install's
+`secrets/` folder holds the passwords its datastores were set up with. Every
+apply records a short fingerprint of each secret it ran with in
+`deployment.deployer-state` (never the values) and, before generating
+anything, checks the folder against that record, and on k8s against the live
+`wip-secrets` Secret too. If a known secret is missing, or holds a different
+value, the apply stops and names the secrets, instead of generating
+passwords the running datastores do not hold. To recover:
+
+- copy the install's complete `~/.wip-deploy/<name>/` from the machine that
+  last drove it, `secrets/` included;
+- on k8s, `wip-deploy secrets pull --name <install>` writes the running
+  values from the cluster into the folder;
+- if the folder is right and only the record is stale (say, the folder was
+  restored from a backup), `wip-deploy secrets accept --name <install>`
+  records it.
+
+A secret the install has never had, such as one a platform upgrade or a new
+app introduces, is still generated, and the apply prints its name.
 
 ### 7.3 Validate before exposing
 
