@@ -10,7 +10,7 @@ import {
   Search,
   X,
   Plus,
-  Archive,
+  Trash2,
   Table2,
   Upload,
   Network,
@@ -405,7 +405,7 @@ function DocumentTable({
   templateById: Map<string, { value: string; label?: string | null; usage?: TemplateUsage; header_fields?: string[]; identity_fields?: string[]; external?: boolean }>
 }) {
   const [page, setPage] = useState(1)
-  const [showArchived, setShowArchived] = useState(false)
+  const [includeDeleted, setIncludeDeleted] = useState(false)
   const [sort, setSort] = useState(() => loadSort('documents', 'updated_at', 'desc'))
   const { namespace } = useNamespaceFilter()
   // Both filters are applied together. WIP ANDs them — template_id alone
@@ -415,7 +415,7 @@ function DocumentTable({
   const { data, isLoading, error, refetch } = useDocuments({
     template_id: templateId ?? undefined,
     namespace: namespace || undefined,
-    status: showArchived ? undefined : 'active',
+    status: includeDeleted ? undefined : 'active',
     page,
     page_size: 25,
     sort_by: sort.sortBy,
@@ -446,17 +446,17 @@ function DocumentTable({
           />
           <button
             type="button"
-            onClick={() => { setShowArchived(v => !v); setPage(1) }}
+            onClick={() => { setIncludeDeleted(v => !v); setPage(1) }}
             className={cn(
               'inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border transition-colors',
-              showArchived
+              includeDeleted
                 ? 'border-gray-300 bg-gray-100 text-gray-700'
                 : 'border-gray-200 bg-white text-gray-400 hover:text-gray-600 hover:border-gray-300'
             )}
-            title={showArchived ? 'Currently showing archived + active. Click to hide archived.' : 'Currently showing active only. Click to include archived.'}
+            title={includeDeleted ? 'Showing active and deleted (inactive) documents. Click to show active only.' : 'Showing active documents only. Click to include deleted (inactive) ones.'}
           >
-            <Archive size={12} />
-            {showArchived ? 'All' : 'Active'}
+            <Trash2 size={12} />
+            {includeDeleted ? 'Incl. deleted' : 'Active'}
           </button>
           {templateValue && (
             <>

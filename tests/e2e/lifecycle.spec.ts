@@ -4,7 +4,7 @@ import { wipApi, getJson } from './support/wip'
 
 // The core data path through the UI, in this run's namespace: terminology and
 // term → template in the Template Builder → document through the generated
-// form → edit (version 2) → archive. Each step is checked in the UI and, where
+// form → edit (version 2) → delete. Each step is checked in the UI and, where
 // the UI could mislead, against the WIP API.
 
 test.describe.configure({ mode: 'serial' })
@@ -103,19 +103,23 @@ test.describe('data lifecycle', () => {
     await api.dispose()
   })
 
-  test('archive the document', async ({ page }) => {
+  test('delete the document (soft delete)', async ({ page }) => {
     expect(documentUrl, 'the create step ran').not.toBe('')
     await page.goto(documentUrl)
-    await page.getByRole('button', { name: /^archive$/i }).click()
-    await expect(page.getByText('Archive?')).toBeVisible()
-    await page.getByRole('button', { name: /^(yes|archive|confirm)/i }).last().click()
-    // Archiving returns to the template's document list, which shows active documents only.
+    await page.getByRole('button', { name: /^delete$/i }).click()
+    await expect(page.getByText('Delete? It becomes inactive and keeps its history.')).toBeVisible()
+    await page.getByRole('button', { name: /^confirm$/i }).click()
+    // Deleting returns to the template's document list, which shows active documents only…
     await expect(page.getByText('No documents for this template.')).toBeVisible()
+    // …and the toggle brings the deleted one back into view.
+    await page.getByRole('button', { name: /^active$/i }).click()
+    await expect(page.getByRole('button', { name: /^incl\. deleted$/i })).toBeVisible()
+    await expect(page.getByText('No documents for this template.')).toBeHidden()
 
     const api = await wipApi()
     const id = new URL(documentUrl).pathname.split('/').pop()
     const doc = await getJson<{ status: string }>(api, `/api/document-store/documents/${id}`)
-    expect(doc.status).toBe('archived')
+    expect(doc.status).toBe('inactive')
     await api.dispose()
   })
 })

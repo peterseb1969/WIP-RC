@@ -68,7 +68,7 @@ export default function DocumentForm({
       {isEdgeType && endpointFields.length > 0 && (
         <Section title="Endpoints" defaultOpen>
           <p className="text-[11px] text-gray-500 mb-2">
-            Source and target documents this relationship connects. Both must live in the same namespace and be active or inactive (not archived).
+            Source and target documents this relationship connects. Both must live in the same namespace.
           </p>
           {/* Render source_ref first, then target_ref, regardless of array order */}
           {['source_ref', 'target_ref'].flatMap(name => {

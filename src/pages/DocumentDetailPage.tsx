@@ -16,7 +16,7 @@ import {
   Link2,
   Tag,
   Pencil,
-  Archive,
+  Trash2,
   ShieldCheck,
   AlertTriangle,
   CheckCircle,
@@ -25,7 +25,7 @@ import {
   Eye,
   X,
 } from 'lucide-react'
-import { useDocument, useDocumentVersions, useTemplate, useWipClient, useArchiveDocument } from '@wip/react'
+import { useDocument, useDocumentVersions, useTemplate, useWipClient, useDeleteDocument } from '@wip/react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import type { Document, FieldDefinition, TermReference, Reference, Term } from '@wip/client'
 import JsonViewer from '@/components/common/JsonViewer'
@@ -629,15 +629,16 @@ export default function DocumentDetailPage() {
   const client = useWipClient()
   const [validating, setValidating] = useState(false)
   const [validationResult, setValidationResult] = useState<{ valid: boolean; errors: Array<{ field: string | null; message: string }>; warnings: string[] } | null>(null)
-  const [confirmArchive, setConfirmArchive] = useState(false)
-  const [archiveError, setArchiveError] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [inspectVersion, setInspectVersion] = useState<number | null>(null)
-  const archiveDoc = useArchiveDocument({
+  // Soft delete: the document becomes inactive and keeps its version history.
+  const deleteDoc = useDeleteDocument({
     onSuccess: () => {
-      setConfirmArchive(false)
+      setConfirmDelete(false)
       navigate(`/documents?template=${templateValue ?? ''}`)
     },
-    onError: (err) => setArchiveError(err.message),
+    onError: (err) => setDeleteError(err.message),
   })
 
   if (isLoading) return <LoadingState label="Loading document..." />
@@ -735,31 +736,32 @@ export default function DocumentDetailPage() {
               <ShieldCheck size={12} />
               {validating ? 'Validating…' : 'Validate'}
             </button>
-            {doc.status === 'active' && !confirmArchive && (
+            {doc.status === 'active' && !confirmDelete && (
               <button
                 type="button"
-                onClick={() => { setArchiveError(null); setConfirmArchive(true) }}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-amber-700 border border-amber-200 rounded-md hover:bg-amber-50"
+                onClick={() => { setDeleteError(null); setConfirmDelete(true) }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-danger border border-danger/30 rounded-md hover:bg-danger/5"
+                title="Soft delete: the document becomes inactive and keeps its version history"
               >
-                <Archive size={12} />
-                Archive
+                <Trash2 size={12} />
+                Delete
               </button>
             )}
-            {confirmArchive && (
+            {confirmDelete && (
               <div className="flex items-center gap-1">
-                <span className="text-xs text-gray-500 mr-1">Archive?</span>
+                <span className="text-xs text-gray-500 mr-1">Delete? It becomes inactive and keeps its history.</span>
                 <button
                   type="button"
-                  onClick={() => archiveDoc.mutate({ id: doc.document_id, archivedBy: 'rc-console' })}
-                  disabled={archiveDoc.isPending}
-                  className="px-2 py-1 text-xs text-white bg-amber-500 hover:bg-amber-600 rounded-md disabled:opacity-60"
+                  onClick={() => deleteDoc.mutate({ id: doc.document_id, updatedBy: 'rc-console' })}
+                  disabled={deleteDoc.isPending}
+                  className="px-2 py-1 text-xs text-white bg-danger hover:bg-danger/90 rounded-md disabled:opacity-60"
                 >
-                  {archiveDoc.isPending ? 'Archiving…' : 'Confirm'}
+                  {deleteDoc.isPending ? 'Deleting…' : 'Confirm'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setConfirmArchive(false); setArchiveError(null) }}
-                  disabled={archiveDoc.isPending}
+                  onClick={() => { setConfirmDelete(false); setDeleteError(null) }}
+                  disabled={deleteDoc.isPending}
                   className="px-2 py-1 text-xs text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50"
                 >
                   Cancel
@@ -768,9 +770,9 @@ export default function DocumentDetailPage() {
             )}
           </div>
         </div>
-        {archiveError && (
-          <div className="mt-2 text-xs text-danger bg-danger/5 border border-danger/20 rounded-md px-2.5 py-1.5">
-            Archive failed: {archiveError}
+        {deleteError && (
+          <div role="alert" className="mt-2 text-xs text-danger bg-danger/5 border border-danger/20 rounded-md px-2.5 py-1.5">
+            Delete failed: {deleteError}
           </div>
         )}
       </div>

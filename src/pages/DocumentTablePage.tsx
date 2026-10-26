@@ -5,7 +5,7 @@ import {
   RefreshCw,
   Download,
   Layers,
-  Archive,
+  Trash2,
   FileCode2,
 } from 'lucide-react'
 import { useWipClient } from '@wip/react'
@@ -68,15 +68,15 @@ export default function DocumentTablePage() {
 
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<number>(25)
-  const [showArchived, setShowArchived] = useState(false)
+  const [includeDeleted, setIncludeDeleted] = useState(false)
   const [exporting, setExporting] = useState(false)
 
   const templateId = template?.template_id ?? ''
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['rc-console', 'table-view', templateId, page, pageSize, showArchived ? 'all' : 'active'],
+    queryKey: ['rc-console', 'table-view', templateId, page, pageSize, includeDeleted ? 'all' : 'active'],
     queryFn: () => client.documents.getTableView(templateId, {
-      status: showArchived ? undefined : 'active',
+      status: includeDeleted ? undefined : 'active',
       page,
       page_size: pageSize,
     }),
@@ -89,7 +89,7 @@ export default function DocumentTablePage() {
     setExporting(true)
     try {
       const blob = await client.documents.exportTableCsv(templateId, {
-        status: showArchived ? undefined : 'active',
+        status: includeDeleted ? undefined : 'active',
         include_metadata: true,
       })
       const url = URL.createObjectURL(blob)
@@ -101,7 +101,7 @@ export default function DocumentTablePage() {
     } finally {
       setExporting(false)
     }
-  }, [templateId, templateValue, showArchived, client])
+  }, [templateId, templateValue, includeDeleted, client])
 
   if (templateLoading) return <LoadingState label="Loading template..." />
   if (!template) return <ErrorState message="Template not found" />
@@ -141,16 +141,16 @@ export default function DocumentTablePage() {
         <div className="flex items-center gap-2 text-xs">
           <button
             type="button"
-            onClick={() => { setShowArchived(v => !v); setPage(1) }}
+            onClick={() => { setIncludeDeleted(v => !v); setPage(1) }}
             className={cn(
               'inline-flex items-center gap-1 px-2 py-1 rounded-md border transition-colors',
-              showArchived
+              includeDeleted
                 ? 'border-gray-300 bg-gray-100 text-gray-700'
                 : 'border-gray-200 bg-white text-gray-400 hover:text-gray-600 hover:border-gray-300'
             )}
           >
-            <Archive size={12} />
-            {showArchived ? 'All' : 'Active'}
+            <Trash2 size={12} />
+            {includeDeleted ? 'Incl. deleted' : 'Active'}
           </button>
           <select
             value={pageSize}
