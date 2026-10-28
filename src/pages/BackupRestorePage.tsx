@@ -18,6 +18,7 @@ import type {
   BackupJobKind,
   ClashPolicy,
   NamespaceIntegrityResult,
+  OlderVersionsPolicy,
   RestoreMode,
 } from '@wip/client'
 import StatusBadge from '@/components/common/StatusBadge'
@@ -1092,9 +1093,6 @@ const CLASH_POLICIES: Array<{ value: ClashPolicy; label: string; blurb: string }
   { value: 'overwrite', label: 'Overwrite', blurb: 'The archive wins.' },
   { value: 'newer', label: 'Newer wins', blurb: 'Compare timestamps and keep the more recent.' },
 ]
-
-/** What a merge does with the target's older versions when it appends the archive's version on top. */
-export type OlderVersionsPolicy = 'retire' | 'keep'
 
 const OLDER_VERSIONS: Array<{ value: OlderVersionsPolicy; label: string; blurb: string }> = [
   {
