@@ -81,3 +81,18 @@ This clone was 14 commits behind origin/master (last fetch Oct 20) and never had
 **What:** syncTemplateOptions sorts by the displayed "Label (VALUE)" text with a numeric, case-insensitive collator, and dedupes by template value.
 **Why:** Peter: the Batch Sync template order "is not even alphanumeric". It was sorted by the value, and also listed one identical line per namespace.
 **Discovered:** The old unit test's fixtures sorted the same way by label and by value, so it could not catch this.
+
+## 60ae92c — feat: merge restore asks whether the target's older versions retire
+**Time:** 22:16
+**Files:** 2 changed, +~100
+**Tests:** unit 299/299 (3 new); /backup smoke 1/1
+**What:** Retire / Keep older versions choice under the merge clash policy, shown only for Overwrite and Newer wins; older_versions is sent only then (olderVersionsField).
+**Why:** The platform's merge restore gained an older_versions option (WIP c6a81ab4, default retire); RC never sent it, so every RC merge silently retired them.
+
+## c04bbc9 — chore: scaffold refresh — @wip/client 0.65.0, wip-toolkit 0.7.1
+**Time:** 22:16
+**Files:** 6 changed
+**Tests:** tsc clean, unit 299/299, full E2E 75/75 after the container restart
+**What:** The client is re-vendored; the restore page imports OlderVersionsPolicy from it. @wip/react stays at 0.24.0. CLAUDE.md.refresh had only app lines and was deleted.
+**Why:** It types the new restore option.
+**Discovered:** Peter restarted the container a minute after I had (his first ! line arrived as text), which cut into an E2E run; it was stopped and re-run cleanly. No merge restore with older_versions has been run end to end.
