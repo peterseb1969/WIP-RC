@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   PlayCircle,
   RotateCw,
@@ -26,6 +26,7 @@ import {
 } from '@wip/react'
 import type { BatchSyncJob, BatchSyncStatus, BatchSyncResponse } from '@wip/client'
 import { cn } from '@/lib/cn'
+import { syncTemplateOptions } from '@/lib/batch-sync-templates'
 
 // ---------------------------------------------------------------------------
 // BatchSyncPanel — admin surface for reporting-sync's batch endpoints.
@@ -36,10 +37,12 @@ import { cn } from '@/lib/cn'
 // Sync-status card is rendered above this panel by PostgresPage.
 //
 // Document sync is namespace-scopable (CASE-735/734, @wip/client 0.44.0). The
-// scope filters the *documents*, not the template list — a document may be
-// based on a template owned by another namespace, so a scoped run still
+// scope filters the *documents*, not the templates by owner — a document may be
+// based on a template owned by another namespace, so a scoped "sync all" still
 // iterates every template and simply syncs nothing for those with no documents
-// in scope.
+// in scope. The single-template dropdown is narrowed to the templates the
+// scoped namespace's documents actually use (template facets), which includes
+// foreign-owned ones.
 // ---------------------------------------------------------------------------
 
 const ACTIVE_STATUSES = new Set<BatchSyncStatus>(['pending', 'running'])
@@ -68,6 +71,7 @@ function useScopedBatchSyncAll(onError: (e: Error) => void) {
 export default function BatchSyncPanel() {
   const { data: templates } = useTemplates({ status: 'active', latest_only: true, page_size: 1000 })
   const { data: namespaces } = useNamespaces()
+  const client = useWipClient()
 
   const [singleTemplate, setSingleTemplate] = useState('')
   const [docScopeNs, setDocScopeNs] = useState('')
@@ -78,6 +82,22 @@ export default function BatchSyncPanel() {
   // without one — so it resets whenever the scope is cleared.
   const [force, setForce] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Templates the scoped namespace's documents are instances of. Every document
+  // status counts, so a template with only inactive documents is not hidden
+  // from a sync that would still cover them.
+  const facetsQ = useQuery({
+    queryKey: ['rc-console', 'batch-sync-template-facets', docScopeNs],
+    queryFn: () => client.documents.getTemplateFacets({ namespace: docScopeNs, status: 'all' }),
+    enabled: Boolean(docScopeNs),
+    staleTime: 60_000,
+  })
+  // A failed facet lookup falls back to the full list: the narrowing is a
+  // convenience, not a gate on what may be synced.
+  const scopedFacets = docScopeNs && facetsQ.data ? facetsQ.data.facets : null
+  const facetsPending = Boolean(docScopeNs) && facetsQ.isLoading
+  const templateOptions = syncTemplateOptions(templates?.items ?? [], scopedFacets)
+  const selectedTemplateAvailable = templateOptions.some(o => o.value === singleTemplate)
 
   // Live job list — poll fast while anything is running, slow otherwise.
   const jobsQ = useBatchJobs()
@@ -106,7 +126,7 @@ export default function BatchSyncPanel() {
   }
   const handleSyncOne = () => {
     setError(null)
-    if (!singleTemplate) { setError('Pick a template to sync'); return }
+    if (!singleTemplate || !selectedTemplateAvailable) { setError('Pick a template to sync'); return }
     triggerOne.mutate({
       template_value: singleTemplate,
       namespace: docScopeNs || undefined,
@@ -180,18 +200,32 @@ export default function BatchSyncPanel() {
             </button>
             <span className="text-xs text-gray-400">or</span>
             <select
-              value={singleTemplate}
+              aria-label="Single template"
+              value={selectedTemplateAvailable ? singleTemplate : ''}
               onChange={e => setSingleTemplate(e.target.value)}
-              className="border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light focus:border-primary-light"
+              disabled={facetsPending}
+              className="border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-light focus:border-primary-light disabled:opacity-50"
+              title={docScopeNs ? `Templates with documents in ${docScopeNs}` : 'All active templates'}
             >
-              <option value="">Single template…</option>
-              {(templates?.items ?? []).map(t => (
-                <option key={t.template_id} value={t.value}>{t.label || t.value}</option>
+              <option value="">
+                {facetsPending
+                  ? 'Loading templates…'
+                  : docScopeNs && scopedFacets
+                    ? `Single template (${templateOptions.length} in ${docScopeNs})…`
+                    : 'Single template…'}
+              </option>
+              {templateOptions.map(o => (
+                <option key={o.template_id} value={o.value}>{o.text}</option>
               ))}
             </select>
+            {docScopeNs && facetsQ.isError && (
+              <span className="text-[10px] text-amber-700" title={(facetsQ.error as Error).message}>
+                could not narrow by namespace — showing all templates
+              </span>
+            )}
             <button
               onClick={handleSyncOne}
-              disabled={anyTriggerPending || !singleTemplate}
+              disabled={anyTriggerPending || !singleTemplate || !selectedTemplateAvailable}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm rounded-md text-gray-600 hover:bg-gray-50 disabled:opacity-50"
             >
               {triggerOne.isPending ? <Loader2 size={12} className="animate-spin" /> : <RotateCw size={12} />}
