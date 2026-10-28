@@ -3,7 +3,7 @@
 ## 2216fa3 — feat: parity checks run per namespace or for all, not on tab open
 **Time:** 15:23
 **Files:** 2 changed, +79/-17
-**Tests:** tsc clean; unit 247/247. E2E parity spec updated but not run (no dex-password-e2e secret in the `default` deployment).
+**Tests:** tsc clean; unit 247/247. Reporting E2E parity spec passes (run later, once the e2e Dex user was back).
 **What:** The Parity tab no longer queries every namespace on open. Each namespace shows "not checked" with a Check button; Check all at the top; re-check icon on checked cards; Retry on failures. Cached results still render without re-running.
 **Why:** Opening the tab ran a full document-count comparison for every namespace at once. Peter reported it as bad and asked for per-namespace or all.
 **Discovered:** Eyeballed in Peter's browser (looks good); I could not run the browser/E2E check myself.
@@ -15,3 +15,11 @@
 **What:** With a namespace scope set, the single-template dropdown lists only templates that namespace's documents are instances of (template facets, `status: 'all'`, matched by template_id so foreign-owned templates stay). Options read "Label (VALUE)". Failed lookup falls back to the full list; a selection that leaves scope is cleared. Logic lives in `src/lib/batch-sync-templates.ts`.
 **Why:** The dropdown listed every template whatever namespace was selected and showed only the label, while the rest of the UI shows the value.
 **Discovered:** Filtering by template ownership would have been wrong: a namespace's documents can use a template owned elsewhere (see the comment at the top of BatchSyncPanel.tsx).
+
+## 508ae88 — test: batch sync E2E finds the template dropdown by its label and checks the narrowing
+**Time:** 15:41
+**Files:** 1 changed
+**Tests:** reporting E2E spec 6/6 passed against the `default` install (about 19 s).
+**What:** The Batch Sync E2E located the dropdown by its "Single template…" placeholder; it now uses the accessible name, and asserts the scoped list names the namespace, shows "Label (VALUE)" and is shorter than the unscoped list.
+**Why:** 2f218e4 changed the placeholder once a scope is set, so the existing spec could no longer find the select.
+**Discovered:** My first version of the new assertion counted unscoped options before the template list had loaded (placeholder only) and failed spuriously; it now waits for the list first. This E2E run is also what verified 2f218e4 in a real browser against the deployed app.
