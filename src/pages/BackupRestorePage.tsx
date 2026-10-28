@@ -473,7 +473,13 @@ function RestoreTab() {
   const [targetNamespace, setTargetNamespace] = useState('')
   // fresh (multi-namespace archive): {source -> target}, one entry per source.
   const [nsMap, setNsMap] = useState<Record<string, string>>({})
-  const [onClash, setOnClash] = useState<ClashPolicy>('skip')
+  const [onClash, setOnClashRaw] = useState<ClashPolicy>('skip')
+  const [olderVersions, setOlderVersions] = useState<OlderVersionsPolicy>('retire')
+  // Back on Skip the choice no longer applies; start from the default next time.
+  const setOnClash = (v: ClashPolicy) => {
+    setOnClashRaw(v)
+    if (v === 'skip') setOlderVersions('retire')
+  }
   const [addMissing, setAddMissing] = useState(false)
   const [extendTerminologies, setExtendTerminologies] = useState(false)
   const [skipDocuments, setSkipDocuments] = useState(false)
@@ -560,6 +566,8 @@ function RestoreTab() {
 
     if (mode === 'merge') {
       fd.append('on_clash', onClash)
+      const older = olderVersionsField(mode, onClash, olderVersions)
+      if (older) fd.append('older_versions', older)
       if (addMissing) fd.append('add_missing', 'true')
       if (extendTerminologies) fd.append('extend_terminologies', 'true')
       // A merge may write into a differently-named namespace.
@@ -748,6 +756,7 @@ function RestoreTab() {
           targetNamespace={targetNamespace} setTargetNamespace={setTargetNamespace}
           nsMap={nsMap} setNsMap={setNsMap}
           onClash={onClash} setOnClash={setOnClash}
+          olderVersions={olderVersions} setOlderVersions={setOlderVersions}
           addMissing={addMissing} setAddMissing={setAddMissing}
           extendTerminologies={extendTerminologies} setExtendTerminologies={setExtendTerminologies}
           skipDocuments={skipDocuments} setSkipDocuments={setSkipDocuments}
@@ -1084,6 +1093,37 @@ const CLASH_POLICIES: Array<{ value: ClashPolicy; label: string; blurb: string }
   { value: 'newer', label: 'Newer wins', blurb: 'Compare timestamps and keep the more recent.' },
 ]
 
+/** What a merge does with the target's older versions when it appends the archive's version on top. */
+export type OlderVersionsPolicy = 'retire' | 'keep'
+
+const OLDER_VERSIONS: Array<{ value: OlderVersionsPolicy; label: string; blurb: string }> = [
+  {
+    value: 'retire',
+    label: 'Retire older versions',
+    blurb: "The archive's version becomes the only active one, as a normal edit would leave it.",
+  },
+  {
+    value: 'keep',
+    label: 'Keep older versions active',
+    blurb: 'Older versions stay active beside it; queries for active documents return all of them.',
+  },
+]
+
+/**
+ * The older_versions value a restore request carries, or null for none. Only a
+ * merge whose clash policy appends the archive's version (overwrite, newer)
+ * acts on it, and only then is the choice shown, so a request never carries a
+ * value the operator could not see. The server refuses a non-default value in
+ * the other modes.
+ */
+export function olderVersionsField(
+  mode: RestoreMode,
+  onClash: ClashPolicy,
+  olderVersions: OlderVersionsPolicy,
+): OlderVersionsPolicy | null {
+  return mode === 'merge' && onClash !== 'skip' ? olderVersions : null
+}
+
 function OptionCheckbox({
   checked, onChange, label, blurb, disabled,
 }: {
@@ -1120,6 +1160,7 @@ function RestoreOptions(p: {
   targetNamespace: string; setTargetNamespace: (v: string) => void
   nsMap: Record<string, string>; setNsMap: (v: Record<string, string>) => void
   onClash: ClashPolicy; setOnClash: (v: ClashPolicy) => void
+  olderVersions: OlderVersionsPolicy; setOlderVersions: (v: OlderVersionsPolicy) => void
   addMissing: boolean; setAddMissing: (v: boolean) => void
   extendTerminologies: boolean; setExtendTerminologies: (v: boolean) => void
   skipDocuments: boolean; setSkipDocuments: (v: boolean) => void
@@ -1255,6 +1296,33 @@ function RestoreOptions(p: {
               {CLASH_POLICIES.find(c => c.value === p.onClash)!.blurb}
             </p>
           </div>
+
+          {p.onClash !== 'skip' && (
+            <div className="space-y-1.5">
+              <span className="block text-xs font-medium text-gray-500">The target&apos;s older versions of an overwritten document</span>
+              <div className="flex flex-wrap gap-1">
+                {OLDER_VERSIONS.map(o => (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => p.setOlderVersions(o.value)}
+                    title={o.blurb}
+                    className={cn(
+                      'px-2.5 py-1 text-xs rounded-md border transition-colors',
+                      p.olderVersions === o.value
+                        ? 'border-primary/30 bg-primary/5 text-primary-dark font-medium'
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-50',
+                    )}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-gray-400">
+                {OLDER_VERSIONS.find(o => o.value === p.olderVersions)!.blurb}
+              </p>
+            </div>
+          )}
 
           <OptionCheckbox
             checked={p.addMissing}
