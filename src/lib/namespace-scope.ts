@@ -5,8 +5,8 @@ import { matchPath } from 'react-router-dom'
  *
  * The selector is an allowlist, not a blocklist: it is live only on pages that
  * read it — list pages it filters, and the create flows it scopes (document
- * form and import). Backup & Restore and the Template Builder are not among
- * them: each reads the selection only once, as the starting value of its own
+ * form and import). Backup & Restore, Identity Maintenance and the Template
+ * Builder are not among them: each reads the selection only once, as the starting value of its own
  * namespace picker, so the selector does nothing there after load. Everywhere else it is
  * shown disabled with the reason, so it never looks active on a page that
  * ignores it. A new page is therefore "doesn't apply" until it is added here

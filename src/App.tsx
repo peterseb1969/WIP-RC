@@ -29,6 +29,7 @@ import NLQueryPage from '@/pages/NLQueryPage'
 import APIKeysPage from '@/pages/APIKeysPage'
 import TermDetailPage from '@/pages/TermDetailPage'
 import BackupRestorePage from '@/pages/BackupRestorePage'
+import IdentityMaintenancePage from '@/pages/IdentityMaintenancePage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -79,6 +80,7 @@ export default function App() {
               <Route path="query" element={<NLQueryPage />} />
               <Route path="api-keys" element={<APIKeysPage />} />
               <Route path="backup" element={<BackupRestorePage />} />
+              <Route path="identity-maintenance" element={<IdentityMaintenancePage />} />
             </Route>
           </Routes>
         </BrowserRouter>

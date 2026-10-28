@@ -27,3 +27,15 @@ export const wipClient = createWipClient({
   baseUrl: `${basePath}/wip`,
   // auth omitted — wip-proxy injects the API key server-side
 })
+
+/**
+ * Same proxy, with a request timeout long enough for the document-store
+ * maintenance passes. Those calls are synchronous and grow with the namespace;
+ * under the shared client's 30 s timeout the browser gives up while the server
+ * keeps working, and the operator is left unsure whether anything was written.
+ * Only GETs are retried by the client, so a maintenance POST is never repeated.
+ */
+export const maintenanceClient = createWipClient({
+  baseUrl: `${basePath}/wip`,
+  timeout: 300_000,
+})
