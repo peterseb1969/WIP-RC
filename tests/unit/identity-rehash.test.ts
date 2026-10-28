@@ -57,15 +57,21 @@ describe('registryOutcome', () => {
     expect(registryOutcome({ registry_status: null })).toBe('none')
   })
 
-  it('is failed for a missing result or an error', () => {
-    expect(registryOutcome({ registry_status: 'missing' })).toBe('failed')
-    expect(registryOutcome({ registry_status: 'error: connection refused' })).toBe('failed')
-    expect(registryOutcome({ registry_status: 'Error: boom' })).toBe('failed')
+  it('is ok when the Registry re-keyed the entry or already held the identity', () => {
+    expect(registryOutcome({ registry_status: 'rekeyed' })).toBe('ok')
+    expect(registryOutcome({ registry_status: 'unchanged' })).toBe('ok')
   })
 
-  it('reports any other status as returned, without assuming a success value', () => {
-    expect(registryOutcome({ registry_status: 'rekeyed' })).toBe('reported')
-    expect(registryOutcome({ registry_status: 'anything-else' })).toBe('reported')
+  it('is failed for every Registry failure status and document-store\'s own', () => {
+    // The Registry's re-key endpoint can answer not_found, conflict or error;
+    // these used to be shown as neutral, with no failure alert.
+    for (const s of ['not_found', 'conflict', 'error', 'missing', 'error: connection refused', 'Error: boom']) {
+      expect(registryOutcome({ registry_status: s }), s).toBe('failed')
+    }
+  })
+
+  it('treats a status it does not know as failed, never as success', () => {
+    expect(registryOutcome({ registry_status: 'anything-else' })).toBe('failed')
   })
 })
 
@@ -76,14 +82,18 @@ describe('summarizeRegistry', () => {
       { registry_status: 'rekeyed' },
       { registry_status: 'missing' },
       { registry_status: 'error: x' },
+      { registry_status: 'conflict' },
+      { registry_status: 'unchanged' },
       { registry_status: null },
     ])
-    expect(s.attempted).toBe(4)
-    expect(s.failed).toBe(2)
+    expect(s.attempted).toBe(6)
+    expect(s.failed).toBe(3)
     expect(s.byStatus).toEqual([
       { status: 'rekeyed', count: 2, failed: false },
+      { status: 'conflict', count: 1, failed: true },
       { status: 'error: x', count: 1, failed: true },
       { status: 'missing', count: 1, failed: true },
+      { status: 'unchanged', count: 1, failed: false },
     ])
   })
 

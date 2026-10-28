@@ -233,6 +233,31 @@ describe('IdentityMaintenancePage', () => {
     expect(screen.queryByRole('button', { name: /apply to/i })).toBeNull()
   })
 
+  it('calls out a Registry conflict as a failed re-key', async () => {
+    // The Registry answers conflict when the new identity key is already held by
+    // another entry; that is a failed re-key, not a neutral status.
+    const user = userEvent.setup()
+    rehashIdentities.mockResolvedValueOnce(response())
+    rehashIdentities.mockResolvedValueOnce(
+      response({
+        dry_run: false,
+        applied: 3,
+        items: [
+          item({ document_id: 'd1', registry_status: 'rekeyed' }),
+          item({ document_id: 'd2', registry_status: 'conflict' }),
+          item({ document_id: 'd3', registry_status: 'not_found' }),
+        ],
+      }),
+    )
+    renderPage()
+    await pickNamespace(user)
+    await user.click(screen.getByRole('button', { name: /preview/i }))
+    await user.click(await screen.findByRole('button', { name: /apply to 3 documents/i }))
+    await user.click(screen.getByRole('button', { name: /apply rehash/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/re-key failed for 2 documents/i)
+  })
+
   it('says the pass may have finished when an apply request fails', async () => {
     const user = userEvent.setup()
     rehashIdentities.mockResolvedValueOnce(response())

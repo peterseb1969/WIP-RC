@@ -33,21 +33,25 @@ export function applyBlockReason(
   return null
 }
 
-export type RegistryOutcome = 'none' | 'failed' | 'reported'
+export type RegistryOutcome = 'none' | 'ok' | 'failed'
+
+// The Registry's re-key endpoint answers each entry with one of: rekeyed,
+// unchanged, not_found, conflict, error. Document-store passes that through and
+// adds "missing" (no result for the document) or "error: <message>" (the call
+// failed). Only the first two mean the Registry now holds the new identity.
+const REKEY_OK = new Set(['rekeyed', 'unchanged'])
 
 /**
  * How one item's Registry re-key went. `none`: no re-key was attempted (a dry
- * run, or a document the pass did not apply). `failed`: the Registry returned no
- * result for the document, or the call raised an error. `reported`: anything
- * else, which is the Registry's own status and is shown as returned. The
- * platform does not document the success value, so none is assumed here.
+ * run, or a document the pass did not apply). `ok`: the Registry re-keyed the
+ * entry or already held that identity. `failed`: anything else — not_found,
+ * conflict, missing, an error, or a status this code does not know. An
+ * allowlist of successes, so a new failure status is never shown as success.
  */
 export function registryOutcome(item: Pick<RehashIdentitiesItem, 'registry_status'>): RegistryOutcome {
   const s = item.registry_status
   if (s === null || s === undefined) return 'none'
-  const v = s.trim().toLowerCase()
-  if (v === 'missing' || v.startsWith('error')) return 'failed'
-  return 'reported'
+  return REKEY_OK.has(s.trim().toLowerCase()) ? 'ok' : 'failed'
 }
 
 export interface RegistrySummary {
