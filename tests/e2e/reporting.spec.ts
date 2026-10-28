@@ -102,6 +102,9 @@ test.describe('reporting', () => {
   test('Parity reports the namespace and its synced template', async ({ page }) => {
     await page.goto('postgres')
     await page.getByRole('button', { name: 'Parity', exact: true }).click()
+    // Nothing runs on open: parity is checked per namespace on request.
+    await expect(page.getByText('not checked').first()).toBeVisible()
+    await page.getByRole('button', { name: `Check parity for ${ns}`, exact: true }).click()
     const card = page.locator('div.rounded-lg').filter({ has: page.getByText(ns, { exact: true }) }).first()
     await expect(card).toBeVisible({ timeout: 30_000 })
     await card.getByRole('button', { name: /Show all templates/ }).click()

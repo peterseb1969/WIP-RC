@@ -66,7 +66,15 @@ function TemplateIssueRow({ t }: { t: ParityTemplate }) {
   )
 }
 
-function NamespaceParityCard({ parity }: { parity: NamespaceParity }) {
+function NamespaceParityCard({
+  parity,
+  fetching,
+  onRecheck,
+}: {
+  parity: NamespaceParity
+  fetching: boolean
+  onRecheck: () => void
+}) {
   const [showAll, setShowAll] = useState(false)
   const issues = parity.templates.filter(templateHasIssue)
   const clean = parity.templates.length - issues.length
@@ -86,6 +94,15 @@ function NamespaceParityCard({ parity }: { parity: NamespaceParity }) {
         <span className="ml-auto text-xs text-gray-400">
           {parity.structural_issues} structural · {parity.count_mismatches} count mismatches
         </span>
+        <button
+          onClick={onRecheck}
+          disabled={fetching}
+          aria-label={`Re-check parity for ${parity.namespace}`}
+          title={`Re-check parity for ${parity.namespace}`}
+          className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+        >
+          <RefreshCw size={12} className={fetching ? 'animate-spin' : ''} />
+        </button>
       </div>
 
       {!parity.schema_present && (
@@ -149,30 +166,39 @@ function NamespaceParityCard({ parity }: { parity: NamespaceParity }) {
 }
 
 /**
- * Parity tab of the PostgreSQL page: one reporting-parity report per namespace
+ * Parity tab of the PostgreSQL page: a reporting-parity report per namespace
  * that has reporting tables (schema/bookkeeping health, per-template table and
- * count checks against the document store), fetched in parallel.
+ * count checks against the document store). A check reads every document count
+ * in the namespace, so nothing runs on open — the operator checks one namespace
+ * or all of them. Results already cached from an earlier check show without
+ * re-running.
  */
 export default function ParityPanel() {
   const client = useWipClient()
   const queryClient = useQueryClient()
   const { data: inventory, isLoading } = useReportingInventory()
   const namespaces = [...new Set((inventory?.tables ?? []).map(t => t.namespace))].sort()
+  const [requested, setRequested] = useState<ReadonlySet<string>>(new Set())
 
   const results = useQueries({
     queries: namespaces.map(ns => ({
       queryKey: PARITY_QUERY_KEY(ns),
       queryFn: () => client.reporting.getParity(ns),
       staleTime: 60_000,
+      enabled: requested.has(ns),
     })),
   })
 
-  const anyLoading = isLoading || results.some(q => q.isLoading)
+  const anyFetching = results.some(q => q.isFetching)
 
-  const handleRefresh = () => {
-    for (const ns of namespaces) {
+  // Invalidate first so a namespace whose result is still fresh is re-run, then
+  // enable it: an already-enabled query refetches on invalidation, a newly
+  // enabled stale one fetches on mount of the observer.
+  const check = (targets: string[]) => {
+    for (const ns of targets) {
       queryClient.invalidateQueries({ queryKey: PARITY_QUERY_KEY(ns) })
     }
+    setRequested(prev => new Set([...prev, ...targets]))
   }
 
   if (isLoading) return <LoadingState label="Loading namespaces..." />
@@ -182,19 +208,20 @@ export default function ParityPanel() {
 
   return (
     <div className="space-y-3 max-w-4xl">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-gray-400">
           Compares document counts against the reporting layer per template, and flags
-          structural gaps (missing views, legacy pre-split tables, column drift).
+          structural gaps (missing views, legacy pre-split tables, column drift). Each
+          check queries the namespace&apos;s document store, so run it per namespace or for all.
         </p>
         <button
-          onClick={handleRefresh}
-          disabled={anyLoading}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          title="Re-check parity for all namespaces"
+          onClick={() => check(namespaces)}
+          disabled={anyFetching}
+          className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          title="Check parity for all namespaces"
         >
-          <RefreshCw size={12} className={anyLoading ? 'animate-spin' : ''} />
-          Check parity
+          <RefreshCw size={12} className={anyFetching ? 'animate-spin' : ''} />
+          Check all
         </button>
       </div>
       {namespaces.map((ns, i) => {
@@ -202,12 +229,44 @@ export default function ParityPanel() {
         if (q?.isLoading) return <LoadingState key={ns} label={`Checking ${ns}...`} />
         if (q?.error) {
           return (
-            <div key={ns} className="bg-danger/5 border border-danger/20 rounded-lg px-4 py-3 text-xs text-danger">
-              {ns}: {q.error.message}
+            <div key={ns} className="bg-danger/5 border border-danger/20 rounded-lg px-4 py-3 text-xs text-danger flex items-center gap-2">
+              <span className="flex-1">{ns}: {q.error.message}</span>
+              <button
+                onClick={() => check([ns])}
+                disabled={q.isFetching}
+                aria-label={`Check parity for ${ns}`}
+                className="px-2 py-1 border border-danger/30 rounded hover:bg-danger/10 disabled:opacity-50"
+              >
+                Retry
+              </button>
             </div>
           )
         }
-        return q?.data ? <NamespaceParityCard key={ns} parity={q.data} /> : null
+        if (q?.data) {
+          return (
+            <NamespaceParityCard
+              key={ns}
+              parity={q.data}
+              fetching={q.isFetching}
+              onRecheck={() => check([ns])}
+            />
+          )
+        }
+        return (
+          <div key={ns} className="bg-white border border-gray-200 rounded-lg px-4 py-2.5 flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">{ns}</span>
+            <span className="text-xs text-gray-400">not checked</span>
+            <button
+              onClick={() => check([ns])}
+              disabled={anyFetching}
+              aria-label={`Check parity for ${ns}`}
+              className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 text-xs border border-gray-200 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              <RefreshCw size={12} />
+              Check
+            </button>
+          </div>
+        )
       })}
     </div>
   )
