@@ -6,6 +6,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { appConfigHandler, wipProxy } from '@wip/proxy'
 import { initAuth, requireAuth, handleCallback, handleLogout } from './auth.js'
+import { guardMaintenance } from './maintenance-gate.js'
 import mongoRouter from './infra/mongo.js'
 import natsRouter from './infra/nats.js'
 import nlRouter from './nl/query.js'
@@ -79,6 +80,10 @@ router.get('/api/health', health)
 // Runtime client config (deployable-app contract). RC is a cross-namespace
 // console with no namespace of its own, so namespace is always null.
 router.get('/api/app-config', appConfigHandler({ namespace: null }))
+
+// Identity-rewriting maintenance endpoints need an admin group: the proxy below
+// calls WIP with the deployment's admin key, so WIP cannot refuse a non-admin user.
+router.use(guardMaintenance())
 
 // WIP API proxy — frontend uses @wip/client with baseUrl: '/wip'
 router.use('/wip', wipProxy({
