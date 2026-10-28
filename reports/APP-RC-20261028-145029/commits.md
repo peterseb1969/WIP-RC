@@ -23,3 +23,11 @@
 **What:** The Batch Sync E2E located the dropdown by its "Single template…" placeholder; it now uses the accessible name, and asserts the scoped list names the namespace, shows "Label (VALUE)" and is shorter than the unscoped list.
 **Why:** 2f218e4 changed the placeholder once a scope is set, so the existing spec could no longer find the select.
 **Discovered:** My first version of the new assertion counted unscoped options before the template list had loaded (placeholder only) and failed spuriously; it now waits for the list first. This E2E run is also what verified 2f218e4 in a real browser against the deployed app.
+
+## 917e4d2 — chore: scaffold refresh — @wip/client 0.64.0, @wip/react 0.24.0
+**Time:** 17:02
+**Files:** 13 changed (tarballs, READMEs, two wheels, package.json + lockfile, two docs, yac-status.py)
+**Tests:** tsc clean; unit 255/255 against the upgraded libs. Pre-commit gate passed.
+**What:** Ran `../World-in-a-Pie/scripts/create-app-project.sh "$PWD"` in place (WIP develop 65a2e739). CLAUDE.md.refresh differed from CLAUDE.md only in the app description and key-path wording, so nothing was merged and the file was deleted. New tarballs staged with `git add -f` (`*.tgz` is gitignored).
+**Why:** Peter asked to refresh the clone from the WIP clone. The refresh also brings in `documents.rehashIdentities` / `requalifyIdentitySynonyms` and the `useRehashIdentities` hook, which is BE-YAC's answer to the rehash request RC filed.
+**Discovered:** The script aborted twice with "wheel already exists in the app with different content" for `wip_toolkit-0.6.2` and `wip_archive-0.3.0`. I compared the wheels member by member: all code files are byte-identical; only `WHEEL` (`Generator: hatchling 1.32.4` -> `1.33.0`) and the `RECORD` hash of it differ. The same-version guard is meant to stop changed code shipping unversioned, so this is a false positive from a build-tool upgrade; I deleted the two old wheels from `libs/` and re-ran so the fresh ones were installed. Worth telling BE-YAC (the guard should ignore the Generator stamp).

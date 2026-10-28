@@ -21,7 +21,7 @@ Continues from APP-RC-20260811-123136 (via /wip-wake).
 **Phase:** 4 complete — ongoing /wip-improve maintenance  
 **Branch:** master, up to date with origin  
 **Last commit:** 8a1bbbb — fix: parity null crash, NATS graceful disconnect, version warning wording  
-**Open known issues:** CASE-35 (document table 500), term fields cap at 100, nested object arrays read-only  
+**Open known issues:** the document table view returns 500 on some templates (see KNOWN_ISSUES.md), term fields cap at 100, nested object arrays read-only  
 
 ## Session goals
 TBD — awaiting user direction.
