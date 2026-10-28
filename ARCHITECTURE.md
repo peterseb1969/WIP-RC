@@ -58,6 +58,7 @@ All routes are children of `AppLayout` in `src/App.tsx`. `BrowserRouter` gets `b
 | `/query` | NLQueryPage | Chat-style NL query |
 | `/api-keys` | APIKeysPage | API key CRUD, tiers, effective permissions, Anthropic key override |
 | `/backup` | BackupRestorePage | Backup / Restore / Validate tabs |
+| `/identity-maintenance` | IdentityMaintenancePage | Preview and apply the document-store identity rehash for one namespace |
 
 ## Component hierarchy
 
@@ -120,6 +121,10 @@ The PostgreSQL page itself (`src/pages/PostgresPage.tsx`) contains `TableBrowser
 - **Validate:** namespace integrity.
 
 A shared `JobsList` polls async jobs.
+
+`IdentityMaintenancePage` runs the document-store rehash pass (`documents.rehashIdentities`) for one namespace, optionally narrowed to templates the namespace's documents use (template facets, matched by template id). It always starts as a dry run. Apply is offered only for a preview of the scope now on screen that found changes (`src/lib/identity-rehash.ts`), behind an inline confirmation. The applied result keeps "documents rewritten" apart from the Registry re-key outcome, because the platform counts the first whether or not the second succeeded. Two things are deliberate:
+- The pass is synchronous, so the page calls it through `maintenanceClient` (`src/lib/wip.ts`), a second client with a 5 minute timeout. The shared client gives up after 30 seconds while the server keeps working. Only GETs are retried, so the POST is never repeated.
+- The maintenance endpoints are admin-gated in RC itself. The proxy calls WIP with the deployment's admin key, so WIP's own admin check can never refuse a user. `server/maintenance-gate.ts` requires `WIP_ADMIN_GROUPS` (default `wip-admins`) for any path under `/wip/api/document-store/maintenance`, matched after decoding and normalizing the path, and is mounted before the proxy.
 
 ## Data flow
 

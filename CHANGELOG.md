@@ -1,5 +1,14 @@
 # RC-Console — Changelog
 
+## 2026-10-28 — Identity Maintenance, per-namespace parity, Batch Sync dropdown, client 0.64.0
+
+- Added: **Identity Maintenance** page (Admin section) for the document-store rehash pass. One namespace at a time, optionally narrowed to templates its documents use. It starts as a preview; Apply is offered only for a preview of the scope on screen that found changes, behind a confirmation. The applied result separates documents rewritten from the Registry re-key outcome, flags failed re-keys, shows collisions as report-only and shows the platform's reporting note as returned. The call goes through a client with a 5 minute timeout, since the pass is synchronous.
+- Added: an admin gate in RC's server on the document-store maintenance endpoints. The proxy calls WIP with the deployment's admin key, so WIP cannot refuse a user itself. Members of `WIP_ADMIN_GROUPS` (default `wip-admins`) only; dot segments, `%2e` and upper-case spellings of the path are matched too.
+- Changed: the PostgreSQL **Parity** tab no longer checks every namespace when it opens. Each namespace shows "not checked" with its own Check button, and Check all runs them together; checked cards have a re-check, failed ones a Retry.
+- Changed: the **Batch Sync** single-template dropdown follows the namespace scope: with a scope set it lists the templates that namespace's documents use (including ones owned elsewhere), and each option shows the label and the value.
+- Changed: adopted @wip/client 0.64.0 and @wip/react 0.24.0 (scaffold refresh), which add the rehash and requalify-synonyms calls.
+- Tests: E2E specs for Identity Maintenance and the Batch Sync narrowing; unit tests for the gate, the rehash helpers and the page.
+
 ## 2026-10-19 — Nested template objects get sub-forms
 
 - Added: array items and object fields shaped by a template (`array_template_ref` / `template_ref`) are edited in a sub-form of that template's fields, at the version the field pins. Nested term, reference, date, file and array fields work as at the top level. Arrays of template objects without an item type, previously read-only, are editable.

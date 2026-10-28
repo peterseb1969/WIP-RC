@@ -2,6 +2,12 @@
 
 ## Open Issues
 
+### Identity Maintenance: what the platform leaves undocumented
+**Status:** known
+**Severity:** low
+**Description:** Two details of the rehash pass are not documented by the platform, so the page does not guess at them. (1) The Registry re-key status that means success is not documented: the page counts `missing` and `error…` as failed and shows every other status as returned, without naming one as success. (2) The reporting follow-up is stated two ways, replay the affected templates or run a forced batch sync, and which refreshes the identity hash column has not been tested. The page shows the platform's own note unmodified and points at the PostgreSQL page's Batch Sync tab.
+**Context:** Settle both against a namespace that has documents with legacy-format hashes, then name them in the page. The apply path is covered by the component test only: such documents cannot be created through the API, so the E2E spec previews a fresh namespace.
+
 ### Registered views: edits to app-owned views are overwritten by the app
 **Status:** known (by design)
 **Severity:** low

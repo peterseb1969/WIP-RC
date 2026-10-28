@@ -32,6 +32,7 @@ The sidebar is flat, grouped into Overview / Data / Infrastructure / Health / Ad
   - **Validate**: namespace integrity.
 
   Jobs are tracked asynchronously, and large archives download through a streaming route.
+- **Identity Maintenance** — recompute stored identity hashes for one namespace (the document-store rehash pass). It always starts as a preview, then Apply, behind a confirmation, rewrites the hashes. The result shows documents rewritten apart from the Registry re-key outcome, collisions as report-only, and the platform's reporting note. Admin only (`WIP_ADMIN_GROUPS`, default `wip-admins`), enforced by RC's server.
 - **NL Query** — chat interface. Claude answers questions using read-only WIP tools (see ARCHITECTURE.md → NL query).
 
 ## How to run
@@ -187,6 +188,7 @@ npm run test:e2e    # End-to-end, against a running WIP install (default: defaul
   - same-named templates: with one template value in two namespaces, a new document, the table view and an import by value stay in the selected namespace;
   - relationships: an edge type from the Template Builder, an edge through the form's endpoint pickers, the Relationships panel on both endpoints;
   - reporting: Query Pad against a table reporting-sync filled (waited for with `eventually()`), CSV export from the Query Pad (and its error on a bad query) and the Table Browser, the Parity tab, a registered view tested, saved, read and deleted, and a forced Batch Sync of one template in a namespace;
+  - identity maintenance: the page loads from the sidebar, a preview of the run's namespace (narrowed to one template) scans its documents, finds nothing to change and leaves Apply unavailable. Applying needs documents with a legacy-format hash, which the API cannot create; that flow is covered by the page's component test;
   - template versioning: a schema change mints version 2 with version 1 still active, existing documents stay on version 1, deactivate and reactivate a single version, identity fields locked in the editor;
   - access control: a user outside `ALLOWED_GROUPS` (the deployer's `viewer@wip.local`) gets 403 from RC's server and its `/wip` proxy, a write through the proxy does not land, and pages show the denial.
 - **Prerequisites:** the `e2e` user (`wip-deploy user add e2e --email e2e@wip.local --group wip-admins --name default`), and `ALLOWED_GROUPS` set on the install for the access spec. Secrets are read from `~/.wip-deploy/<deployment>/secrets/` (`dex-password-e2e`, `dex-password-viewer`, `api-key`); the access spec skips its viewer checks when the viewer password is absent. The `E2E_*` variables in `tests/e2e/support/env.ts` override the target.
