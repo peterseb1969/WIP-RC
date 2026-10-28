@@ -66,3 +66,10 @@ This clone was 14 commits behind origin/master (last fetch Oct 20) and never had
 **Tests:** tsc clean, unit 247/247, E2E 74/74 on the upgraded default install
 **What:** Libs re-vendored; the pre-commit gate (.githooks) is shipped and enabled; .claude/kb.json untracked (kb.json.example added). CLAUDE.md.refresh differed only in app lines, so nothing to merge.
 **Why:** CASE-952 re-vendor step. CASE-952#1 records it as implemented.
+
+## b3d6bd5 — fix: Identity Maintenance flags a Registry conflict or not_found as a failed re-key
+**Time:** 20:49
+**Files:** 3 changed
+**Tests:** unit 293/293 (the new page test fails on the old code); E2E identity-maintenance spec 1/1; full suite 75/75 just before (the spec doesn't reach the apply path)
+**What:** registryOutcome is now a success allowlist (rekeyed, unchanged), and every other status counts as failed.
+**Why:** The Registry's rekey endpoint also returns conflict and not_found; the page showed those as neutral, with no failure alert.
