@@ -73,3 +73,11 @@ This clone was 14 commits behind origin/master (last fetch Oct 20) and never had
 **Tests:** unit 293/293 (the new page test fails on the old code); E2E identity-maintenance spec 1/1; full suite 75/75 just before (the spec doesn't reach the apply path)
 **What:** registryOutcome is now a success allowlist (rekeyed, unchanged), and every other status counts as failed.
 **Why:** The Registry's rekey endpoint also returns conflict and not_found; the page showed those as neutral, with no failure alert.
+
+## 36b7326 — fix: template dropdowns sorted by the text shown, each template once
+**Time:** 20:55
+**Files:** 2 changed
+**Tests:** unit 296/296 (3 new); E2E reporting + identity-maintenance 7/7
+**What:** syncTemplateOptions sorts by the displayed "Label (VALUE)" text with a numeric, case-insensitive collator, and dedupes by template value.
+**Why:** Peter: the Batch Sync template order "is not even alphanumeric". It was sorted by the value, and also listed one identical line per namespace.
+**Discovered:** The old unit test's fixtures sorted the same way by label and by value, so it could not catch this.
