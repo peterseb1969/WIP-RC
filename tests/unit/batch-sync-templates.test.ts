@@ -34,6 +34,39 @@ describe('syncTemplateOptions', () => {
     expect(syncTemplateOptions(all, null).map(o => o.value)).toEqual(['PATIENT', 'SHARED', 'VISIT'])
   })
 
+  it('sorts by the text shown, not by the value in parentheses', () => {
+    // Sorted by value these read "Media attached to, Book Structure, Chapter":
+    // not alphabetical to anyone looking at the list.
+    const opts = syncTemplateOptions([
+      tmpl('a', 'AA_ATTACHED_TO', 'Media attached to'),
+      tmpl('b', 'AA_BOOK_STRUCTURE', 'Book Structure'),
+      tmpl('c', 'AA_CHAPTER', 'Chapter'),
+    ], null)
+    expect(opts.map(o => o.text)).toEqual([
+      'Book Structure (AA_BOOK_STRUCTURE)',
+      'Chapter (AA_CHAPTER)',
+      'Media attached to (AA_ATTACHED_TO)',
+    ])
+  })
+
+  it('sorts case-insensitively, with numbers in natural order', () => {
+    const opts = syncTemplateOptions([
+      tmpl('a', 'V10', 'visit 10'),
+      tmpl('b', 'V2', 'Visit 2'),
+      tmpl('c', 'ADDR', 'address'),
+    ], null)
+    expect(opts.map(o => o.text)).toEqual(['address (ADDR)', 'Visit 2 (V2)', 'visit 10 (V10)'])
+  })
+
+  it('offers a template value once when several namespaces have it', () => {
+    const opts = syncTemplateOptions([
+      tmpl('x-1', 'AA_CHAPTER', 'Chapter', 'aa'),
+      tmpl('x-2', 'AA_CHAPTER', 'Chapter', 'aa-demo-app'),
+      tmpl('x-3', 'AA_CHAPTER', 'Chapter', 'aa-demo-book'),
+    ], null)
+    expect(opts).toEqual([{ template_id: 'x-1', value: 'AA_CHAPTER', text: 'Chapter (AA_CHAPTER)' }])
+  })
+
   it('limits a scoped list to templates the namespace documents use', () => {
     const opts = syncTemplateOptions(all, [facet('t-1', 'ns-a'), facet('t-3', 'ns-a')])
     expect(opts.map(o => o.value)).toEqual(['PATIENT', 'VISIT'])

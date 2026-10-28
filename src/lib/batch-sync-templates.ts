@@ -25,18 +25,32 @@ export function templateOptionText(label: string | null | undefined, value: stri
  * of are offered — membership by template_id, never by the template's own
  * namespace, because a document can be based on a template owned elsewhere and
  * a scoped sync of that template is exactly what the operator may want.
+ *
+ * Each template value is offered once. Templates of the same value in several
+ * namespaces would show as identical lines, and a sync names the template by
+ * value only, so every one of them would send the same request.
+ *
+ * Sorted by the text the dropdown shows (case-insensitive, numbers in natural
+ * order), not by the value, which sits in parentheses after the label.
  */
 export function syncTemplateOptions(
   templates: readonly Template[],
   facets: readonly TemplateFacet[] | null,
 ): TemplateOption[] {
   const inScope = facets ? new Set(facets.map(f => f.template_id)) : null
-  return templates
-    .filter(t => !inScope || inScope.has(t.template_id))
-    .map(t => ({
+  const byValue = new Map<string, TemplateOption>()
+  for (const t of templates) {
+    if (inScope && !inScope.has(t.template_id)) continue
+    if (byValue.has(t.value)) continue
+    byValue.set(t.value, {
       template_id: t.template_id,
       value: t.value,
       text: templateOptionText(t.label, t.value),
-    }))
-    .sort((a, b) => a.value.localeCompare(b.value))
+    })
+  }
+  return [...byValue.values()].sort(
+    (a, b) => collator.compare(a.text, b.text) || a.value.localeCompare(b.value),
+  )
 }
+
+const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true })
