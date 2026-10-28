@@ -146,8 +146,18 @@ test.describe('reporting', () => {
   test('Batch Sync force-rebuilds one template in a namespace', async ({ page }) => {
     await page.goto('postgres')
     await page.getByRole('button', { name: 'Batch Sync', exact: true }).click()
+    const template = page.getByLabel('Single template', { exact: true })
+    // Count only once the template list has loaded (the placeholder is there first).
+    await expect(template.locator('option', { hasText: `(${TEMPLATE})` })).toHaveCount(1)
+    const unscopedCount = await template.locator('option').count()
+
     await page.locator('main select[title^="Limits which documents are synced"]').selectOption(ns)
-    await page.locator('select').filter({ has: page.locator('option', { hasText: 'Single template…' }) }).selectOption(TEMPLATE)
+    // Scoped to the namespace the dropdown offers only templates its documents
+    // use, and each option shows the label and the value.
+    await expect(template.locator('option').first()).toContainText(`in ${ns}`)
+    await expect(template.locator('option', { hasText: `E2E Metric (${TEMPLATE})` })).toHaveCount(1)
+    expect(await template.locator('option').count()).toBeLessThan(unscopedCount)
+    await template.selectOption(TEMPLATE)
     await page.getByRole('button', { name: 'Advanced…' }).click()
     await page.getByRole('checkbox', { name: /Force rebuild/ }).check()
     await expect(page.getByText('force rebuild', { exact: true })).toBeVisible()
