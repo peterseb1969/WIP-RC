@@ -11,7 +11,7 @@
 ## 2f218e4 — feat: batch sync template dropdown follows the namespace scope and shows label and value
 **Time:** 15:23
 **Files:** 3 changed, +149/-11
-**Tests:** tsc clean; unit 255/255 (8 new in `tests/unit/batch-sync-templates.test.ts`). Facets endpoint checked live for `kb` and `pbs-clintrial`. Not checked in a browser; no E2E added.
+**Tests:** tsc clean; unit 255/255 (8 new in `tests/unit/batch-sync-templates.test.ts`). Facets endpoint checked live for `kb` and `pbs-clintrial`. Browser-verified afterwards by the reporting E2E spec (see 508ae88).
 **What:** With a namespace scope set, the single-template dropdown lists only templates that namespace's documents are instances of (template facets, `status: 'all'`, matched by template_id so foreign-owned templates stay). Options read "Label (VALUE)". Failed lookup falls back to the full list; a selection that leaves scope is cleared. Logic lives in `src/lib/batch-sync-templates.ts`.
 **Why:** The dropdown listed every template whatever namespace was selected and showed only the label, while the rest of the UI shows the value.
 **Discovered:** Filtering by template ownership would have been wrong: a namespace's documents can use a template owned elsewhere (see the comment at the top of BatchSyncPanel.tsx).
