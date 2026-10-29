@@ -69,3 +69,18 @@
 **Tests:** n/a
 **What:** Documents the page, the admin gate and the long-timeout client, the Parity and Batch Sync changes, the library bump, and the two platform details the page does not guess at.
 **Why:** Keep the docs in step with the session's changes.
+
+## 30e1925 — feat: read-only Settings tab for the reporting database's configuration
+**Time:** 15:00
+**Files:** 7 changed (db-settings lib, use-db-settings hook, DatabaseSettingsPanel, PostgresPage tab, two unit test files, reporting E2E spec)
+**Tests:** 29 new unit tests (18 helpers, 11 panel); full unit run 328/328; tsc clean; the new E2E test passes on the live install (26 s). Two mutation checks: adding a button to the panel fails the "offers nothing that changes the database" test; the helper test pins that none of the three queries contains a word the endpoint's keyword filter refuses.
+**What:** A Settings tab on the PostgreSQL page showing the reporting database's configuration as the reporting role's sessions see it: each setting's value, source and what changing it takes, the role and database defaults with whether each covers the session read, filters by name, category and "not at default".
+**Why:** Peter asked for option A of the database-config exploration: view only. It makes drift visible, such as the hand-set database default for jit.
+**Discovered:** The panel reads three SELECTs through the reporting query endpoint (342 settings listed, 22 not at default on this install). The values are those of whichever pooled session answered, so the panel says that a default set later reaches only new sessions. My first component test assumed the Debian build tag would be cut from the version line; it is kept and only the platform and compiler tail is dropped, so the test was corrected, not the code.
+
+## bca0077 — docs: the PostgreSQL Settings tab
+**Time:** 15:00
+**Files:** 4 changed (ARCHITECTURE, CHANGELOG, README, WIP_DEPENDENCIES)
+**Tests:** n/a
+**What:** Documents the tab, the queries it runs, and why nothing on it is writable.
+**Why:** Keep the docs in step with the change.
