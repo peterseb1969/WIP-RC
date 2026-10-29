@@ -1,5 +1,9 @@
 # RC-Console — Changelog
 
+## 2026-10-29 — Database settings tab
+
+- Added: a **Settings** tab on the PostgreSQL page, a read-only view of the reporting database's configuration as the reporting role's sessions see it. Each setting shows its value (with unit and, when changed, the built-in default), where the value comes from, and what changing it takes: a session, role or database default; a config reload; a restart; or not at all. A table lists the defaults a role or database carries and whether each covers the session that was read. Filter by name, description or category, or show only settings not at default. It reads through the reporting query endpoint, changes nothing, and says that a default set on a database or role reaches only sessions that start afterwards.
+
 ## 2026-10-28 — Identity Maintenance, per-namespace parity, Batch Sync dropdown, client 0.64.0
 
 - Added: **Identity Maintenance** page (Admin section) for the document-store rehash pass. One namespace at a time, optionally narrowed to templates its documents use. It starts as a preview; Apply is offered only for a preview of the scope on screen that found changes, behind a confirmation. The applied result separates documents rewritten from the Registry re-key outcome, flags failed re-keys, shows collisions as report-only and shows the platform's reporting note as returned. The call goes through a client with a 5 minute timeout, since the pass is synchronous.

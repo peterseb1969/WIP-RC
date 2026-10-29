@@ -49,7 +49,7 @@ All routes are children of `AppLayout` in `src/App.tsx`. `BrowserRouter` gets `b
 | `/files` | FileListPage | Sortable file browser with orphan badges |
 | `/files/:id` | FileDetailPage | Metadata + inline preview |
 | `/registry` | RegistryPage | Search, browse, by-term search, entry detail |
-| `/postgres` | PostgresPage | Table Browser, Views, Query Pad, Batch Sync, Parity tabs |
+| `/postgres` | PostgresPage | Table Browser, Views, Query Pad, Batch Sync, Parity, Settings tabs |
 | `/mongodb` | MongoPage | Database → collection → document drill-down |
 | `/nats` | NatsPage | Streams, consumers, ingest-gateway status |
 | `/integrity` | IntegrityPage | On-demand referential integrity checks |
@@ -108,6 +108,7 @@ The edge-type endpoint picker (`EndpointPicker`) lives inside `TemplateBuilderPa
 - `BatchSyncPanel` — namespace-scoped batch sync, force rebuild, live job list.
 - `ParityPanel` — per-namespace documents-vs-reporting parity.
 - `RegisteredViewsPanel` — the Views tab: list, detail with row preview, create/replace editor with Test, delete, "Open in Query Pad".
+- `DatabaseSettingsPanel` — the Settings tab: read-only database configuration. `useDbSettings` runs three SELECTs through the reporting query endpoint (`pg_settings`, the `pg_db_role_setting` defaults for roles and databases, and the answering session). The values are those of whichever pooled session answered, and a default set on the database or a role reaches only sessions that start afterwards, so an older pooled session can still show the previous value; the panel says so. Settings reserved for monitoring roles are not listed for the reporting role. Nothing is writable from RC: the reporting role is read-only, the endpoint refuses DDL, and the platform deliberately never serves as a privileged role. The pure logic (value formatting, what changing a setting takes, filtering, whether a default covers the session) is in `src/lib/db-settings.ts`.
 
 **`src/components/grants/`** — `GrantsPanel` (namespace grants, on NamespacesPage) and `KeyEffectivePermissions` (on APIKeysPage).
 

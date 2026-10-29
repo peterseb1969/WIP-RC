@@ -14,12 +14,13 @@ The sidebar is flat, grouped into Overview / Data / Infrastructure / Health / Ad
 - **Documents** — template selector (it also lists templates owned by another namespace that this namespace has documents for), rows summarised via the template's `header_fields`, server-side sorting, and an all-templates view. Auto-generated create/edit forms covering every field type; edit uses RFC 7396 JSON Merge Patch with optimistic concurrency. Table view with CSV export, CSV import wizard, validate, archive. Detail shows hydrated references, a version inspector (historical snapshot + diff vs current), and for edge types and their endpoints, relationship and traversal panels.
 - **Files** — paginated browser, preview (image/video/audio/PDF/text, streamed through the backend), orphan badges for unreferenced files.
 - **Registry** — entry search and browse, by-term search mode, entry detail with synonyms.
-- **PostgreSQL** — five tabs:
+- **PostgreSQL** — six tabs:
   - **Table Browser**: an entity-first inventory grouped by namespace, with filters in the URL. Selecting a table shows its columns and a paginated data view with CSV export.
   - **Views**: list, create, edit, delete and preview **registered reporting views** in every namespace.
   - **Query Pad**: SQL scoped to a namespace, with history and CSV export. The editor highlights PostgreSQL, autocompletes table, view and column names, runs on Ctrl/Cmd+Enter and formats on Shift+Alt+F (also in the registered-view editor).
   - **Batch Sync**: namespace-scopable sync with an optional force rebuild.
-  - **Parity**: per-namespace documents-vs-reporting checks.
+  - **Parity**: per-namespace documents-vs-reporting checks, run per namespace or for all.
+  - **Settings**: a read-only view of how the reporting database is configured, as the reporting role's sessions see it. Every setting with its value, where the value comes from and what changing it takes (session, role or database; config reload; restart), plus the defaults a role or database carries and whether each covers the session read. Filter by name, category or "not at default". It changes nothing.
 - **MongoDB** — database → collection → document drill-down with indexes, plus a read-only query pad per collection: filter, projection and sort as Extended JSON, with field and operator autocomplete, a limit, paging and the total match count.
 - **NATS** — stream cards with consumer details; friendly banner when NATS isn't deployed.
 - **Integrity** — on-demand cross-service referential integrity checks.
