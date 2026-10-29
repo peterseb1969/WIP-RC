@@ -111,6 +111,20 @@ test.describe('reporting', () => {
     await expect(card.getByText(TEMPLATE, { exact: true })).toBeVisible()
   })
 
+  test('Settings tab shows the database configuration and offers no way to change it', async ({ page }) => {
+    await page.goto('postgres')
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await expect(page.getByText(/Read-only/)).toBeVisible()
+
+    await page.getByPlaceholder(/Filter by name/).fill('jit')
+    await expect(page.getByRole('row', { name: /^jit Allow JIT compilation/ })).toBeVisible()
+    await expect(page.getByRole('row', { name: /^jit_above_cost/ })).toBeVisible()
+
+    // The role defaults the platform gives the reporting role are listed.
+    const defaults = page.getByRole('region', { name: /defaults set on a role or database/i })
+    await expect(defaults.getByText('default_transaction_read_only = on')).toBeVisible()
+  })
+
   test('create, read and delete a registered view', async ({ page }) => {
     await page.goto('postgres')
     await page.getByRole('button', { name: 'Views' }).click()

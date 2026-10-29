@@ -21,6 +21,7 @@ import {
   ListFilter,
   Eye,
   WrapText,
+  SlidersHorizontal,
 } from 'lucide-react'
 import {
   useReportTables,
@@ -34,6 +35,7 @@ import {
   type ReportEntity,
 } from '@/hooks/use-reporting'
 import ParityPanel from '@/components/reporting/ParityPanel'
+import DatabaseSettingsPanel from '@/components/reporting/DatabaseSettingsPanel'
 import { useSyncStatus, useWipClient } from '@wip/react'
 import type { WipClient } from '@wip/client'
 import DataTable from '@/components/common/DataTable'
@@ -1099,7 +1101,7 @@ function QueryPad({ initialSql, initialNamespace }: { initialSql?: string; initi
 
 export default function PostgresPage() {
   const [selectedTable, setSelectedTable] = useState<ReportTable | null>(null)
-  const [activeTab, setActiveTab] = useState<'browser' | 'views' | 'query' | 'sync' | 'parity'>('browser')
+  const [activeTab, setActiveTab] = useState<'browser' | 'views' | 'query' | 'sync' | 'parity' | 'settings'>('browser')
   // A Query Pad pre-filled from elsewhere on the page (e.g. a registered view).
   // The id remounts the pad so a new seed replaces its state.
   const [padSeed, setPadSeed] = useState<{ id: number; sql: string; namespace: string } | null>(null)
@@ -1211,6 +1213,20 @@ export default function PostgresPage() {
             Parity
           </span>
         </button>
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={cn(
+            'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+            activeTab === 'settings'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          )}
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <SlidersHorizontal size={14} />
+            Settings
+          </span>
+        </button>
       </div>
 
       {/* Content */}
@@ -1243,6 +1259,8 @@ export default function PostgresPage() {
       {activeTab === 'sync' && <BatchSyncPanel />}
 
       {activeTab === 'parity' && <ParityPanel />}
+
+      {activeTab === 'settings' && <DatabaseSettingsPanel />}
     </div>
   )
 }
