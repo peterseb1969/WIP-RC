@@ -3,19 +3,24 @@
 // refuses statements by keyword, so none of the SQL below may contain a
 // write or DDL word (a test guards that).
 
+// The session's identity rides on every settings row. The endpoint pools its
+// connections, so a separate query for the session can be answered by another
+// connection (with another start time and possibly other values); one
+// statement guarantees the values and the session described are the same one.
 export const DB_SETTINGS_SQL =
-  'SELECT name, setting, unit, category, short_desc, context, vartype, source, boot_val, reset_val, ' +
-  'pending_restart, min_val, max_val, enumvals FROM pg_settings ORDER BY category, name'
+  'SELECT p.name, p.setting, p.unit, p.category, p.short_desc, p.context, p.vartype, p.source, p.boot_val, ' +
+  'p.reset_val, p.pending_restart, p.min_val, p.max_val, p.enumvals, ' +
+  'x.session_role, x.session_database, x.session_version, x.session_started FROM pg_settings p ' +
+  'CROSS JOIN (SELECT current_user AS session_role, current_database() AS session_database, ' +
+  'version() AS session_version, ' +
+  '(SELECT backend_start FROM pg_stat_activity WHERE pid = pg_backend_pid()) AS session_started) x ' +
+  'ORDER BY p.category, p.name'
 
 // One row per name=value pair a role and/or database carries as its own default.
 export const DB_OVERRIDES_SQL =
   "SELECT coalesce(r.rolname, '(all roles)') AS role, coalesce(d.datname, '(all databases)') AS database, " +
   'unnest(s.setconfig) AS setting FROM pg_db_role_setting s ' +
   'LEFT JOIN pg_roles r ON r.oid = s.setrole LEFT JOIN pg_database d ON d.oid = s.setdatabase ORDER BY 1, 2, 3'
-
-export const DB_SESSION_SQL =
-  'SELECT current_user AS role, current_database() AS database, version() AS version, ' +
-  '(SELECT backend_start FROM pg_stat_activity WHERE pid = pg_backend_pid()) AS session_started'
 
 export const ALL_OVERRIDES_SCOPE = { roles: '(all roles)', databases: '(all databases)' } as const
 
@@ -76,12 +81,13 @@ export function toOverride(row: Record<string, unknown>): PgOverride {
   return { role: str(row.role), database: str(row.database), setting: str(row.setting) }
 }
 
+/** The session that read the settings, from the session columns of a settings row; null without one. */
 export function toSession(row: Record<string, unknown> | undefined): DbSession | null {
   if (!row) return null
   return {
-    role: str(row.role),
-    database: str(row.database),
-    version: str(row.version),
+    role: str(row.session_role),
+    database: str(row.session_database),
+    version: str(row.session_version),
     session_started: strOrNull(row.session_started),
   }
 }

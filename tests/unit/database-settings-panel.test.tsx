@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import type { DbSettingsData } from '@/hooks/use-db-settings'
 import type { PgSetting } from '@/lib/db-settings'
 
-// The hook (three read-only queries) is mocked: what is under test is what the
+// The hook (two read-only queries) is mocked: what is under test is what the
 // operator sees, and that the tab offers nothing that changes the database.
 
 const state = vi.hoisted(() => ({

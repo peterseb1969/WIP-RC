@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   DB_OVERRIDES_SQL,
-  DB_SESSION_SQL,
   DB_SETTINGS_SQL,
   categoriesOf,
   contextInfo,
@@ -45,11 +44,19 @@ describe('the queries', () => {
   it.each([
     ['settings', DB_SETTINGS_SQL],
     ['overrides', DB_OVERRIDES_SQL],
-    ['session', DB_SESSION_SQL],
   ])('the %s query contains no write or DDL word', (_name, sql) => {
     expect(sql).not.toMatch(FORBIDDEN)
     expect(sql.trim().toUpperCase().startsWith('SELECT')).toBe(true)
     expect(sql).not.toContain(';')
+  })
+
+  it('reads the session in the same statement as the settings', () => {
+    // The endpoint pools connections, so a separate session query could
+    // describe another connection than the one whose values are shown.
+    for (const col of ['session_role', 'session_database', 'session_version', 'session_started']) {
+      expect(DB_SETTINGS_SQL).toContain(col)
+    }
+    expect(DB_SETTINGS_SQL).toContain('pg_backend_pid()')
   })
 })
 
@@ -67,9 +74,13 @@ describe('row mappers', () => {
   it('maps overrides and the session', () => {
     expect(toOverride({ role: 'r', database: 'd', setting: 'jit=off' })).toEqual({ role: 'r', database: 'd', setting: 'jit=off' })
     expect(toSession(undefined)).toBeNull()
-    expect(toSession({ role: 'r', database: 'd', version: 'PostgreSQL 16', session_started: null })).toEqual({
-      role: 'r', database: 'd', version: 'PostgreSQL 16', session_started: null,
-    })
+    // The session comes from the session columns of a settings row.
+    const row = {
+      name: 'jit', setting: 'on', session_role: 'r', session_database: 'd',
+      session_version: 'PostgreSQL 16', session_started: null,
+    }
+    expect(toSession(row)).toEqual({ role: 'r', database: 'd', version: 'PostgreSQL 16', session_started: null })
+    expect(toSetting(row).name).toBe('jit')
   })
 
   it('treats only a real true as pending a restart', () => {
