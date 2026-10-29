@@ -23,12 +23,21 @@ const PAGES: Array<{ path: string; heading: RegExp }> = [
   { path: 'query', heading: /Query/ },
 ]
 
+// The NATS page asks the ingest gateway for its status. The gateway is an
+// optional module: where it is not deployed the call answers 404, the page
+// treats that as "not deployed" and renders normally, but the browser still logs
+// the failed request. Only that one request, and only as a 404, is expected.
+const OPTIONAL_GATEWAY_STATUS = '/wip/api/ingest-gateway/status'
+
 /** Collect uncaught page errors and console errors while a page is used. */
 function watchErrors(page: Page): string[] {
   const errors: string[] = []
   page.on('pageerror', err => errors.push(`pageerror: ${err.message}`))
   page.on('console', msg => {
-    if (msg.type() === 'error') errors.push(`console: ${msg.text()}`)
+    if (msg.type() !== 'error') return
+    const expectedMissingGateway =
+      msg.location().url.endsWith(OPTIONAL_GATEWAY_STATUS) && msg.text().includes('404')
+    if (!expectedMissingGateway) errors.push(`console: ${msg.text()} (${msg.location().url})`)
   })
   return errors
 }
