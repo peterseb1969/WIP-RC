@@ -96,3 +96,10 @@ This clone was 14 commits behind origin/master (last fetch Oct 20) and never had
 **What:** The client is re-vendored; the restore page imports OlderVersionsPolicy from it. @wip/react stays at 0.24.0. CLAUDE.md.refresh had only app lines and was deleted.
 **Why:** It types the new restore option.
 **Discovered:** Peter restarted the container a minute after I had (his first ! line arrived as text), which cut into an E2E run; it was stopped and re-run cleanly. No merge restore with older_versions has been run end to end.
+
+## 50aa6de — fix: Settings tab reads the session in the same statement as the settings
+**Time:** 23:48
+**Files:** 4 changed
+**Tests:** unit 328/328; E2E reporting spec 7/7 (incl. the Settings tab); the new SQL was checked live: 342 rows, one session start time across all of them
+**What:** DB_SETTINGS_SQL carries session_role, session_database, session_version and session_started via a one-row CROSS JOIN; the separate session query was removed; toSession reads the session_* columns.
+**Why:** Three parallel requests to the pooled endpoint hit three connections, so the session line could describe a connection opened a day earlier than the one that read the values.
