@@ -5,8 +5,8 @@
 ### Parity: adopt `GET /api/reporting-sync/parity/status` when the platform ships it
 **Status:** backlog
 **Severity:** low
-**Description:** The Parity tab of the PostgreSQL page checks each namespace with `GET /api/reporting-sync/parity`, one request per namespace, run only when the operator asks, because each check reads every document count in that namespace. Peter asked for `GET /api/reporting-sync/parity/status` to be on RC's backlog. As of WIP `develop` `149f9d3f` (2026-10-30) the endpoint does not exist on any branch, and no KB document describes it, so its response shape and cost are unknown.
-**Context:** Once it ships, read its definition (reporting-sync `main.py`, the `@wip/client` method and its release note) before changing anything. Then decide whether the Parity tab can show a status for every namespace on open, instead of "not checked", and keep the per-namespace check for detail.
+**Description:** A new reporting-sync endpoint, coming soon, for monitoring the parity self-checks the platform already runs (per Peter, 2026-10-30). RC should show what it reports. Today the Parity tab of the PostgreSQL page runs its own checks with `GET /api/reporting-sync/parity`, one request per namespace and only when the operator asks, because each check reads every document count in that namespace. The endpoint is not on WIP `develop` yet (`149f9d3f`), so its response shape is unknown.
+**Context:** Once it ships, read its definition (reporting-sync `main.py`, the `@wip/client` method and its release note) before building on it. Likely use: show the platform's self-check status for every namespace when the Parity tab opens, instead of "not checked", and keep the per-namespace check for detail.
 
 ### Identity Maintenance: what the platform leaves undocumented
 **Status:** known
