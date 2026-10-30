@@ -5,7 +5,7 @@ import session from 'express-session'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { appConfigHandler, wipProxy } from '@wip/proxy'
-import { initAuth, requireAuth, handleCallback, handleLogout } from './auth.js'
+import { startAuth, authStatus, requireAuth, handleCallback, handleLogout } from './auth.js'
 import { guardMaintenance } from './maintenance-gate.js'
 import mongoRouter from './infra/mongo.js'
 import natsRouter from './infra/nats.js'
@@ -70,9 +70,12 @@ router.use(requireAuth())
 // /health is what the wip-app.yaml healthcheck and the Dockerfile probe;
 // /api/health is the deployable-app contract's path. Both are public in
 // server/auth.ts — a probe has no session — and neither touches WIP, so the
-// container reports healthy even while WIP is unreachable.
+// container reports healthy even while WIP is unreachable. `auth` says whether
+// OIDC sign-in is ready ('pending' while the identity provider is still
+// starting); it never changes the status code, so the probe stays independent
+// of Dex as well.
 const health: express.RequestHandler = (_req, res) => {
-  res.json({ status: 'ok', service: 'rc-console' })
+  res.json({ status: 'ok', service: 'rc-console', auth: authStatus() })
 }
 router.get('/health', health)
 router.get('/api/health', health)
@@ -342,7 +345,9 @@ if (process.env.NODE_ENV === 'production') {
 app.use(BASE_PATH, router)
 
 async function main() {
-  await initAuth()
+  // Sign-in setup runs in the background: the server must listen (and answer its
+  // health probes) even while the identity provider is still starting.
+  void startAuth()
   app.listen(PORT, () => {
     console.log(`rc-console backend listening on http://localhost:${PORT}`)
     if (BASE_PATH !== '/') {

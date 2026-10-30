@@ -20,6 +20,18 @@ declare module 'express-session' {
 
 let oidcConfig: client.Configuration | null = null
 
+/**
+ * Where OIDC sign-in stands. `off`: no OIDC_ISSUER (gateway or dev mode).
+ * `pending`: OIDC mode, discovery has not succeeded yet. `ready`: discovery done.
+ */
+export type AuthStatus = 'off' | 'pending' | 'ready'
+
+/** The current sign-in status (see AuthStatus). */
+export function authStatus(): AuthStatus {
+  if (!OIDC_ISSUER) return 'off'
+  return oidcConfig ? 'ready' : 'pending'
+}
+
 const OIDC_ISSUER = process.env.OIDC_ISSUER
 /** Internal issuer URL for server-to-server discovery (e.g. http://wip-dex:5556/dex).
  *  Falls back to OIDC_ISSUER. Needed when OIDC_ISSUER uses 'localhost' which
@@ -79,26 +91,18 @@ export function requireAdmin(): RequestHandler {
   }
 }
 
-/**
- * Initialize OIDC client. Call once at startup.
- * Returns true if auth is enabled, false if OIDC_ISSUER is not set.
- */
-export async function initAuth(): Promise<boolean> {
-  if (!OIDC_ISSUER) {
-    console.log('[auth] OIDC_ISSUER not set — using gateway auth (X-WIP-User headers) or dev mode')
-    return false
-  }
-
-  // Discovery uses the external issuer URL (what Dex puts in its 'issuer'
-  // claim). If OIDC_INTERNAL_ISSUER is set, we intercept fetch calls during
-  // discovery and JWKS retrieval to route them through the internal network
-  // while keeping the issuer identity as the external URL.
-  const issuer = new URL(OIDC_ISSUER)
+/** One OIDC discovery attempt against the issuer; sets oidcConfig on success, throws on failure. */
+async function discoverOnce(): Promise<void> {
+  const issuer = new URL(OIDC_ISSUER!)
   const internalOrigin = OIDC_INTERNAL_ISSUER && OIDC_INTERNAL_ISSUER !== OIDC_ISSUER
     ? new URL(OIDC_INTERNAL_ISSUER).origin
     : null
   const externalOrigin = issuer.origin
 
+  // Discovery uses the external issuer URL (what Dex puts in its 'issuer'
+  // claim). If OIDC_INTERNAL_ISSUER is set, we intercept fetch calls during
+  // discovery and JWKS retrieval to route them through the internal network
+  // while keeping the issuer identity as the external URL.
   const discoveryOptions: Record<string, unknown> = {}
   if (internalOrigin) {
     // Rewrite fetch URLs from external → internal origin so discovery and
@@ -112,16 +116,68 @@ export async function initAuth(): Promise<boolean> {
     // Internal Dex uses HTTP, not HTTPS
     discoveryOptions.execute = [client.allowInsecureRequests]
   }
-  oidcConfig = await client.discovery(issuer, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, undefined, discoveryOptions as Parameters<typeof client.discovery>[4])
+  const config = await client.discovery(issuer, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, undefined, discoveryOptions as Parameters<typeof client.discovery>[4])
   if (internalOrigin) {
     // Also allow insecure requests for token exchange etc.
-    client.allowInsecureRequests(oidcConfig)
+    client.allowInsecureRequests(config)
   }
+  oidcConfig = config
   const groupInfo = ALLOWED_GROUPS.length > 0
     ? `allowed_groups=[${ALLOWED_GROUPS.join(', ')}]`
     : 'allowed_groups=* (all authenticated users)'
   console.log(`[auth] OIDC configured: issuer=${OIDC_ISSUER}${internalOrigin ? `, internal=${internalOrigin}` : ''}, client=${OIDC_CLIENT_ID}, ${groupInfo}`)
-  return true
+}
+
+export interface StartAuthOptions {
+  /** Wait before the second attempt; doubles after each failure. */
+  initialDelayMs?: number
+  /** Upper bound for the wait between attempts. */
+  maxDelayMs?: number
+}
+
+/**
+ * Start OIDC sign-in without blocking server start-up. Call once, then listen.
+ *
+ * Without OIDC_ISSUER this only logs (gateway or dev mode). With it, discovery
+ * runs in the background and is retried with backoff until the issuer answers:
+ * on a redeploy the app can start before Dex does, and an exit here would leave
+ * a dev container with a dead server (tsx watch waits for a file change, Vite
+ * keeps the container up, so nothing restarts it). Every failed attempt is
+ * logged. Until discovery succeeds, requireAuth answers 503 for everything but
+ * the public paths, and the health probes keep answering.
+ *
+ * The returned promise settles when discovery succeeds (immediately in gateway
+ * or dev mode); start-up should not await it.
+ */
+export function startAuth(opts: StartAuthOptions = {}): Promise<void> {
+  if (!OIDC_ISSUER) {
+    console.log('[auth] OIDC_ISSUER not set — using gateway auth (X-WIP-User headers) or dev mode')
+    return Promise.resolve()
+  }
+  const initial = opts.initialDelayMs ?? 1_000
+  const max = opts.maxDelayMs ?? 30_000
+  return (async () => {
+    let delay = initial
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await discoverOnce()
+        return
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.warn(`[auth] OIDC discovery attempt ${attempt} failed (${msg}); sign-in unavailable, retrying in ${Math.round(delay / 1000)}s`)
+        await new Promise(resolve => setTimeout(resolve, delay))
+        delay = Math.min(delay * 2, max)
+      }
+    }
+  })()
+}
+
+/** Answer for requests that need OIDC sign-in before discovery has succeeded. */
+function signInUnavailable(res: Response): void {
+  res.set('Retry-After', '5').status(503).json({
+    error: 'Sign-in not available yet',
+    message: 'The app is waiting for the identity provider to answer. Try again in a moment.',
+  })
 }
 
 /**
@@ -152,6 +208,14 @@ export function requireAuth(): RequestHandler {
     // Public paths skip auth
     if (PUBLIC_PATHS.some(p => req.path.startsWith(p))) {
       next()
+      return
+    }
+
+    // OIDC mode before discovery has succeeded: refuse rather than fall through
+    // to the gateway/dev rules below, which would trust a caller-supplied
+    // X-WIP-User header (or let everyone in when ALLOWED_GROUPS is empty).
+    if (OIDC_ISSUER && !oidcConfig) {
+      signInUnavailable(res)
       return
     }
 
@@ -215,6 +279,7 @@ export function requireAuth(): RequestHandler {
  */
 export async function handleCallback(req: Request, res: Response): Promise<void> {
   if (!oidcConfig) {
+    if (OIDC_ISSUER) { signInUnavailable(res); return }
     res.status(500).json({ error: 'Auth not configured' })
     return
   }
