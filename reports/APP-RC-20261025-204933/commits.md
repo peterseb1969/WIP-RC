@@ -103,3 +103,18 @@ This clone was 14 commits behind origin/master (last fetch Oct 20) and never had
 **Tests:** unit 328/328; E2E reporting spec 7/7 (incl. the Settings tab); the new SQL was checked live: 342 rows, one session start time across all of them
 **What:** DB_SETTINGS_SQL carries session_role, session_database, session_version and session_started via a one-row CROSS JOIN; the separate session query was removed; toSession reads the session_* columns.
 **Why:** Three parallel requests to the pooled endpoint hit three connections, so the session line could describe a connection opened a day earlier than the one that read the values.
+
+## 2d379fc — fix: OIDC sign-in setup no longer blocks server start-up
+**Time:** 22:55
+**Files:** 3 changed
+**Tests:** unit 331/331 (3 new); full E2E 73 passed, 1 failed (Settings tab spec, unrelated: see 3e55eff), 2 not run (same serial spec); live gateway-mode health shows auth "off"
+**What:** startAuth() runs OIDC discovery in the background after listen, with backoff retries; requireAuth and the login callback answer 503 + Retry-After until it succeeds; health reports auth status.
+**Why:** Peter: "implement the dex fix". In OIDC mode, start-up exited if Dex was not up, and in dev nothing restarted it.
+**Discovered:** A plain "listen first" would have opened a hole: requireAuth chose its mode by oidcConfig, so a pending OIDC server would have applied the gateway rules and trusted a forged X-WIP-User header. With the gate removed, the test's forged request got 200. Also: openid-client's PKCE helpers fail under jsdom (Uint8Array lacks toBase64 there), so the test runs under @vitest-environment node.
+
+## 3e55eff — test: Settings tab spec checks the reporting role's own default row; resolve the OIDC start-up entry
+**Time:** 22:55
+**Files:** 2 changed
+**Tests:** E2E reporting spec 7/7 (with the full run above, all 76 pass)
+**What:** The spec scopes the default_transaction_read_only check to the wip_reporting_read row; KNOWN_ISSUES entry moved to resolved.
+**Why:** The platform now has more reporting roles (wip_reporting_roles, a scoped wip_scope_<hash> role) carrying the same defaults, which made the single-match lookup ambiguous.
