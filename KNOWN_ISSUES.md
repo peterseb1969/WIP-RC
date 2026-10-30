@@ -8,6 +8,12 @@
 **Description:** A new reporting-sync endpoint, coming soon, for monitoring the parity self-checks the platform already runs (per Peter, 2026-10-30). RC should show what it reports. Today the Parity tab of the PostgreSQL page runs its own checks with `GET /api/reporting-sync/parity`, one request per namespace and only when the operator asks, because each check reads every document count in that namespace. The endpoint is not on WIP `develop` yet (`149f9d3f`), so its response shape is unknown.
 **Context:** Once it ships, read its definition (reporting-sync `main.py`, the `@wip/client` method and its release note) before building on it. Likely use: show the platform's self-check status for every namespace when the Parity tab opens, instead of "not checked", and keep the per-namespace check for detail.
 
+### Startup: OIDC discovery failure ends the server (OIDC mode only)
+**Status:** backlog
+**Severity:** low
+**Description:** With `OIDC_ISSUER` set, `initAuth()` runs OIDC discovery against Dex before the server listens (`server/auth.ts`, the `client.discovery` call), with no catch. `main()` turns any startup error into `process.exit(1)`. If Dex isn't reachable yet, as on a redeploy where the app starts alongside the backend, the server ends. In dev (`--app-source`) `tsx watch` keeps waiting for a file change and Vite keeps the container alive, so nothing restarts it; a production image would exit and be restarted by `restart: unless-stopped`. RC's own manifest sets no `OIDC_ISSUER` (it uses the gateway), so its deployments are unaffected.
+**Context:** Fix by listening first and running discovery in the background with backoff, the health endpoint answering throughout, and login routes answering 503 until discovery succeeds. Apps that open an MCP session at startup hit the same failure on the 2026-10-30 redeploy. RC opens none.
+
 ### Identity Maintenance: what the platform leaves undocumented
 **Status:** known
 **Severity:** low
