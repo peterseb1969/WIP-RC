@@ -120,9 +120,12 @@ test.describe('reporting', () => {
     await expect(page.getByRole('row', { name: /^jit Allow JIT compilation/ })).toBeVisible()
     await expect(page.getByRole('row', { name: /^jit_above_cost/ })).toBeVisible()
 
-    // The role defaults the platform gives the reporting role are listed.
+    // The role defaults the platform gives the reporting role are listed. Other
+    // reporting roles (scoped ones, for instance) can carry the same default,
+    // so look at the reporting role's own row.
     const defaults = page.getByRole('region', { name: /defaults set on a role or database/i })
-    await expect(defaults.getByText('default_transaction_read_only = on')).toBeVisible()
+    const readRole = defaults.getByRole('row').filter({ hasText: 'wip_reporting_read' })
+    await expect(readRole.filter({ hasText: 'default_transaction_read_only = on' })).toHaveCount(1)
   })
 
   test('create, read and delete a registered view', async ({ page }) => {

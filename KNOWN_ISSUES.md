@@ -8,12 +8,6 @@
 **Description:** A new reporting-sync endpoint, coming soon, for monitoring the parity self-checks the platform already runs (per Peter, 2026-10-30). RC should show what it reports. Today the Parity tab of the PostgreSQL page runs its own checks with `GET /api/reporting-sync/parity`, one request per namespace and only when the operator asks, because each check reads every document count in that namespace. The endpoint is not on WIP `develop` yet (`149f9d3f`), so its response shape is unknown.
 **Context:** Once it ships, read its definition (reporting-sync `main.py`, the `@wip/client` method and its release note) before building on it. Likely use: show the platform's self-check status for every namespace when the Parity tab opens, instead of "not checked", and keep the per-namespace check for detail.
 
-### Startup: OIDC discovery failure ends the server (OIDC mode only)
-**Status:** backlog
-**Severity:** low
-**Description:** With `OIDC_ISSUER` set, `initAuth()` runs OIDC discovery against Dex before the server listens (`server/auth.ts`, the `client.discovery` call), with no catch. `main()` turns any startup error into `process.exit(1)`. If Dex isn't reachable yet, as on a redeploy where the app starts alongside the backend, the server ends. In dev (`--app-source`) `tsx watch` keeps waiting for a file change and Vite keeps the container alive, so nothing restarts it; a production image would exit and be restarted by `restart: unless-stopped`. RC's own manifest sets no `OIDC_ISSUER` (it uses the gateway), so its deployments are unaffected.
-**Context:** Fix by listening first and running discovery in the background with backoff, the health endpoint answering throughout, and login routes answering 503 until discovery succeeds. Apps that open an MCP session at startup hit the same failure on the 2026-10-30 redeploy. RC opens none.
-
 ### Identity Maintenance: what the platform leaves undocumented
 **Status:** known
 **Severity:** low
@@ -104,6 +98,11 @@
 **Description:** `npm run test:e2e` (Playwright) covers smoke, the data lifecycle, imports, same-named templates across namespaces, relationships, reporting (incl. CSV export, Table Browser download, Parity and a forced Batch Sync), template versioning, access control, files, API keys, the registry, form validation, the term and document-reference pickers past their first page, nested template objects, integrity and the infrastructure pages: 74 tests, about 2.5 min against wip-local (the API key tests wait out the key cache; the integrity check scans the whole instance). Every sidebar page has at least a smoke test; the main write paths have functional tests. It does not run in CI.
 **Context:** Phase 1 is local only, by decision (2026-10-18). Run it before image builds. CI would need a WIP install per run (phase 2, not planned). NL Query and backup/restore are deliberately excluded for now.
 
+
+### OIDC mode: the server ended when Dex was not yet up at start-up
+**Resolved:** 2026-10-30
+**Description:** With `OIDC_ISSUER` set, start-up awaited OIDC discovery against Dex before listening, and `main()` turned any failure into `process.exit(1)`. On a redeploy the app can start before Dex. In dev (`--app-source`) `tsx watch` then waits for a file change and Vite keeps the container alive, so nothing restarted it.
+**Resolution:** `startAuth()` runs discovery in the background after the server listens, retried with backoff (1 s doubling to 30 s) and logged per attempt. Until it succeeds, `requireAuth` answers 503 with `Retry-After` for every non-public request, and so does the login callback. The gate keys on the configured mode, not on discovery having finished: falling through to the gateway rules while pending would have trusted a forged `X-WIP-User` header. The health probes keep answering and report `auth: off | pending | ready`. Covered by `tests/unit/auth-oidc-startup.test.ts`. Not exercised against a real Dex starting up: no install here runs RC in OIDC mode.
 
 ### Query editors were plain textareas; no MongoDB query editor
 **Resolved:** 2026-10-18. The shared CodeMirror 6 `CodeEditor` serves the Query Pad, the registered-view editor and the new MongoDB query pad: highlighting, autocomplete, Ctrl/Cmd+Enter, Format.
