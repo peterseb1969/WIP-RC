@@ -2,11 +2,17 @@
 
 ## Open Issues
 
+### Parity: adopt `GET /api/reporting-sync/parity/status` when the platform ships it
+**Status:** backlog
+**Severity:** low
+**Description:** The Parity tab of the PostgreSQL page checks each namespace with `GET /api/reporting-sync/parity`, one request per namespace, run only when the operator asks, because each check reads every document count in that namespace. Peter asked for `GET /api/reporting-sync/parity/status` to be on RC's backlog. As of WIP `develop` `149f9d3f` (2026-10-30) the endpoint does not exist on any branch, and no KB document describes it, so its response shape and cost are unknown.
+**Context:** Once it ships, read its definition (reporting-sync `main.py`, the `@wip/client` method and its release note) before changing anything. Then decide whether the Parity tab can show a status for every namespace on open, instead of "not checked", and keep the per-namespace check for detail.
+
 ### Identity Maintenance: what the platform leaves undocumented
 **Status:** known
 **Severity:** low
-**Description:** Two details of the rehash pass are not documented by the platform, so the page does not guess at them. (1) The Registry re-key status that means success is not documented: the page counts `missing` and `error…` as failed and shows every other status as returned, without naming one as success. (2) The reporting follow-up is stated two ways, replay the affected templates or run a forced batch sync, and which refreshes the identity hash column has not been tested. The page shows the platform's own note unmodified and points at the PostgreSQL page's Batch Sync tab.
-**Context:** Settle both against a namespace that has documents with legacy-format hashes, then name them in the page. The apply path is covered by the component test only: such documents cannot be created through the API, so the E2E spec previews a fresh namespace.
+**Description:** One detail of the rehash pass is not settled, so the page does not guess at it: the reporting follow-up is stated two ways, replay the affected templates or run a forced batch sync, and which refreshes the identity hash column has not been tested. The page shows the platform's own note unmodified and points at the PostgreSQL page's Batch Sync tab. (The Registry re-key outcome was settled from the Registry's code: `rekeyed` and `unchanged` are success, and every other status, including `conflict` and `not_found`, counts as failed.)
+**Context:** Settle it against a namespace that has documents with legacy-format hashes, then name the follow-up in the page. The apply path is covered by the component tests only: such documents cannot be created through the API, so the E2E spec previews a fresh namespace.
 
 ### Registered views: edits to app-owned views are overwritten by the app
 **Status:** known (by design)
