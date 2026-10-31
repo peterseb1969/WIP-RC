@@ -111,10 +111,14 @@ test.describe('data lifecycle', () => {
     await page.getByRole('button', { name: /^confirm$/i }).click()
     // Deleting returns to the template's document list, which shows active documents only…
     await expect(page.getByText('No documents for this template.')).toBeVisible()
-    // …and the toggle brings the deleted one back into view.
+    // …and the toggle brings the deleted one back into view, once: it has two
+    // stored versions (created, then edited), and the list must show the
+    // document, not each version as a document of its own.
     await page.getByRole('button', { name: /^active$/i }).click()
     await expect(page.getByRole('button', { name: /^incl\. deleted$/i })).toBeVisible()
     await expect(page.getByText('No documents for this template.')).toBeHidden()
+    const docId = new URL(documentUrl).pathname.split('/').pop()!
+    await expect(page.locator(`main a[href$="/${docId}"]`)).toHaveCount(1)
 
     const api = await wipApi()
     const id = new URL(documentUrl).pathname.split('/').pop()

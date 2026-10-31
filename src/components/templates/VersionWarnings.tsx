@@ -71,7 +71,9 @@ export default function VersionWarnings({
 
   // Check document count for this template
   const { data: docsData, isLoading: docsLoading } = useDocuments(
-    original ? { template_value: original.value, namespace, page_size: 1 } : undefined,
+    // status: active counts documents; with no status the total counts every
+    // stored version of every document.
+    original ? { template_value: original.value, namespace, status: 'active', page_size: 1 } : undefined,
     { enabled: !!original },
   )
 

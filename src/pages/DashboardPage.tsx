@@ -501,7 +501,9 @@ function RecentItemsGrid() {
   const ns = namespace || undefined
   const { data: termsData } = useTerminologies({ namespace: ns, page_size: 5 })
   const { data: tplData } = useTemplates({ namespace: ns, latest_only: true, page_size: 5 })
-  const { data: docsData } = useDocuments({ namespace: ns, page_size: 5 })
+  // status: active — without it the endpoint lists every stored version, so a
+  // document would appear once per version.
+  const { data: docsData } = useDocuments({ namespace: ns, status: 'active', page_size: 5 })
 
   const terminologies = termsData?.items ?? []
   const templates = tplData?.items ?? []
@@ -639,7 +641,8 @@ function ReportingSyncCTA() {
   // banner falsely claim "no doc_* tables in PostgreSQL" after a healthy
   // batch sync had populated them.
   const { data: tables } = useReportTables()
-  const { data: docs } = useDocuments({ page_size: 1 })
+  // Live documents; with no status the total counts every stored version.
+  const { data: docs } = useDocuments({ status: 'active', page_size: 1 })
   const trigger = useTriggerBatchSyncAll()
 
   if (inactive) return null

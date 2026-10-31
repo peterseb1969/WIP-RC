@@ -415,6 +415,11 @@ function DocumentTable({
   const { data, isLoading, error, refetch } = useDocuments({
     template_id: templateId ?? undefined,
     namespace: namespace || undefined,
+    // Without latest_only the endpoint returns every stored version of each
+    // document, so an earlier version would show as a document of its own. With
+    // it, the status filter applies to each document's latest version: active
+    // lists live documents, no filter adds the soft-deleted ones.
+    latest_only: true,
     status: includeDeleted ? undefined : 'active',
     page,
     page_size: 25,

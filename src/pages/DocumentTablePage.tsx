@@ -5,7 +5,6 @@ import {
   RefreshCw,
   Download,
   Layers,
-  Trash2,
   FileCode2,
 } from 'lucide-react'
 import { useWipClient } from '@wip/react'
@@ -16,7 +15,6 @@ import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import Pagination from '@/components/common/Pagination'
-import { cn } from '@/lib/cn'
 
 // ---------------------------------------------------------------------------
 // Cell formatting
@@ -68,15 +66,17 @@ export default function DocumentTablePage() {
 
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<number>(25)
-  const [includeDeleted, setIncludeDeleted] = useState(false)
   const [exporting, setExporting] = useState(false)
 
   const templateId = template?.template_id ?? ''
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['rc-console', 'table-view', templateId, page, pageSize, includeDeleted ? 'all' : 'active'],
+    queryKey: ['rc-console', 'table-view', templateId, page, pageSize],
+    // Active documents only. The table endpoint has no latest-version option, so
+    // it cannot add deleted documents without every superseded version too, and
+    // it treats an omitted status as active anyway.
     queryFn: () => client.documents.getTableView(templateId, {
-      status: includeDeleted ? undefined : 'active',
+      status: 'active',
       page,
       page_size: pageSize,
     }),
@@ -89,7 +89,7 @@ export default function DocumentTablePage() {
     setExporting(true)
     try {
       const blob = await client.documents.exportTableCsv(templateId, {
-        status: includeDeleted ? undefined : 'active',
+        status: 'active',
         include_metadata: true,
       })
       const url = URL.createObjectURL(blob)
@@ -101,7 +101,7 @@ export default function DocumentTablePage() {
     } finally {
       setExporting(false)
     }
-  }, [templateId, templateValue, includeDeleted, client])
+  }, [templateId, templateValue, client])
 
   if (templateLoading) return <LoadingState label="Loading template..." />
   if (!template) return <ErrorState message="Template not found" />
@@ -139,19 +139,7 @@ export default function DocumentTablePage() {
       {/* Toolbar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs">
-          <button
-            type="button"
-            onClick={() => { setIncludeDeleted(v => !v); setPage(1) }}
-            className={cn(
-              'inline-flex items-center gap-1 px-2 py-1 rounded-md border transition-colors',
-              includeDeleted
-                ? 'border-gray-300 bg-gray-100 text-gray-700'
-                : 'border-gray-200 bg-white text-gray-400 hover:text-gray-600 hover:border-gray-300'
-            )}
-          >
-            <Trash2 size={12} />
-            {includeDeleted ? 'Incl. deleted' : 'Active'}
-          </button>
+          <span className="text-gray-400">Active documents</span>
           <select
             value={pageSize}
             onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }}
