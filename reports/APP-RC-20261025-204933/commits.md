@@ -142,3 +142,44 @@ This clone was 14 commits behind origin/master (last fetch Oct 20) and never had
 **What:** A Template version filter in the documents list (?version=N, cleared on template switch) and a "Documents on vN" link on the template page; filtered lists use POST /documents/query with a template_version filter and status active.
 **Why:** Peter: with no version filter there was no way to see a template version's documents. Filed for the record in the KB and set to implemented at his request.
 **Discovered:** The query endpoint returns active rows when no status is given and superseded history rows for status inactive, so a version-filtered list can only honestly show live documents; the deleted toggle is disabled there.
+
+## 4356ebe — chore: scaffold refresh — @wip/client 0.69.0, @wip/proxy 0.6.0; Identity Maintenance follows the re-key changes
+**Time:** 2026-10-31 14:12
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 41 changed, +1147/-299
+**Tests:** tsc clean; unit 336/336; full E2E 77/77 after the dev container restart onto 0.69.0 / 0.6.0
+**Why:** The refresh brings @wip/client 0.69.0, @wip/proxy 0.6.0 and wip-archive
+0.6.0, refreshed docs and commands, docs/cards/, and a post-commit hook
+(.githooks/post-commit with .claude/scripts/log-commit.py) that writes
+each commit to the session's commits.md from git and the message's
+trailers. CLAUDE.md takes the fresh render, keeping RC's description and
+a generic key-file path, and adds that RC keeps the master key: its
+manifest declares privileged_key: true, so the new per-app key does not
+apply to it.
+
+@wip/client 0.69.0 follows a platform change to the identity rehash:
+re-running an apply now retries Registry re-keys that an earlier run
+left behind, applied counts only documents whose re-key succeeded, and
+items gain an unchanged status. The Identity Maintenance page no longer
+says a re-run does not retry, its result counts read as re-keyed
+documents, and unchanged items get a style.
+**Discovered:** The dev container restart came 3.5 min before the refresh rewrote the lockfile, so it ran on old libs until a second restart. The platform now documents rekeyed and unchanged as the Registry re-key successes, which confirms the allowlist RC already uses.
+
+## 508be92 — feat: a missing WIP key costs /wip, not the server
+**Time:** 2026-10-31 14:12
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 1 changed, +20/-11
+**Tests:** tsc clean; unit 336/336; full E2E 77/77; throwaway production image offline: with no key the container keeps running, health 200 with wip_proxy unavailable, SPA served, /wip 503 and one startup warning; with a key wip_proxy is available
+**Why:** wipProxy was built while the server module loaded, and with no usable
+key (no readable WIP_API_KEY_FILE, no WIP_API_KEY) it threw, so the
+process exited before listen() and the health endpoint went with it.
+
+RC now builds the proxy with @wip/proxy 0.6.0's onMissingKey:
+'unavailable'. Without a key, /wip answers 503 with the reason (which key
+file failed, that no inline key is set), the reason is logged once at
+startup, and the rest of the app serves. Health and /api/app-config
+report wip_proxy as available or unavailable; health keeps its 200, so
+the probe never depends on a key being configured. An unset WIP_API_KEY
+is now passed as undefined rather than '', since an empty string is no
+key.
+**Discovered:** Before this, a production image started without a key exited at startup (seen in the Node 24 offline check), taking the health probe down with it.
