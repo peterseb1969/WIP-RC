@@ -126,3 +126,11 @@ This clone was 14 commits behind origin/master (last fetch Oct 20) and never had
 **What:** node:20-alpine → node:24-alpine in Dockerfile (both stages) and Dockerfile.dev. The entrypoint install hash covers lockfile + node -v + musl/glibc.
 **Why:** Node 20 is end-of-life (2026-04-30). The lockfile-only hash would keep an old-Node volume after a base-image bump.
 **Discovered:** The prod image refuses to start without WIP_API_KEY/WIP_API_KEY_FILE (by design; the deployer injects it). podman build's default OCI format drops HEALTHCHECK, so the healthcheck command was run by hand. The redeploy is Peter's.
+
+## 8892153 — fix: document lists show each document once, not every stored version
+**Time:** 12:48
+**Files:** 5 changed, +26/-24
+**Tests:** unit 331/331; full E2E 76/76; the strengthened lifecycle check fails without the fix (Expected 1, Received 2)
+**What:** The documents list sends latest_only; the table view's no-op toggle is removed and it sends status active; Dashboard recent/total and the VersionWarnings count send status active.
+**Why:** APP-KB reported YAC_MEMORY documents shown on template v1 although every current one is on v3. The list endpoint with no status returns every stored version (verified: 1,448 rows for 229 documents, up to 14 rows each).
+**Discovered:** The table-view endpoint defaults status to active, so RC's table toggle had never worked. The "Incl. deleted" label (from the archive-removal change) was wrong until this fix, because the toggle also pulled in superseded versions. The /apps/kb console 404s Peter saw were KB's corpus probe, not RC; APP-KB is fixing it.
