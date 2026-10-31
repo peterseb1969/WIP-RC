@@ -66,36 +66,45 @@ router.get('/auth/callback', (req, res) => { handleCallback(req, res) })
 router.get('/auth/logout', handleLogout)
 router.use(requireAuth())
 
+// WIP API proxy (mounted at /wip below). Built here so health and app-config can
+// report it. With no usable key it does not stop the server: its routes answer
+// 503 with the reason (which key file failed, that no inline key is set), the
+// rest of the app keeps serving, and the reason is logged once at startup.
+// WIP_API_KEY_FILE is the live wip-deploy secrets file and wins over a literal
+// WIP_API_KEY; an unset variable is passed as undefined, never '', because an
+// empty string is no key.
+const wipProxyRouter = wipProxy({
+  baseUrl: process.env.WIP_BASE_URL || 'https://localhost:8443',
+  apiKeyFile: process.env.WIP_API_KEY_FILE,
+  apiKey: process.env.WIP_API_KEY,
+  onMissingKey: 'unavailable',
+})
+const wipProxyState = () => (wipProxyRouter.unavailableReason ? 'unavailable' : 'available')
+
 // Health
 // /health is what the wip-app.yaml healthcheck and the Dockerfile probe;
 // /api/health is the deployable-app contract's path. Both are public in
 // server/auth.ts — a probe has no session — and neither touches WIP, so the
 // container reports healthy even while WIP is unreachable. `auth` says whether
 // OIDC sign-in is ready ('pending' while the identity provider is still
-// starting); it never changes the status code, so the probe stays independent
-// of Dex as well.
+// starting) and `wip_proxy` whether the proxy has a key; neither changes the
+// status code, so the probe never depends on Dex or on a key being configured.
 const health: express.RequestHandler = (_req, res) => {
-  res.json({ status: 'ok', service: 'rc-console', auth: authStatus() })
+  res.json({ status: 'ok', service: 'rc-console', auth: authStatus(), wip_proxy: wipProxyState() })
 }
 router.get('/health', health)
 router.get('/api/health', health)
 
 // Runtime client config (deployable-app contract). RC is a cross-namespace
 // console with no namespace of its own, so namespace is always null.
-router.get('/api/app-config', appConfigHandler({ namespace: null }))
+router.get('/api/app-config', appConfigHandler(() => ({ namespace: null, wip_proxy: wipProxyState() })))
 
 // Identity-rewriting maintenance endpoints need an admin group: the proxy below
 // calls WIP with the deployment's admin key, so WIP cannot refuse a non-admin user.
 router.use(guardMaintenance())
 
 // WIP API proxy — frontend uses @wip/client with baseUrl: '/wip'
-router.use('/wip', wipProxy({
-  baseUrl: process.env.WIP_BASE_URL || 'https://localhost:8443',
-  // WIP_API_KEY_FILE is the live wip-deploy secrets file (CASE-495); a
-  // literal WIP_API_KEY is the legacy/local fallback. apiKeyFile wins.
-  apiKeyFile: process.env.WIP_API_KEY_FILE,
-  apiKey: process.env.WIP_API_KEY || '',
-}))
+router.use('/wip', wipProxyRouter)
 
 // WIP service health checks — probes each service via Caddy
 // `buildPath` is a service's root endpoint that returns a CASE-526 `build`
