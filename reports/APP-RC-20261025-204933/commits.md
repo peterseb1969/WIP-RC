@@ -134,3 +134,11 @@ This clone was 14 commits behind origin/master (last fetch Oct 20) and never had
 **What:** The documents list sends latest_only; the table view's no-op toggle is removed and it sends status active; Dashboard recent/total and the VersionWarnings count send status active.
 **Why:** APP-KB reported YAC_MEMORY documents shown on template v1 although every current one is on v3. The list endpoint with no status returns every stored version (verified: 1,448 rows for 229 documents, up to 14 rows each).
 **Discovered:** The table-view endpoint defaults status to active, so RC's table toggle had never worked. The "Incl. deleted" label (from the archive-removal change) was wrong until this fix, because the toggle also pulled in superseded versions. The /apps/kb console 404s Peter saw were KB's corpus probe, not RC; APP-KB is fixing it.
+
+## 73cb459 — feat: filter the documents list by template version
+**Time:** 13:08
+**Files:** 5 changed
+**Tests:** unit 336/336 (5 new); full E2E 77/77 (new versioning test: v2 link → 1, v1 → 2, all → 3); Peter checked it on localhost
+**What:** A Template version filter in the documents list (?version=N, cleared on template switch) and a "Documents on vN" link on the template page; filtered lists use POST /documents/query with a template_version filter and status active.
+**Why:** Peter: with no version filter there was no way to see a template version's documents. Filed for the record in the KB and set to implemented at his request.
+**Discovered:** The query endpoint returns active rows when no status is given and superseded history rows for status inactive, so a version-filtered list can only honestly show live documents; the deleted toggle is disabled there.
