@@ -40,7 +40,7 @@ Documentation should be explicit: *"Inactive means retired, not deleted. Retired
 
 **Default, not absolute.** "Nothing ever dies" is the platform **default** (namespace `deletion_mode: "retain"`), not a physical law. Three guarded deviations exist:
 
-- A namespace explicitly flipped to `deletion_mode: "full"` (the `wip` namespace refuses it; `retain` → `full` requires `confirm_enable_deletion=true`) accepts `hard_delete=true` on delete operations across the stores — the record is **permanently removed**, and existing references to it will **not** resolve.
+- A namespace explicitly flipped to `deletion_mode: "full"` (the `wip` namespace refuses it; `retain` → `full` requires `confirm_enable_deletion=true`) accepts `hard_delete=true` on delete operations across the stores — the record is **permanently removed**. A document that other documents still reference (in any namespace, of any version or status) is refused with `error_code: invalid_state`, `details.rule: "referenced"`, and `details.referrers` lists them; documents hard-deleted in the same request do not count. `force=true` deletes anyway, and those references then **no longer resolve**.
 - Independent of `deletion_mode`: terms in **mutable terminologies** and **binary files** are hard-deletable.
 - Privileged and internal: a trusted-service rollback primitive (wip-admins / wip-services only) can hard-delete a just-reserved, uncommitted entry, bypassing the `deletion_mode` gate — crash-recovery cleanup, not an agent-facing verb.
 
@@ -96,7 +96,7 @@ For `updateTemplate()`, the default should be to keep the previous version activ
 - `template_version` — see PoNIF #2's corollary; the same canonical entity carries forward across template versions cleanly.
 - `namespace` — scoped externally via the platform's composite key `(namespace, identity_hash, template_id)`. The same `identity_hash` in two different namespaces is two different entities, not a collision.
 
-**Adding to `identity_fields` IS breaking.** Every existing doc would hash differently on next write, creating parallel orphan docs. The CASE-316 / 317 / 318 family is the canonical example: an external loader (`kb-bulk-mirror.py`) computed identity from `metadata.custom.case_number` while the template declared `identity_fields=[]`, hashes all collided to an empty key, 213 of 214 records silently dropped on the reporting-sync side. The fix (CASE-318) was to extend `identity_fields` on the template AND backfill — the additive-to-identity case requires coordinated data migration, not just a re-mirror.
+**Changing `identity_fields` is refused.** A template update or re-post with a different list fails with `identity_fields_immutable`: allowed, every existing doc would hash differently on next write and fork into parallel orphan docs, so changing identity is a fork — create a new template value. The CASE-316 / 317 / 318 family is the canonical example: an external loader (`kb-bulk-mirror.py`) computed identity from `metadata.custom.case_number` while the template declared `identity_fields=[]`, hashes all collided to an empty key, 213 of 214 records silently dropped on the reporting-sync side. The fix then (CASE-318) was to extend `identity_fields` on the template AND backfill; the platform now refuses such a change, so an identity that was wrong at design time is fixed by a new template value and a migration of the data into it.
 
 **Adding to `data.*` outside `identity_fields` is non-breaking.** Existing docs receive the new field's value on the next backfill (see PoNIF #2's corollary). This is the path CASE-404 takes for the CASE_RECORD schema extension.
 
@@ -186,11 +186,11 @@ See `docs/design/document-relationships.md` for the full design rationale, valid
 
 ### 8. `versioned: false` — Updates Overwrite In Place
 
-**The feature:** Setting `versioned: false` on an edge type (PoNIF #7) makes updates **overwrite the existing payload** instead of creating a new version. Documents under such an edge type stay at `version: 1` forever. The previous data is gone after a successful update.
+**The feature:** Setting `versioned: false` on a template with identity fields — typically an edge type (PoNIF #7) — makes updates **overwrite the existing payload** instead of creating a new version. Documents under such a template stay at `version: 1` forever. The previous data is gone after a successful update.
 
-This is a deliberate exception to PoNIF #2 ("Template Versioning — Update Does NOT Replace"). It applies only to edge types today; the flag is immutable after template creation.
+This is a deliberate exception to PoNIF #2 ("Template Versioning — Update Does NOT Replace"). It was introduced for edge types and is not limited to them; the flag is immutable after template creation.
 
-**Invariant: `versioned: false` requires non-empty `identity_fields`.** Overwrite-in-place means "re-address the same entity and replace it" — you cannot re-address a thing that has no identity. The combination is rejected at template create **and** update (the update check matters because `versioned` is immutable while `identity_fields` is not). So `versioned` is N/A for append-only (identity-less) templates, which are always `versioned: true`.
+**Invariant: `versioned: false` requires non-empty `identity_fields`.** Overwrite-in-place means "re-address the same entity and replace it" — you cannot re-address a thing that has no identity. The combination is rejected at template create **and** update. So `versioned` is N/A for append-only (identity-less) templates, which are always `versioned: true`.
 
 **Why it's powerful:** Some relationships have identity but not history. "Monster has spell" in a bestiary changes when the bestiary author tweaks a spell list — there's no audit interest in "what spells did this monster have last year." Versioning every edge update wastes storage and obscures the current state.
 
@@ -206,6 +206,21 @@ This is a deliberate exception to PoNIF #2 ("Template Versioning — Update Does
 **Sensible default:** `template.versioned` defaults to `true` — the conservative default that preserves history. Code reading documents should check `template.versioned` (or equivalently, that `get_document_versions` returns more than one row) before assuming history exists. If you need history on a relationship, build the edge type with `versioned: true`. The flag is immutable after creation, so the choice is permanent — pick deliberately.
 
 See `docs/design/document-relationships.md` §"Versioning" for the rationale and the implementation contract.
+
+### 9. Closed by Default — Referencing Another Namespace Needs Read
+
+**What it does:** A reference from one namespace into another passes two gates. The referencing namespace's `isolation_mode` decides what it may reference: `open` (the default) means any namespace, `strict` means only itself and its `allowed_external_refs`. The referenced namespace's `inbound_references` decides who may reference it: `closed` (the default for every namespace) accepts a reference only from a writer whose key can read it, and `open` accepts any writer. `wip` is always open. Only references a write adds are checked; references the previous version already held carry over.
+
+**Why it's powerful:** A namespace's data is no longer reachable merely because someone can write somewhere else. An app with a narrowly scoped key cannot point its documents at another app's entities unless it was given read on them, and a namespace that wants to be a shared library opens itself explicitly.
+
+**Why it's non-intuitive:** The same reference succeeds with one key and fails with another. And a refusal looks exactly like a reference whose target does not exist: a closed namespace does not confirm its contents to a writer who cannot read it, so the error never says "permission".
+
+**What goes wrong:**
+
+- An app developer tests with an admin key, which passes every gate, and the deployed app's scoped key then fails on every cross-namespace reference with "not found".
+- Debugging "not found" by checking that the target exists (with an admin key) finds it, and the real cause stays hidden.
+
+**Sensible default:** Develop with the same scoped key the app will run with. When a cross-namespace reference reports "not found" and the target exists, give the writing key read on the target's namespace, or open that namespace's `inbound_references` if it is meant to be a shared library.
 
 ---
 

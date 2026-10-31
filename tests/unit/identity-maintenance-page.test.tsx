@@ -6,8 +6,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { RehashIdentitiesItem, RehashIdentitiesResponse } from '@wip/client'
 
 // The page's job is to keep a preview and an apply apart: Apply is only offered
-// for a current preview that found changes, "rows rewritten" is never presented
-// as "re-keyed", and a failed Registry re-key is called out. The network
+// for a current preview that found changes, the applied result shows each
+// document's Registry outcome, and a failed Registry re-key is called out. The network
 // (client calls) is mocked; what is under test is what the operator sees.
 
 const rehashIdentities = vi.hoisted(() => vi.fn())
@@ -155,7 +155,7 @@ describe('IdentityMaintenancePage', () => {
 
     await user.click(apply)
     expect(screen.getByText(/left unchanged/i)).toBeInTheDocument()
-    expect(screen.getByText(/does not retry a failed registry re-key/i)).toBeInTheDocument()
+    expect(screen.getByText(/running it again retries it/i)).toBeInTheDocument()
     expect(rehashIdentities).toHaveBeenCalledTimes(1)
   })
 
@@ -199,13 +199,15 @@ describe('IdentityMaintenancePage', () => {
     expect(screen.getByText(/d1, d2/)).toBeInTheDocument()
   })
 
-  it('applies the previewed scope with dry_run false and shows rows rewritten apart from the Registry outcome', async () => {
+  it('applies the previewed scope with dry_run false and shows each document\'s Registry outcome', async () => {
     const user = userEvent.setup()
     rehashIdentities.mockResolvedValueOnce(response())
     rehashIdentities.mockResolvedValueOnce(
       response({
+        // The platform counts a document as applied only once its Registry
+        // re-key succeeded: two of the three here.
         dry_run: false,
-        applied: 3,
+        applied: 2,
         items: [
           item({ document_id: 'd1', registry_status: 'rekeyed' }),
           item({ document_id: 'd2', registry_status: 'rekeyed' }),
@@ -219,7 +221,7 @@ describe('IdentityMaintenancePage', () => {
     await user.click(await screen.findByRole('button', { name: /apply to 3 documents/i }))
     await user.click(screen.getByRole('button', { name: /apply rehash/i }))
 
-    expect(await screen.findByText(/3 documents rewritten in ns-a/i)).toBeInTheDocument()
+    expect(await screen.findByText(/2 documents updated in ns-a/i)).toBeInTheDocument()
     expect(rehashIdentities).toHaveBeenLastCalledWith({ namespace: 'ns-a', dry_run: false })
 
     // The failure is called out, the counts are per status as returned, and the
@@ -241,7 +243,7 @@ describe('IdentityMaintenancePage', () => {
     rehashIdentities.mockResolvedValueOnce(
       response({
         dry_run: false,
-        applied: 3,
+        applied: 1,
         items: [
           item({ document_id: 'd1', registry_status: 'rekeyed' }),
           item({ document_id: 'd2', registry_status: 'conflict' }),

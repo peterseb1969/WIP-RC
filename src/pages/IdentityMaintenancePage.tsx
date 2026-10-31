@@ -23,6 +23,9 @@ const MAX_ITEM_ROWS = 200
 
 const STATUS_STYLE: Record<RehashIdentitiesItem['status'], string> = {
   changed: 'bg-primary/10 text-primary-dark',
+  // Hash already right; listed on an apply only to re-send a Registry re-key
+  // an earlier run left behind.
+  unchanged: 'bg-gray-100 text-gray-600',
   unresolved: 'bg-yellow-100 text-yellow-700',
   collision: 'bg-danger/10 text-danger',
   error: 'bg-danger/10 text-danger',
@@ -157,11 +160,11 @@ function AppliedPanel({ result }: { result: RehashIdentitiesResponse }) {
         <CheckCircle size={20} className="text-success shrink-0" />
         <div>
           <div className="text-sm font-medium text-gray-800">
-            {result.applied.toLocaleString()} document{result.applied !== 1 ? 's' : ''} rewritten in {result.namespace}
+            {result.applied.toLocaleString()} document{result.applied !== 1 ? 's' : ''} updated in {result.namespace}
           </div>
           <p className="text-xs text-gray-500">
-            That counts documents whose stored hashes were rewritten, whether or not the Registry re-key for them
-            succeeded. Check the Registry column below.
+            That counts documents whose stored hash is now current and whose Registry re-key succeeded. Any whose
+            re-key failed are listed below with the status the Registry returned.
           </p>
         </div>
       </div>
@@ -173,8 +176,8 @@ function AppliedPanel({ result }: { result: RehashIdentitiesResponse }) {
             The Registry re-key failed for {registry.failed.toLocaleString()} document{registry.failed !== 1 ? 's' : ''}
           </div>
           <p className="text-xs text-gray-600">
-            Running the pass again does not retry a failed re-key, so do not use it as the fix. The documents are
-            listed below with the status the Registry returned.
+            Running the pass again retries them: an apply re-sends the Registry re-key for documents whose stored
+            hash is already current. The documents are listed below with the status the Registry returned.
           </p>
         </div>
       )}
@@ -210,8 +213,9 @@ function AppliedPanel({ result }: { result: RehashIdentitiesResponse }) {
  * Identity Maintenance: recompute stored identity hashes for one namespace
  * (document-store rehash pass). Always starts as a preview; Apply is offered
  * only for a preview of the scope now on screen that found something to change,
- * and the applied result keeps "rows rewritten" apart from the Registry outcome
- * because the platform counts the first whether or not the second succeeded.
+ * and the applied result shows each document's Registry outcome. The platform
+ * counts a document as applied only once its Registry re-key succeeded, and a
+ * re-run re-sends the re-key for any a failed run left behind.
  */
 export default function IdentityMaintenancePage() {
   const client = useWipClient()
@@ -409,8 +413,8 @@ export default function IdentityMaintenancePage() {
                   Rewrite the identity hash of {result.changed.toLocaleString()} document
                   {result.changed !== 1 ? 's' : ''} in <span className="font-mono">{result.namespace}</span> and re-key
                   them in the Registry? Documents that collide, are unresolved or errored are left unchanged. The pass
-                  is recomputed when it runs, so it may differ slightly from this preview. Running it again does not
-                  retry a failed Registry re-key.
+                  is recomputed when it runs, so it may differ slightly from this preview. If a Registry re-key fails,
+                  running it again retries it.
                 </p>
                 <div className="flex items-center gap-2">
                   <button

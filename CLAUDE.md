@@ -25,51 +25,42 @@ WIP is the backend. This app is a frontend that maps a domain onto WIP's primiti
 
 **Case numbers in code comments are provenance, never substance.** A comment must state the constraint or invariant in full prose; a `CASE-NNN` token may prefix it as history, but the comment must survive the deletion test: remove the token — does it still explain the code? "See CASE-NNN" as the whole explanation is a dead link to every reader without KB access, and case-pointer comments rot because the pointer never gets re-verified against the code around it. Anything user-facing or generated (UI copy, served API descriptions, docs your app publishes) carries no case tokens at all — those readers have no KB.
 
-## Dev Namespace
+## Namespace
 
-Your development namespace is `dev-wip-reactconsole`. Use it for all data modeling during development.
+Your app's namespace is `dev-wip-reactconsole`. It is the same name on every install, your development install included: there is no separate development namespace and nothing renames the data on the way to a deployment.
 
 **A missing namespace is never a setup failure.** The namespace is created at *bootstrap* — when you actually have data to put in it — not as a setup precondition. `/wip-setup` does not check for it, and its absence at session start is expected and non-blocking. If you have no data model yet (or this app is a cross-namespace console that owns no namespace of its own), there is simply nothing to create now — do **not** treat an absent `dev-wip-reactconsole` as an error, fail setup over it, or go hunting for a namespace that was never provisioned.
 
-**Why:** Terminologies and templates are hard to delete cleanly once documents reference them. A dev namespace lets you iterate freely — create, modify, delete, start over — without polluting production data.
+**Iterating on the model.** Your development install is yours: create, change and delete terminologies, templates and test documents in `dev-wip-reactconsole` freely while the model settles. To start over, delete the namespace (`mcp__wip__delete_namespace(prefix="dev-wip-reactconsole")`, or `DELETE /api/registry/namespaces/dev-wip-reactconsole`; the API honours the namespace's deletion mode) and bootstrap again. A throwaway namespace for an experiment is an ordinary namespace you name and delete yourself.
 
-**Workflow:**
-1. Use `dev-wip-reactconsole` for all `/wip-design-model` and `/wip-implement` work
-2. Create terminologies, templates, and test documents in this namespace
-3. Iterate until the data model is stable
-4. When ready for production, create a new namespace (e.g., `wip-reactconsole`) and recreate the finalized model there
-5. Retire the dev namespace via the API when the data model is finalised:
-   ```
-   mcp__wip__delete_namespace(prefix="dev-wip-reactconsole")
-   ```
-   (or `DELETE /api/registry/namespaces/dev-wip-reactconsole`). The API
-   honours each namespace's deletion mode (`retain` vs `full`) — no
-   `--force` flag needed.
-
-**Important:** MCP tool calls use the privileged admin key, so always pass `namespace=dev-wip-reactconsole` explicitly when modeling. Your app's runtime key comes from `WIP_API_KEY_FILE` in `.env` (the wip-deploy secrets file) — see **API Key** below.
+**Important:** MCP tool calls use the privileged admin key, so always pass `namespace=dev-wip-reactconsole` explicitly when modeling. Your app runs with a key of its own — see **API Key** below.
 
 ## API Key
 
 The MCP server resolves its key from `WIP_API_KEY_FILE` (the live wip-deploy secrets file) — see `.mcp.json`. This is fine for data modeling via MCP tools.
 
-**For your app's runtime API calls**, `.env` carries `WIP_API_KEY_FILE` pointing at that same live file. Resolve the key from the file at startup — the `@wip/proxy` `apiKeyFile` option does this for you, mirroring the MCP server — rather than baking a plaintext key. A key rotation or target-redeploy is then picked up on restart instead of stranding a stale `.env`. This is the deployment's admin/proxy key and spans all namespaces, which a cross-namespace console needs as-is.
-`.env` carries `WIP_API_KEY_FILE` pointing at the wip-deploy secrets file (`~/.wip-deploy/<deployment>/secrets/api-key`) — no plaintext key is baked in. The runtime reads the file at startup, so rotating the deploy key or redeploying the target needs no edit here.
+**Your app's runtime key** is its own, not the install's. When the app runs under `wip-deploy`, the deployer derives a key named `app-<name>` (`<name>` is `metadata.name` in `apps/<name>/wip-app.yaml`) from the manifest and injects it as `WIP_API_KEY`: `admin` on the namespaces in `spec.namespaces`, `read` or `write` on those in `spec.namespace_access`, `read` on `wip`, nothing else. Only an app declaring `privileged_key: true` (an admin console) gets the install's master key instead. With `admin` on its namespaces the app's own key runs the bootstrap: the Registry lets it create a namespace the install reserves for it, with exactly the reserved settings, and register that namespace's reporting views.
+
+When you run the app outside the deployer, `.env` names the key file instead. Resolve the key from the file at startup — the `@wip/proxy` `apiKeyFile` option does this for you, mirroring the MCP server — rather than baking a plaintext key, so a key rotation or redeploy is picked up on restart.
 
 ```bash
 # .env (already created)
 WIP_API_KEY_FILE=~/.wip-deploy/<deployment>/secrets/api-key
 ```
 
-**Least-privilege (optional).** The deploy key is admin-scoped. If this app owns a single namespace and you want a least-privilege key, provision one and repoint `WIP_API_KEY_FILE` at its own secrets file:
+**RC is the exception to what follows: it keeps the master key.** Its manifest (`apps/react-console/wip-app.yaml`) declares `privileged_key: true`, because the console manages namespaces, grants, keys and backups across the whole install, and the deployer injects the install's master key as `WIP_API_KEY`. Keep `.env` pointing at the master key file; there is no `app-react-console` key to move to. For an ordinary app:
+
+It starts out pointing at the install's master key, because the app's own key exists only once the app is part of the install. Once it is (`wip-deploy add-app`), repoint it at the app's key, in the same secrets directory:
+
 ```bash
-curl -k -X POST https://localhost:8443/api/registry/api-keys \
-  -H 'X-API-Key: <admin-key>' -H 'Content-Type: application/json' \
-  -d '{"name": "wip-reactconsole", "namespaces": ["dev-wip-reactconsole"], "grant_permission": "write"}'
+WIP_API_KEY_FILE=<that directory>/app-<name>-api-key
 ```
 
-**Multi-namespace key → pass `namespace` explicitly.** The deploy admin/proxy key spans all namespaces, so WIP cannot derive one for you — pass `namespace=dev-wip-reactconsole` on API calls that need scoping, or set `defaultNamespace` on `@wip/proxy` to scope reads. A single-namespace key (the least-privilege opt-in above) gets automatic derivation instead.
+Do this as early as you can. Under the master key every call is allowed, so a call the app's own key will be refused — a namespace not in the manifest, a write where it has only `read` — passes in development and fails only when deployed.
 
-**Grants:** writes need an explicit namespace grant. If you provision a least-privilege key, pass `grant_permission` on `create_api_key` / `POST /api/registry/api-keys`, or add a grant afterwards (`create_grant` MCP tool, `registry.createGrants` in @wip/client, or `POST /api/registry/namespaces/<ns>/grants`). Grant subject for api keys is the bare key name.
+**Multi-namespace key → pass `namespace` explicitly.** The app's key spans at least two namespaces (its own and `wip`), and the master key spans all, so WIP cannot derive one for you — pass `namespace=dev-wip-reactconsole` on API calls that need scoping, or set `defaultNamespace` on `@wip/proxy` to scope reads.
+
+**Another namespace** is a manifest change (`spec.namespaces` to own it, `spec.namespace_access` to read or write it), or, on one install only, an operator's `wip-deploy app-namespace add`. Do not hand-provision keys or grants for the app: the deployer re-derives its key on every apply.
 
 **Key management:** Runtime keys can be listed, updated, and revoked via the Registry API. See WIP's `docs/api-key-management.md` for details.
 
@@ -135,6 +126,10 @@ Every WIP-consuming app must follow the **offer-on-empty / use-on-exists** disci
 
 Read each template's header comment, fill in the TODO markers (namespace, app title), drop a `<NS_PREFIX>_BOOTSTRAP_RECORD` template into `server/seed/templates/` (value must match the server template's derived `BOOTSTRAP_RECORD_VALUE`), and you're done. The seed-file convention (`server/seed/terminologies/<VALUE>.json`, `server/seed/templates/<NN>_<VALUE>.json`) is documented in the server template's header, along with where the seeds are read from (`SEED_DIR`, default `<cwd>/server/seed` — ship it in the runtime image, and don't rely on the module's location if you bundle the server) and the role-keyed layout plus `server/seed/namespaces.json` for apps that own more than one namespace.
 
+**Two inert seed stubs** ship beside the templates in `templates/bootstrap/seed/` (the loader skips `_`-prefixed files; its `README.md` explains both):
+- `_namespaces.example.json` — the app's namespace roles (`authored_as`, `env`) and `external` namespaces. Rename it to `server/seed/namespaces.json` when the app owns more than one namespace or its seeds reference another one; a file declaring only `main` keeps the flat seed dirs. Namespace **settings** (`isolation_mode`, `allowed_external_refs`, `id_config`, `deletion_mode`) are not seeds: declare them under `spec.namespaces` in `wip-app.yaml`, where the install reserves the namespace for the app and the bootstrap creates it exactly as reserved.
+- `views/_00_example.json` — a registered reporting view (`{name, sql}`) over the unqualified entity view `doc_<template_value>`. Drop the underscore to activate it; views are re-registered on every start and are not in WIP backups.
+
 ## Reference Documentation
 
 Read these before starting:
@@ -147,7 +142,7 @@ Read these before starting:
 - `docs/ui-guidance.md` — **Canonical** v1 visual anchor: brand palette tokens (primary/accent/success/danger), typography hierarchy (text-2xl page titles, NOT text-3xl), component shapes (cards, modals, tinted callouts), accessibility floor. `tailwind.config.js` ships pre-extended with these tokens — use the named classes (`bg-primary`, `text-text-muted`), not inline hex.
 - `docs/ontology-support.md` — Term relations, polyhierarchy, typed relations, traversal queries
 - `docs/wip-deployable-app-contract.md` — what your app must satisfy to ship under `wip-deploy install` (Dockerfile.dev, vite.config, `apps/<name>/wip-app.yaml` ports, WIP-independent healthcheck). Read before scaffolding.
-- `templates/bootstrap/*.template` — Bootstrap pattern starting points (see "Namespace Bootstrap on Launch" above)
+- `templates/bootstrap/*.template` and `templates/bootstrap/seed/` — Bootstrap pattern starting points and seed stubs (see "Namespace Bootstrap on Launch" above)
 
 ## Key Identity Concepts
 
@@ -185,9 +180,9 @@ The WIP libs are tarballs in `libs/`. `@tanstack/react-query` is the peer depend
 
 **TLS:** WIP uses a self-signed cert on whichever hostname the install runs at — `https://localhost:8443` for compose dev, `https://<ingress-hostname>` for k8s (e.g. `https://kb.internal`). Node.js `fetch()` rejects self-signed certs; add `NODE_TLS_REJECT_UNAUTHORIZED=0` to your `dev:server` script (NOT `start`/production). The python wip_mcp client uses `WIP_VERIFY_TLS=false` (already set in `.mcp.json`). Production with proper certs needs no workaround.
 
-**@wip/client baseUrl:** In browser apps behind a Vite proxy, use `baseUrl: '/wip'` (resolved to `window.location.origin + '/wip'`). Do NOT use a bare relative path without the client resolving it — `new URL('/wip/...')` throws without a protocol.
+**@wip/client baseUrl:** In browser apps behind the `@wip/proxy` mount, use ``baseUrl: `${import.meta.env.BASE_URL}wip` `` — a deployed app lives under `/apps/<name>/`, so a bare `'/wip'` works only for an app served at `/`. Do NOT use a bare relative path without the client resolving it — `new URL('/wip/...')` throws without a protocol.
 
-**@wip/react providers:** Hooks require BOTH `QueryClientProvider` (from `@tanstack/react-query`) AND `WipProvider` (from `@wip/react`). Missing either causes silent failure — hooks mount but never fetch, no errors.
+**@wip/react providers:** Hooks require BOTH `QueryClientProvider` (from `@tanstack/react-query`) AND `WipProvider` (from `@wip/react`). Missing either breaks every hook: outside `WipProvider`, `useWipClient` throws "useWipClient must be used within a <WipProvider>"; outside `QueryClientProvider`, TanStack's hooks throw that no QueryClient is set.
 
 ## Tool use — Bash timeouts and waits
 
@@ -197,7 +192,7 @@ The WIP libs are tarballs in `libs/`. `@tanstack/react-query` is the peer depend
 
 ## WIP Toolkit
 
-`wip-toolkit` is a CLI for backup, export, import, and data migration. Install it together with the `wip-archive` wheel it depends on, both from `libs/`, in one command:
+`wip-toolkit` is a CLI for backup, export, restore, and data migration. Install it together with the `wip-archive` wheel it depends on, both from `libs/`, in one command:
 
 ```bash
 pip install libs/wip_archive-*.whl libs/wip_toolkit-*.whl
@@ -207,8 +202,9 @@ pip install libs/wip_archive-*.whl libs/wip_toolkit-*.whl
 
 Key commands:
 - `wip-toolkit export <namespace> <output.zip>` — Export namespace to archive
-- `wip-toolkit import <archive.zip> --mode fresh` — Import with new IDs (cross-namespace)
-- `wip-toolkit import <archive.zip> --mode restore` — Restore with original IDs (disaster recovery)
+- `wip-toolkit restore <archive.zip> --mode fresh --target-namespace <ns>` — Restore with new IDs beside the original (the server's restore engine does the work)
+- `wip-toolkit restore <archive.zip>` — Restore with original IDs into an empty namespace (disaster recovery); `--mode merge` merges into one that holds data
+- `wip-toolkit inspect <archive.zip>` — Analyse an archive offline
 
 Remote WIP instances:
 ```bash
@@ -275,22 +271,15 @@ Seconds precision (`HHMMSS`) eliminates the same-minute collision class. Record 
 
 ### After Every Commit
 
-Before appending, read `commits.md` first. If the commit hash is already listed, skip it (prevents duplicates after context compaction).
+Nothing to do by hand: the `post-commit` hook (`.githooks/post-commit` → `.claude/scripts/log-commit.py`) appends the entry to `reports/<session-id>/commits.md`. Hash, time, author, files and lines come from git; the subject becomes the heading and the body the **Why**. Write the judgment into the commit message as trailers at its end, one per line:
 
-Append to `commits.md` in your report directory:
-
-```markdown
-## <short-hash> — <commit message>
-**Time:** <run `date '+%H:%M'`>
-**Files:** <count> changed, +<added>/-<removed>
-**Tests:** <X passed, Y failed — or "not run">
-**What:** <1-2 sentences — what changed>
-**Why:** <1-2 sentences — what motivated this change>
-**PoNIF:** <if you encountered a PoNIF — which one and whether it caused issues. Omit if none.>
-**Discovered:** <anything surprising, bugs found, or gaps identified — omit if nothing>
+```
+Tests: <X passed, Y failed — or "not run">
+PoNIF: <which PoNIF you hit and whether it caused issues — omit if none>
+Discovered: <anything surprising, bugs found, gaps identified — omit if nothing>
 ```
 
-If you encountered a PoNIF and handled it correctly, note which one. If you hit a PoNIF and it caused a bug, definitely note it — the Field Reporter tracks these patterns.
+If you encountered a PoNIF and handled it correctly, note which one. If you hit a PoNIF and it caused a bug, definitely note it — the Field Reporter tracks these patterns. If an entry is missing after a commit, the hook is not installed: check that `git config core.hooksPath` prints `.githooks`.
 
 ### Session Summary
 
