@@ -5,7 +5,10 @@
 #
 # Handles:
 #   1. First-start populate: named volume /app/node_modules is empty → npm ci.
-#   2. Staleness after host dep changes: package-lock.json hash changed → npm ci.
+#   2. Staleness: package-lock.json, the Node version or the image's libc
+#      changed → npm ci. A base-image bump with an unchanged lockfile must
+#      re-install too: packages with native add-ons (rollup, esbuild) are
+#      built for one Node and one libc, and the named volume outlives the image.
 #   3. Corrupted install (killed mid-install): .package-lock.json absent → retry.
 set -e
 
@@ -14,7 +17,11 @@ LOCKFILE=/app/package-lock.json
 HASH_MARKER="$NODE_MODULES/.wip-lock-hash"
 
 current_hash() {
-  [ -f "$LOCKFILE" ] && sha256sum "$LOCKFILE" 2>/dev/null | cut -c1-64
+  [ -f "$LOCKFILE" ] && {
+    cat "$LOCKFILE"
+    node -v
+    if [ -e /etc/alpine-release ]; then echo musl; else echo glibc; fi
+  } | sha256sum | cut -c1-64
 }
 
 run_install() {
@@ -26,7 +33,7 @@ run_install() {
 if [ ! -f "$NODE_MODULES/.package-lock.json" ]; then
   run_install "node_modules empty — running npm ci (first run, expect 30-60s)"
 elif [ "$(current_hash)" != "$(cat "$HASH_MARKER" 2>/dev/null)" ]; then
-  run_install "package-lock.json changed — re-running npm ci"
+  run_install "package-lock.json, Node version or libc changed — re-running npm ci"
 fi
 
 exec "$@"
