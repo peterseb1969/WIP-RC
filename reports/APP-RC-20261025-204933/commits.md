@@ -118,3 +118,11 @@ This clone was 14 commits behind origin/master (last fetch Oct 20) and never had
 **Tests:** E2E reporting spec 7/7 (with the full run above, all 76 pass)
 **What:** The spec scopes the default_transaction_read_only check to the wip_reporting_read row; KNOWN_ISSUES entry moved to resolved.
 **Why:** The platform now has more reporting roles (wip_reporting_roles, a scoped wip_scope_<hash> role) carrying the same defaults, which made the single-match lookup ambiguous.
+
+## 944aac9 — chore: move RC's images to Node 24; dev install also follows Node and libc
+**Time:** 12:04
+**Files:** 3 changed, +15/-7
+**Tests:** in node:24-alpine: npm ci, tsc, unit 331/331, vite build. Prod image offline (--network none, dummy key): health, app-config, SPA, API 404s, healthcheck command. Entrypoint gate on one volume: install (24) → skip (24) → reinstall (20) → skip (20). Not deployed.
+**What:** node:20-alpine → node:24-alpine in Dockerfile (both stages) and Dockerfile.dev. The entrypoint install hash covers lockfile + node -v + musl/glibc.
+**Why:** Node 20 is end-of-life (2026-04-30). The lockfile-only hash would keep an old-Node volume after a base-image bump.
+**Discovered:** The prod image refuses to start without WIP_API_KEY/WIP_API_KEY_FILE (by design; the deployer injects it). podman build's default OCI format drops HEALTHCHECK, so the healthcheck command was run by hand. The redeploy is Peter's.
