@@ -15,7 +15,8 @@ import {
   Upload,
   Network,
 } from 'lucide-react'
-import { useTemplates, useDocuments } from '@wip/react'
+import { useTemplates, useDocuments, useWipClient } from '@wip/react'
+import { useQuery } from '@tanstack/react-query'
 import type { TemplateUsage } from '@wip/client'
 import { templateIdParam } from '@/hooks/use-route-template'
 import { useNamespaceFilter, useNamespaceInUrl } from '@/hooks/use-namespace-filter'
@@ -27,6 +28,7 @@ import PeerHeader from '@/components/documents/PeerHeader'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
 import { cn } from '@/lib/cn'
+import { parseVersionParam, versionOptions, versionQuery } from '@/lib/document-version-filter'
 
 const CARD_THRESHOLD = 8
 const LAST_TEMPLATE_KEY = 'rc-console:last-template'
@@ -402,17 +404,38 @@ function DocumentTable({
 }: {
   templateId: string | null
   templateValue: string | null
-  templateById: Map<string, { value: string; label?: string | null; usage?: TemplateUsage; header_fields?: string[]; identity_fields?: string[]; external?: boolean }>
+  templateById: Map<string, { value: string; label?: string | null; usage?: TemplateUsage; header_fields?: string[]; identity_fields?: string[]; external?: boolean; version?: number | null }>
 }) {
   const [page, setPage] = useState(1)
   const [includeDeleted, setIncludeDeleted] = useState(false)
   const [sort, setSort] = useState(() => loadSort('documents', 'updated_at', 'desc'))
+  const client = useWipClient()
+
+  // Template-version filter, kept in the URL (?version=N) so it can be linked.
+  // It applies to one selected template; switching templates drops it.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const version = templateId ? parseVersionParam(searchParams.get('version')) : null
+  const setVersion = useCallback((v: number | null) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (v === null) next.delete('version')
+      else next.set('version', String(v))
+      return next
+    }, { replace: true })
+    setPage(1)
+  }, [setSearchParams])
+  const prevTemplateId = useRef(templateId)
+  useEffect(() => {
+    if (prevTemplateId.current !== null && prevTemplateId.current !== templateId) setVersion(null)
+    prevTemplateId.current = templateId
+  }, [templateId, setVersion])
+  const offeredVersions = versionOptions(templateId ? templateById.get(templateId)?.version : null)
   const { namespace } = useNamespaceFilter()
   // Both filters are applied together. WIP ANDs them — template_id alone
   // would return the template's documents from *every* namespace, silently
   // ignoring the namespace selector, which matters now that a template can
   // legitimately hold documents belonging to several namespaces.
-  const { data, isLoading, error, refetch } = useDocuments({
+  const listQ = useDocuments({
     template_id: templateId ?? undefined,
     namespace: namespace || undefined,
     // Without latest_only the endpoint returns every stored version of each
@@ -425,7 +448,17 @@ function DocumentTable({
     page_size: 25,
     sort_by: sort.sortBy,
     sort_order: sort.sortOrder,
+  }, { enabled: version === null })
+  // The list endpoint cannot filter by template version; the query endpoint can.
+  const versionQ = useQuery({
+    queryKey: ['rc-console', 'documents-by-version', templateId, namespace, version, page, sort.sortBy, sort.sortOrder],
+    queryFn: () => client.documents.queryDocuments(
+      versionQuery(templateId!, version!, page, 25, sort),
+      namespace || undefined,
+    ),
+    enabled: version !== null && !!templateId,
   })
+  const { data, isLoading, error, refetch } = version !== null ? versionQ : listQ
   const isAll = !templateId
 
   if (isLoading) return <LoadingState label="Loading documents..." />
@@ -449,19 +482,36 @@ function DocumentTable({
             sortOrder={sort.sortOrder}
             onChange={(by, order) => { setSort({ sortBy: by, sortOrder: order }); saveSort('documents', by, order); setPage(1) }}
           />
+          {offeredVersions.length > 0 && (
+            <select
+              aria-label="Template version"
+              value={version ?? ''}
+              onChange={e => setVersion(e.target.value ? Number(e.target.value) : null)}
+              className="border border-gray-200 rounded-md px-2 py-1 text-xs bg-white"
+              title="Documents pinned to one version of this template"
+            >
+              <option value="">All versions</option>
+              {offeredVersions.map(v => (
+                <option key={v} value={v}>Template v{v}</option>
+              ))}
+            </select>
+          )}
           <button
             type="button"
             onClick={() => { setIncludeDeleted(v => !v); setPage(1) }}
+            disabled={version !== null}
             className={cn(
-              'inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border transition-colors',
-              includeDeleted
+              'inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+              includeDeleted && version === null
                 ? 'border-gray-300 bg-gray-100 text-gray-700'
                 : 'border-gray-200 bg-white text-gray-400 hover:text-gray-600 hover:border-gray-300'
             )}
-            title={includeDeleted ? 'Showing active and deleted (inactive) documents. Click to show active only.' : 'Showing active documents only. Click to include deleted (inactive) ones.'}
+            title={version !== null
+              ? 'A template-version filter lists live documents only.'
+              : includeDeleted ? 'Showing active and deleted (inactive) documents. Click to show active only.' : 'Showing active documents only. Click to include deleted (inactive) ones.'}
           >
             <Trash2 size={12} />
-            {includeDeleted ? 'Incl. deleted' : 'Active'}
+            {includeDeleted && version === null ? 'Incl. deleted' : 'Active'}
           </button>
           {templateValue && (
             <>
@@ -608,7 +658,7 @@ export default function DocumentListPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const [selectedTemplateValue, setSelectedTemplateValue] = useState<string>(templateParam)
   const [allMode, setAllMode] = useState(false)
-  const [templateById, setTemplateById] = useState<Map<string, { value: string; label?: string | null; usage?: TemplateUsage; header_fields?: string[]; identity_fields?: string[]; external?: boolean }>>(new Map())
+  const [templateById, setTemplateById] = useState<Map<string, { value: string; label?: string | null; usage?: TemplateUsage; header_fields?: string[]; identity_fields?: string[]; external?: boolean; version?: number | null }>>(new Map())
 
   const nsKey = namespace || '__all__'
 
@@ -627,7 +677,7 @@ export default function DocumentListPage() {
 
   // auto-recall last-used template when templates finish loading
   const handleTemplatesLoaded = useCallback((templates: SelectableTemplate[]) => {
-    setTemplateById(new Map(templates.map(t => [t.template_id, { value: t.value, label: t.label, usage: t.usage, header_fields: t.header_fields, identity_fields: t.identity_fields, external: t.external }])))
+    setTemplateById(new Map(templates.map(t => [t.template_id, { value: t.value, label: t.label, usage: t.usage, header_fields: t.header_fields, identity_fields: t.identity_fields, external: t.external, version: t.version }])))
     // don't override if already selected or in all mode
     if (selectedTemplateId || allMode) return
 

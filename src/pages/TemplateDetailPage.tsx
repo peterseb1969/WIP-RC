@@ -590,14 +590,25 @@ export default function TemplateDetailPage() {
         )
       })()}
 
-      {/* Quick link to documents */}
-      <Link
-        to={`/documents?template=${template.value}${template.namespace ? `&ns=${template.namespace}` : ''}`}
-        className="inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary-dark"
-      >
-        <FileText size={14} />
-        View documents using this template
-      </Link>
+      {/* Quick links to documents: all of them, or those pinned to the version shown */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <Link
+          to={`/documents?template=${template.value}${template.namespace ? `&ns=${template.namespace}` : ''}`}
+          className="inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary-dark"
+        >
+          <FileText size={14} />
+          View documents using this template
+        </Link>
+        {template.version != null && (
+          <Link
+            to={`/documents?template=${template.value}${template.namespace ? `&ns=${template.namespace}` : ''}&version=${template.version}`}
+            className="inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary-dark"
+          >
+            <Layers size={14} />
+            Documents on v{template.version}
+          </Link>
+        )}
+      </div>
 
       {/* Raw JSON */}
       <details className="group">

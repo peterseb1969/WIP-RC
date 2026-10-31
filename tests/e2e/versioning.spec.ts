@@ -80,6 +80,25 @@ test.describe('template versioning', () => {
     expect(byCode).toEqual({ 'V-1': 1, 'V-2': 1, 'V-3': 2 })
   })
 
+  test('documents can be filtered by template version, and the template page links there', async ({ page }) => {
+    // V-1 and V-2 were written on version 1, V-3 on version 2.
+    await page.goto(`templates/${tid}?v=2`)
+    await page.getByRole('link', { name: 'Documents on v2' }).click()
+    await expect(page).toHaveURL(/[?&]version=2(&|$)/)
+    await expect(page.getByRole('heading', { name: '1 document' })).toBeVisible()
+    // A version filter lists live documents only, so the deleted toggle is off.
+    await expect(page.getByRole('button', { name: /^active$/i })).toBeDisabled()
+
+    const versionSelect = page.getByLabel('Template version')
+    await versionSelect.selectOption('1')
+    await expect(page.getByRole('heading', { name: '2 documents' })).toBeVisible()
+    await expect(page).toHaveURL(/[?&]version=1(&|$)/)
+
+    await versionSelect.selectOption('')
+    await expect(page.getByRole('heading', { name: '3 documents' })).toBeVisible()
+    await expect(page).not.toHaveURL(/[?&]version=/)
+  })
+
   test('deactivate and reactivate version 1 on its own', async ({ page }) => {
     await page.goto(`templates/${tid}?v=1`)
     await page.getByRole('button', { name: 'Deactivate', exact: true }).click()
