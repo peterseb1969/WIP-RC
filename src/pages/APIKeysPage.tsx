@@ -24,6 +24,7 @@ import { KeyEffectivePermissions } from '@/components/grants/GrantsPanel'
 import { cn } from '@/lib/cn'
 import { buildCreateNamespaces, emptyRow, type NamespaceRow } from '@/lib/key-reservations'
 import NamespaceRowsInput from '@/components/api-keys/NamespaceRowsInput'
+import KeyNamespacesEditor from '@/components/api-keys/KeyNamespacesEditor'
 import {
   useAPIKeys,
   useCreateAPIKey,
@@ -361,7 +362,6 @@ function APIKeyRow({
 
   const [editing, setEditing] = useState(false)
   const [editDesc, setEditDesc] = useState(apiKey.description ?? '')
-  const [editNamespaces, setEditNamespaces] = useState((apiKey.namespaces ?? []).join(', '))
   const [editGroups, setEditGroups] = useState((apiKey.groups ?? []).join(', '))
   const [editEnabled, setEditEnabled] = useState(apiKey.enabled)
   const [editExpiresAt, setEditExpiresAt] = useState(
@@ -382,7 +382,6 @@ function APIKeyRow({
 
   const startEdit = () => {
     setEditDesc(apiKey.description ?? '')
-    setEditNamespaces((apiKey.namespaces ?? []).join(', '))
     setEditGroups((apiKey.groups ?? []).join(', '))
     setEditEnabled(apiKey.enabled)
     setEditExpiresAt(apiKey.expires_at ? apiKey.expires_at.slice(0, 16) : '')
@@ -391,16 +390,14 @@ function APIKeyRow({
   }
 
   const handleSave = () => {
-    const namespaces = editNamespaces.trim()
-      ? editNamespaces.split(',').map(s => s.trim()).filter(Boolean)
-      : null
     const groups = editGroups.trim()
       ? editGroups.split(',').map(s => s.trim()).filter(Boolean)
       : []
 
+    // Namespaces are not sent: they change through KeyNamespacesEditor,
+    // which keeps the key's grants and reservations in step with its scope.
     const data: UpdateAPIKeyRequest = {
       description: editDesc.trim() || undefined,
-      namespaces,
       groups,
       enabled: editEnabled,
       expires_at: editExpiresAt || undefined,
@@ -484,7 +481,7 @@ function APIKeyRow({
             {apiKey.groups?.length > 0 && (
               <span>Groups: {apiKey.groups.join(', ')}</span>
             )}
-            {apiKey.namespaces && (
+            {apiKey.namespaces && isConfig && (
               <span>Namespaces: {apiKey.namespaces.length > 0 ? apiKey.namespaces.join(', ') : 'none'}</span>
             )}
             {apiKey.namespaces === null && (
@@ -531,6 +528,8 @@ function APIKeyRow({
             </p>
           )}
 
+          {!isConfig && apiKey.namespaces !== null && <KeyNamespacesEditor apiKey={apiKey} />}
+
           {/* Effective per-namespace permissions (scoped keys only) */}
           <KeyEffectivePermissions apiKey={apiKey} />
 
@@ -547,16 +546,6 @@ function APIKeyRow({
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Namespaces (comma-separated)</label>
-                  <input
-                    type="text"
-                    value={editNamespaces}
-                    onChange={e => setEditNamespaces(e.target.value)}
-                    placeholder="Leave empty for privileged access"
-                    className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
-                  />
-                </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Groups (comma-separated)</label>
                   <input
