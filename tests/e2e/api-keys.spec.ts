@@ -48,7 +48,7 @@ test.describe('API keys', () => {
     const banner = page.locator('div').filter({ has: page.getByText(`API key created: ${keyName}`) }).filter({ has: page.locator('code') }).last()
     plaintext = (await banner.locator('code').innerText()).trim()
     expect(plaintext.length).toBeGreaterThan(20)
-    await expect(page.getByRole('button', { name: new RegExp(keyName) })).toBeVisible()
+    await expect(page.getByRole('button', { name: new RegExp(`^${keyName}`) })).toBeVisible()
   })
 
   test('the key writes in its namespace and is refused elsewhere', async () => {
@@ -73,11 +73,11 @@ test.describe('API keys', () => {
   test('revoke the key; WIP then rejects it', async ({ page }) => {
     expect(plaintext, 'the create step ran').not.toBe('')
     await page.goto('api-keys')
-    await page.getByRole('button', { name: new RegExp(keyName) }).click()
+    await page.getByRole('button', { name: new RegExp(`^${keyName}`) }).click()
     await page.getByRole('button', { name: 'Revoke', exact: true }).click()
     await expect(page.getByText(`Revoke API key ${keyName}?`)).toBeVisible()
     await page.getByRole('button', { name: 'Yes, revoke' }).click()
-    await expect(page.getByRole('button', { name: new RegExp(keyName) })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: new RegExp(`^${keyName}`) })).toHaveCount(0)
 
     const api = await wipApi()
     const keys = await getJson<{ items?: Array<{ name: string }> } | Array<{ name: string }>>(api, '/api/registry/api-keys?page_size=1000')

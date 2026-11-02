@@ -1,5 +1,14 @@
 # RC-Console — Changelog
 
+## 2026-11-02 — API keys that reserve namespaces; namespace edits keep grants in step
+
+- Added: the API key create dialog lists namespaces one row each and can **reserve** a namespace that doesn't exist yet, with its six settings (filled with the platform defaults; deletion mode "full" and inbound references "open" carry a warning). The key gets admin on it and its bootstrap creates it with exactly those settings. This is for apps wip-deploy does not manage. A namespace that exists can't be reserved: a reservation never changes one, so the dialog points to the admin permission.
+- Added: a **Namespace reservations** section listing the reservations from wip-deploy's file and from runtime keys, with the holder, whether the namespace exists, the settings and any conflict. Runtime ones can be released.
+- Added: the key list shows how many namespaces a key reserves and flags a key shadowed by a config key with the same plaintext, which does not authenticate. Revoking reports the grants revoked and the reservations released and kept, with Release on each kept one.
+- Fixed: a key's namespaces were edited through the key update, which changes the scope alone, so a removed namespace kept the key's grant and an added one got none. Namespaces are now chips changed one at a time through the Registry's widen and narrow calls, which keep scope, grant and reservation together.
+- Changed: adopted @wip/client 0.73.0 (scaffold refresh).
+- Tests: E2E spec for reservations (create, widen, a refused reservation, narrow, revoke); unit tests for the request building, the namespaces editor and the reservations section.
+
 ## 2026-10-29 — Database settings tab
 
 - Added: a **Settings** tab on the PostgreSQL page, a read-only view of the reporting database's configuration as the reporting role's sessions see it. Each setting shows its value (with unit and, when changed, the built-in default), where the value comes from, and what changing it takes: a session, role or database default; a config reload; a restart; or not at all. A table lists the defaults a role or database carries and whether each covers the session that was read. Filter by name, description or category, or show only settings not at default. It reads through the reporting query endpoint, changes nothing, and says that a default set on a database or role reaches only sessions that start afterwards.

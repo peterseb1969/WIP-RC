@@ -10,9 +10,9 @@ Pinned as versioned, immutable tarballs in `libs/` (see `package.json`):
 
 | Library | Version | Role |
 |---------|---------|------|
-| `@wip/client` | 0.54.0 | Typed service clients (`client.registry`, `client.defStore`, `client.templates`, `client.documents`, `client.files`, `client.reporting`). |
+| `@wip/client` | 0.73.0 | Typed service clients (`client.registry`, `client.defStore`, `client.templates`, `client.documents`, `client.files`, `client.reporting`). |
 | `@wip/react` | 0.20.0 | TanStack Query hooks over the client (`useTemplates`, `useTerms`, `useDocuments`, `useNamespaces`, mutations, …) and `useWipClient()` for direct typed calls. |
-| `@wip/proxy` | 0.5.1 | Express middleware mounted at `/wip` that forwards to WIP and injects the API key. Streams request and response bodies both ways. |
+| `@wip/proxy` | 0.6.0 | Express middleware mounted at `/wip` that forwards to WIP and injects the API key. Streams request and response bodies both ways. |
 
 Three ways RC reaches WIP, in order of preference:
 
@@ -29,7 +29,7 @@ Unless noted, every call goes through the `/wip` proxy.
 
 | Service | Endpoints (representative) | Used for |
 |---------|---------------------------|----------|
-| registry | `/api/registry/namespaces`, entries (list / search / by-term / get), synonyms, merge, deactivate, API keys, namespace grants | Namespaces page, Registry page, API Keys page, grants panel |
+| registry | `/api/registry/namespaces`, entries (list / search / by-term / get), synonyms, merge, deactivate, API keys (create with namespace reservations, widen and narrow by one namespace, revoke), namespace reservations (list, release), namespace grants | Namespaces page, Registry page, API Keys page, grants panel |
 | def-store | terminologies, terms, term relations, hierarchy (parents / children), import (terminology bundle and ontology), export, audit log, validate | Terminology and term pages, ontology tabs, import panel, Audit Explorer |
 | template-store | templates (list / get / by value / versions), create, update, activate, deactivate, reactivate, delete | Template list, detail and builder |
 | document-store | documents (list / query / get / versions / create / PATCH / archive / validate), relationships and traverse, table view, CSV export and import, template facets, files (list / upload / metadata / orphans / by checksum / content), backup jobs (`/backup/namespaces/{ns}/backup`, `/validate`, `/backup/namespaces/_/restore`, `/backup/jobs[/{id}[/download]]`), maintenance (`POST /maintenance/rehash-identities`, admin-gated in RC) | Documents, Files, Backup & Restore and Identity Maintenance pages |
