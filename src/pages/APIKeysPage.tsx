@@ -14,15 +14,22 @@ import {
   ShieldOff,
   Clock,
 } from 'lucide-react'
-import { useWipClient } from '@wip/react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { APIKeyInfo, CreateAPIKeyRequest, UpdateAPIKeyRequest } from '@wip/client'
+import { useNamespaces } from '@wip/react'
+import type { APIKeyInfo, CreateAPIKeyRequest, CreateAPIKeyResponse, UpdateAPIKeyRequest } from '@wip/client'
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import AnthropicKeyCard from '@/components/settings/AnthropicKeyCard'
 import { KeyEffectivePermissions } from '@/components/grants/GrantsPanel'
 import { cn } from '@/lib/cn'
+import { buildCreateNamespaces, emptyRow, type NamespaceRow } from '@/lib/key-reservations'
+import NamespaceRowsInput from '@/components/api-keys/NamespaceRowsInput'
+import {
+  useAPIKeys,
+  useCreateAPIKey,
+  useRevokeAPIKey,
+  useUpdateAPIKey,
+} from '@/hooks/use-api-keys'
 
 // CASE-694: runtime keys live in MongoDB — backups don't cover them and the
 // plaintext can't be re-registered, so every restore kills them.
@@ -30,70 +37,11 @@ const DECLARE_KEY_CMD = "wip-deploy install --api-key '<json>'"
 const RUNTIME_MORTALITY_HINT =
   'Runtime key — not covered by backups; will not survive a restore. ' +
   `For standing keys (agents, services), declare on the deployment: ${DECLARE_KEY_CMD}`
+const SHADOWED_HINT = (configKey: string) =>
+  `This key does not authenticate: config key '${configKey}' has the same plaintext, ` +
+  'and a request with that plaintext acts as the config key.'
 const CONFIG_TIER_HINT =
   'Config key — declared on the deployment; survives Mongo rebuilds and restores. Read-only here.'
-
-// ---------------------------------------------------------------------------
-// Query keys
-// ---------------------------------------------------------------------------
-
-const API_KEY_KEYS = {
-  all: ['rc-console', 'api-keys'] as const,
-  list: () => [...API_KEY_KEYS.all, 'list'] as const,
-}
-
-// ---------------------------------------------------------------------------
-// Hooks (no @wip/react hooks for API keys yet)
-// ---------------------------------------------------------------------------
-
-function useAPIKeys() {
-  const client = useWipClient()
-  return useQuery({
-    queryKey: API_KEY_KEYS.list(),
-    queryFn: () => client.registry.listAPIKeys(),
-    staleTime: 30_000,
-  })
-}
-
-function useCreateAPIKey(options?: { onSuccess?: (data: { plaintext_key: string } & APIKeyInfo) => void; onError?: (err: Error) => void }) {
-  const client = useWipClient()
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (req: CreateAPIKeyRequest) => client.registry.createAPIKey(req),
-    onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: API_KEY_KEYS.all })
-      options?.onSuccess?.(data)
-    },
-    onError: options?.onError,
-  })
-}
-
-function useUpdateAPIKey(options?: { onSuccess?: () => void; onError?: (err: Error) => void }) {
-  const client = useWipClient()
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ name, data }: { name: string; data: UpdateAPIKeyRequest }) =>
-      client.registry.updateAPIKey(name, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: API_KEY_KEYS.all })
-      options?.onSuccess?.()
-    },
-    onError: options?.onError,
-  })
-}
-
-function useRevokeAPIKey(options?: { onSuccess?: () => void; onError?: (err: Error) => void }) {
-  const client = useWipClient()
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (name: string) => client.registry.revokeAPIKey(name),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: API_KEY_KEYS.all })
-      options?.onSuccess?.()
-    },
-    onError: options?.onError,
-  })
-}
 
 // ---------------------------------------------------------------------------
 // Copy to clipboard helper
@@ -153,19 +101,23 @@ function TierAdvisory() {
 
 function CreateAPIKeyForm({ onClose, onCreated }: {
   onClose: () => void
-  onCreated: (name: string, plaintextKey: string) => void
+  onCreated: (created: CreateAPIKeyResponse) => void
 }) {
   const [name, setName] = useState('')
   const [owner, setOwner] = useState('')
   const [description, setDescription] = useState('')
-  const [namespacesInput, setNamespacesInput] = useState('')
+  const [rows, setRows] = useState<NamespaceRow[]>([emptyRow()])
   const [groupsInput, setGroupsInput] = useState('')
   const [grantPermission, setGrantPermission] = useState<'' | 'read' | 'write' | 'admin'>('write')
   const [expiresAt, setExpiresAt] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const { data: namespaceList } = useNamespaces()
+  const existing = new Set((namespaceList ?? []).map(n => n.prefix))
+  const hasPlainNamespace = rows.some(r => r.prefix.trim() && !(r.reserve && !existing.has(r.prefix.trim())))
+  const hasNamespace = rows.some(r => r.prefix.trim())
 
   const create = useCreateAPIKey({
-    onSuccess: (data) => onCreated(data.name, data.plaintext_key),
+    onSuccess: (data) => onCreated(data),
     onError: (err) => setError(err.message),
   })
 
@@ -177,9 +129,10 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
       return
     }
 
-    const namespaces = namespacesInput.trim()
-      ? namespacesInput.split(',').map(s => s.trim()).filter(Boolean)
-      : undefined
+    // A reserved namespace gets admin; the permission is the grant on the
+    // others. Without a grant, a scoped key is read-only on a namespace.
+    const built = buildCreateNamespaces(rows, existing, grantPermission)
+    if ('error' in built) { setError(built.error); return }
     const groups = groupsInput.trim()
       ? groupsInput.split(',').map(s => s.trim()).filter(Boolean)
       : undefined
@@ -188,12 +141,9 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
       name: trimmedName,
       owner: owner.trim() || undefined,
       description: description.trim() || undefined,
-      namespaces: namespaces?.length ? namespaces : undefined,
       groups: groups?.length ? groups : undefined,
       expires_at: expiresAt || undefined,
-      // CASE-450: also create a grant per namespace. Without one, a scoped
-      // key resolves to read-only on its namespaces (the fallback).
-      grant_permission: namespaces?.length && grantPermission ? grantPermission : undefined,
+      ...built.fields,
     }
     create.mutate(req)
   }
@@ -239,23 +189,22 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
             className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
           />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="key-namespaces" className="block text-xs text-gray-500 mb-1">
-              Namespaces <span className="text-gray-300">(comma-separated)</span>
-            </label>
-            <input
-              id="key-namespaces"
-              type="text"
-              value={namespacesInput}
-              onChange={e => setNamespacesInput(e.target.value)}
-              placeholder="ns-one, ns-two"
-              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
-            />
-            <p className="text-[10px] text-gray-400 mt-0.5">
-              Leave empty for no namespace restriction (privileged)
+        <div>
+          <p className="block text-xs text-gray-500 mb-1">Namespaces</p>
+          <NamespaceRowsInput rows={rows} existing={existing} onChange={r => { setRows(r); setError(null) }} />
+          <p className="text-[10px] text-gray-400 mt-1">
+            No namespaces means no namespace restriction (privileged).
+          </p>
+          {rows.some(r => r.reserve) && (
+            <p className="text-[11px] text-gray-500 mt-1.5 bg-gray-50 border border-gray-200 rounded px-2 py-1.5">
+              Reserving is for apps wip-deploy does not manage. An app wip-deploy manages gets its key
+              from wip-deploy and adds namespaces with{' '}
+              <code className="font-mono">wip-deploy app-namespace add</code>; a key made here and put
+              in that app&apos;s secret is withheld by the Registry.
             </p>
-          </div>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <label htmlFor="key-groups" className="block text-xs text-gray-500 mb-1">
               Groups <span className="text-gray-300">(comma-separated)</span>
@@ -277,7 +226,7 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
               id="key-permission"
               value={grantPermission}
               onChange={e => setGrantPermission(e.target.value as '' | 'read' | 'write' | 'admin')}
-              disabled={!namespacesInput.trim()}
+              disabled={!hasPlainNamespace}
               className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light disabled:opacity-50 disabled:bg-gray-50"
             >
               <option value="">none (read-only fallback)</option>
@@ -286,9 +235,11 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
               <option value="admin">admin</option>
             </select>
             <p className="text-[10px] text-gray-400 mt-0.5 max-w-56">
-              {namespacesInput.trim()
-                ? 'Creates a grant per namespace above. Without one the key is read-only.'
-                : 'Applies only to namespace-scoped keys.'}
+              {hasPlainNamespace
+                ? 'Creates a grant per namespace not reserved. Without one the key is read-only there.'
+                : hasNamespace
+                  ? 'Reserved namespaces always get admin.'
+                  : 'Applies only to namespace-scoped keys.'}
             </p>
           </div>
           <div>
@@ -327,12 +278,14 @@ function CreateAPIKeyForm({ onClose, onCreated }: {
 // Plaintext Key Display (shown once after creation)
 // ---------------------------------------------------------------------------
 
-function PlaintextKeyBanner({ name, plaintextKey, onDismiss }: {
-  name: string
-  plaintextKey: string
+function PlaintextKeyBanner({ created, onDismiss }: {
+  created: CreateAPIKeyResponse
   onDismiss: () => void
 }) {
   const { copied, copy } = useCopyToClipboard()
+  const { name, plaintext_key: plaintextKey } = created
+  const reserved = created.reserved_namespaces ?? []
+  const granted = created.granted_namespaces ?? []
 
   return (
     <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 mb-4">
@@ -364,6 +317,16 @@ function PlaintextKeyBanner({ name, plaintextKey, onDismiss }: {
           {copied ? <Check size={16} /> : <Copy size={16} />}
         </button>
       </div>
+      {(reserved.length > 0 || granted.length > 0) && (
+        <div className="mt-2 text-xs text-amber-700 space-y-0.5">
+          {reserved.length > 0 && (
+            <p>Reserves, with admin: <span className="font-mono">{reserved.join(', ')}</span></p>
+          )}
+          {granted.filter(n => !reserved.includes(n)).length > 0 && (
+            <p>Granted on: <span className="font-mono">{granted.filter(n => !reserved.includes(n)).join(', ')}</span></p>
+          )}
+        </div>
+      )}
       <div className="flex items-center justify-between mt-3">
         <p className="text-[10px] text-amber-500">
           Propagation may take up to 30 seconds.
@@ -393,6 +356,7 @@ function APIKeyRow({
   onToggle: () => void
 }) {
   const isConfig = apiKey.source === 'config'
+  const reserved = apiKey.reserved_namespaces ?? []
   const isExpired = apiKey.expires_at && new Date(apiKey.expires_at) < new Date()
 
   const [editing, setEditing] = useState(false)
@@ -492,6 +456,22 @@ function APIKeyRow({
               <ShieldOff size={8} /> {apiKey.namespaces.length} ns
             </span>
           )}
+          {reserved.length > 0 && (
+            <span
+              className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium"
+              title={`Reserves ${reserved.join(', ')}: the key holds admin there and may create the namespace`}
+            >
+              reserves {reserved.length}
+            </span>
+          )}
+          {apiKey.shadowed_by && (
+            <span
+              className="text-[10px] bg-danger/5 text-danger px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5"
+              title={SHADOWED_HINT(apiKey.shadowed_by)}
+            >
+              <AlertTriangle size={8} /> shadowed
+            </span>
+          )}
           <StatusBadge status={statusType} label={statusLabel} />
         </div>
       </button>
@@ -510,7 +490,17 @@ function APIKeyRow({
             {apiKey.namespaces === null && (
               <span className="text-amber-500 font-medium">Privileged (all namespaces)</span>
             )}
+            {reserved.length > 0 && (
+              <span>Reserves: <span className="font-mono">{reserved.join(', ')}</span></span>
+            )}
           </div>
+
+          {apiKey.shadowed_by && (
+            <p className="text-[11px] text-danger flex items-center gap-1.5">
+              <AlertTriangle size={11} className="shrink-0" />
+              <span>{SHADOWED_HINT(apiKey.shadowed_by)}</span>
+            </p>
+          )}
 
           <div className="flex items-center flex-wrap gap-4 text-xs text-gray-400">
             {apiKey.created_at && (
@@ -681,13 +671,13 @@ function APIKeyRow({
 export default function APIKeysPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
-  const [createdKey, setCreatedKey] = useState<{ name: string; key: string } | null>(null)
+  const [createdKey, setCreatedKey] = useState<CreateAPIKeyResponse | null>(null)
   const { data: apiKeys, isLoading, error, refetch } = useAPIKeys()
 
-  const handleCreated = (name: string, plaintextKey: string) => {
+  const handleCreated = (created: CreateAPIKeyResponse) => {
     setShowCreate(false)
-    setCreatedKey({ name, key: plaintextKey })
-    setExpandedKey(name)
+    setCreatedKey(created)
+    setExpandedKey(created.name)
   }
 
   // APIKeyListResponse became paginated in 0.19+ (PaginatedResponse<APIKeyInfo>).
@@ -724,8 +714,7 @@ export default function APIKeysPage() {
 
       {createdKey && (
         <PlaintextKeyBanner
-          name={createdKey.name}
-          plaintextKey={createdKey.key}
+          created={createdKey}
           onDismiss={() => setCreatedKey(null)}
         />
       )}

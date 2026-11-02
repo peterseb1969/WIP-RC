@@ -39,7 +39,7 @@ test.describe('API keys', () => {
     await page.getByRole('button', { name: 'Create', exact: true }).first().click()
     await page.getByLabel('Name *').fill(keyName)
     await page.getByLabel('Description').fill('RC E2E runtime key')
-    await page.getByLabel(/Namespaces/).fill(ns)
+    await page.getByLabel('Namespace 1', { exact: true }).fill(ns)
     await page.getByLabel('Permission on namespaces').selectOption('write')
     await page.getByRole('button', { name: 'Create', exact: true }).last().click()
 
