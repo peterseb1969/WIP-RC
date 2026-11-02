@@ -15,7 +15,7 @@ import {
   Clock,
 } from 'lucide-react'
 import { useNamespaces } from '@wip/react'
-import type { APIKeyInfo, CreateAPIKeyRequest, CreateAPIKeyResponse, UpdateAPIKeyRequest } from '@wip/client'
+import type { APIKeyInfo, APIKeyRevokeResult, CreateAPIKeyRequest, CreateAPIKeyResponse, UpdateAPIKeyRequest } from '@wip/client'
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
@@ -25,6 +25,7 @@ import { cn } from '@/lib/cn'
 import { buildCreateNamespaces, emptyRow, type NamespaceRow } from '@/lib/key-reservations'
 import NamespaceRowsInput from '@/components/api-keys/NamespaceRowsInput'
 import KeyNamespacesEditor from '@/components/api-keys/KeyNamespacesEditor'
+import { ReservationsPanel, RevokeResultBanner } from '@/components/api-keys/ReservationsPanel'
 import {
   useAPIKeys,
   useCreateAPIKey,
@@ -351,10 +352,12 @@ function APIKeyRow({
   apiKey,
   isExpanded,
   onToggle,
+  onRevoked,
 }: {
   apiKey: APIKeyInfo
   isExpanded: boolean
   onToggle: () => void
+  onRevoked: (result: APIKeyRevokeResult) => void
 }) {
   const isConfig = apiKey.source === 'config'
   const reserved = apiKey.reserved_namespaces ?? []
@@ -376,7 +379,7 @@ function APIKeyRow({
   })
 
   const revoke = useRevokeAPIKey({
-    onSuccess: () => { setRevokeConfirm(false) },
+    onSuccess: (result) => { setRevokeConfirm(false); onRevoked(result) },
     onError: (err) => setRevokeError(err.message),
   })
 
@@ -601,7 +604,10 @@ function APIKeyRow({
                 Revoke API key <strong>{apiKey.name}</strong>? This cannot be undone.
               </p>
               <p className="text-xs text-danger">
-                Any applications using this key will lose access within 30 seconds.
+                Any applications using this key will lose access within 30 seconds. Its grants are
+                revoked{reserved.length > 0
+                  ? '; its reservations are released where the namespace was never created and kept where it exists'
+                  : ''}. No namespace is deleted.
               </p>
               {revokeError && <p className="text-xs text-danger">{revokeError}</p>}
               <div className="flex items-center gap-2">
@@ -661,6 +667,7 @@ export default function APIKeysPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
   const [createdKey, setCreatedKey] = useState<CreateAPIKeyResponse | null>(null)
+  const [revokeResult, setRevokeResult] = useState<APIKeyRevokeResult | null>(null)
   const { data: apiKeys, isLoading, error, refetch } = useAPIKeys()
 
   const handleCreated = (created: CreateAPIKeyResponse) => {
@@ -708,6 +715,10 @@ export default function APIKeysPage() {
         />
       )}
 
+      {revokeResult && (
+        <RevokeResultBanner result={revokeResult} onDismiss={() => setRevokeResult(null)} />
+      )}
+
       {showCreate && (
         <CreateAPIKeyForm
           onClose={() => setShowCreate(false)}
@@ -729,6 +740,7 @@ export default function APIKeysPage() {
                 apiKey={k}
                 isExpanded={expandedKey === k.name}
                 onToggle={() => setExpandedKey(prev => prev === k.name ? null : k.name)}
+                onRevoked={setRevokeResult}
               />
             ))
           )}
@@ -743,6 +755,8 @@ export default function APIKeysPage() {
           )}
         </p>
       )}
+
+      <ReservationsPanel />
 
       {/* LLM key — distinct from WIP access keys above. Anthropic key for the
           askBar / NL-query feature, settable at runtime (in-memory override). */}
