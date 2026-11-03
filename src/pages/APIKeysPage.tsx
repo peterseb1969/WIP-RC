@@ -25,6 +25,7 @@ import RefreshButton, { RefreshingValue } from '@/components/common/RefreshButto
 import { buildCreateNamespaces, emptyRow, type NamespaceRow } from '@/lib/key-reservations'
 import NamespaceRowsInput from '@/components/api-keys/NamespaceRowsInput'
 import KeyNamespacesEditor from '@/components/api-keys/KeyNamespacesEditor'
+import { isKeyReadOnly, isManaged, managedKeyHint } from '@/lib/managed-records'
 import { ReservationsPanel, RevokeResultBanner } from '@/components/api-keys/ReservationsPanel'
 import {
   useAPIKeys,
@@ -360,6 +361,10 @@ function APIKeyRow({
   onRevoked: (result: APIKeyRevokeResult) => void
 }) {
   const isConfig = apiKey.source === 'config'
+  // wip-deploy's keys (and config keys the Registry has not imported) are
+  // changed with wip-deploy, never through the API.
+  const managed = isManaged(apiKey)
+  const readOnly = isKeyReadOnly(apiKey)
   const reserved = apiKey.reserved_namespaces ?? []
   const isExpired = apiKey.expires_at && new Date(apiKey.expires_at) < new Date()
 
@@ -423,7 +428,7 @@ function APIKeyRow({
         }
         <Key size={16} className={cn(
           'shrink-0',
-          isConfig ? 'text-amber-500' : 'text-primary',
+          readOnly ? 'text-amber-500' : 'text-primary',
         )} />
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium text-gray-800">{apiKey.name}</span>
@@ -432,7 +437,14 @@ function APIKeyRow({
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {isConfig ? (
+          {managed ? (
+            <span
+              className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium"
+              title={managedKeyHint(apiKey.name)}
+            >
+              wip-deploy
+            </span>
+          ) : isConfig ? (
             <span
               className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded font-medium"
               title={CONFIG_TIER_HINT}
@@ -445,6 +457,14 @@ function APIKeyRow({
               title={RUNTIME_MORTALITY_HINT}
             >
               runtime
+            </span>
+          )}
+          {apiKey.origin === 'restored' && (
+            <span
+              className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-medium"
+              title="Restored from a backup of another install. It is no longer managed by wip-deploy here, and can be edited or revoked."
+            >
+              restored
             </span>
           )}
           {apiKey.namespaces === null ? (
@@ -484,7 +504,7 @@ function APIKeyRow({
             {apiKey.groups?.length > 0 && (
               <span>Groups: {apiKey.groups.join(', ')}</span>
             )}
-            {apiKey.namespaces && isConfig && (
+            {apiKey.namespaces && readOnly && (
               <span>Namespaces: {apiKey.namespaces.length > 0 ? apiKey.namespaces.join(', ') : 'none'}</span>
             )}
             {apiKey.namespaces === null && (
@@ -520,7 +540,7 @@ function APIKeyRow({
             <span>Source: {apiKey.source}</span>
           </div>
 
-          {!isConfig && (
+          {!readOnly && (
             <p className="text-[11px] text-amber-600 flex items-center gap-1.5">
               <AlertTriangle size={11} className="shrink-0" />
               <span>
@@ -531,7 +551,7 @@ function APIKeyRow({
             </p>
           )}
 
-          {!isConfig && apiKey.namespaces !== null && <KeyNamespacesEditor apiKey={apiKey} />}
+          {!readOnly && apiKey.namespaces !== null && <KeyNamespacesEditor apiKey={apiKey} />}
 
           {/* Effective per-namespace permissions (scoped keys only) */}
           <KeyEffectivePermissions apiKey={apiKey} />
@@ -628,7 +648,7 @@ function APIKeyRow({
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              {!isConfig && (
+              {!readOnly && (
                 <>
                   <button
                     onClick={startEdit}
@@ -646,7 +666,11 @@ function APIKeyRow({
                   </button>
                 </>
               )}
-              {isConfig && (
+              {managed ? (
+                <span className="text-xs text-gray-500" data-testid="managed-key-hint">
+                  {managedKeyHint(apiKey.name)}
+                </span>
+              ) : readOnly && (
                 <span className="text-xs text-gray-400 italic">
                   Config keys are read-only — edit in config/api-keys.*.json
                 </span>

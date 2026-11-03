@@ -1,5 +1,5 @@
 import { useWipClient } from '@wip/react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import type {
   AddAPIKeyNamespaceRequest,
   APIKeyRevokeResult,
@@ -8,16 +8,30 @@ import type {
   RemoveAPIKeyNamespaceResult,
   UpdateAPIKeyRequest,
 } from '@wip/client'
-import { GRANTS_QUERY_KEY } from '@/components/grants/GrantsPanel'
+import { isManagedRefusal } from '@/lib/managed-records'
 
 // API keys and their namespace reservations (no @wip/react hooks for these).
 // Everything lives under one query-key root, so any key change also
 // refreshes the reservations list.
 
+/** Grant rows of one namespace. Here, not in GrantsPanel, so both can import it without a cycle. */
+export const GRANTS_QUERY_KEY = (prefix: string) =>
+  ['rc-console', 'grants', prefix] as const
+
 export const API_KEY_KEYS = {
   all: ['rc-console', 'api-keys'] as const,
   list: () => [...API_KEY_KEYS.all, 'list'] as const,
   reservations: () => [...API_KEY_KEYS.all, 'reservations'] as const,
+}
+
+/**
+ * A write refused because wip-deploy owns the record means this view is
+ * stale (the record was imported since it was read, or another tab acted):
+ * re-read keys and reservations so it shows read-only. The refusal's own
+ * message still goes to the caller.
+ */
+function onWriteError(qc: QueryClient, err: Error) {
+  if (isManagedRefusal(err)) qc.invalidateQueries({ queryKey: API_KEY_KEYS.all })
 }
 
 interface MutationCallbacks<T> {
@@ -53,7 +67,7 @@ export function useCreateAPIKey(options?: MutationCallbacks<CreateAPIKeyResponse
       for (const ns of data.namespaces ?? []) qc.invalidateQueries({ queryKey: GRANTS_QUERY_KEY(ns) })
       options?.onSuccess?.(data)
     },
-    onError: options?.onError,
+    onError: (err: Error) => { onWriteError(qc, err); options?.onError?.(err) },
   })
 }
 
@@ -67,7 +81,7 @@ export function useUpdateAPIKey(options?: MutationCallbacks<void>) {
       qc.invalidateQueries({ queryKey: API_KEY_KEYS.all })
       options?.onSuccess?.()
     },
-    onError: options?.onError,
+    onError: (err: Error) => { onWriteError(qc, err); options?.onError?.(err) },
   })
 }
 
@@ -81,7 +95,7 @@ export function useRevokeAPIKey(options?: MutationCallbacks<APIKeyRevokeResult>)
       for (const ns of data.revoked_grants ?? []) qc.invalidateQueries({ queryKey: GRANTS_QUERY_KEY(ns) })
       options?.onSuccess?.(data)
     },
-    onError: options?.onError,
+    onError: (err: Error) => { onWriteError(qc, err); options?.onError?.(err) },
   })
 }
 
@@ -97,7 +111,7 @@ export function useAddKeyNamespace(options?: MutationCallbacks<void>) {
       qc.invalidateQueries({ queryKey: GRANTS_QUERY_KEY(prefix) })
       options?.onSuccess?.()
     },
-    onError: options?.onError,
+    onError: (err: Error) => { onWriteError(qc, err); options?.onError?.(err) },
   })
 }
 
@@ -113,7 +127,7 @@ export function useRemoveKeyNamespace(options?: MutationCallbacks<RemoveAPIKeyNa
       qc.invalidateQueries({ queryKey: GRANTS_QUERY_KEY(data.prefix) })
       options?.onSuccess?.(data)
     },
-    onError: options?.onError,
+    onError: (err: Error) => { onWriteError(qc, err); options?.onError?.(err) },
   })
 }
 
@@ -130,6 +144,6 @@ export function useReleaseReservation(options?: MutationCallbacks<string>) {
       qc.invalidateQueries({ queryKey: API_KEY_KEYS.all })
       options?.onSuccess?.(prefix)
     },
-    onError: options?.onError,
+    onError: (err: Error) => { onWriteError(qc, err); options?.onError?.(err) },
   })
 }

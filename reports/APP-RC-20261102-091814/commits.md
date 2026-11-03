@@ -245,3 +245,20 @@ names its button by its new label. CHANGELOG has the entry.
 
 Tests: tsc clean; unit 363/363; full E2E 84/84 (2.5 min) against the default install
 Discovered: In the full suite the run namespace holds enough templates that the documents page shows a dropdown instead of cards, so the test selects its template through the URL, as the other specs do
+
+## 50a5c48 — chore: scaffold refresh — @wip/client 0.75.0, @wip/react 0.25.0
+**Time:** 2026-11-03 23:06
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 14 changed, +53/-32
+**Tests:** not recorded
+**Why:** @wip/client 0.75.0 adds managed_by and origin on API keys, managed_by on
+grants and reservations, the MANAGED_BY_DEPLOYER error code, and error
+items on grant revokes: the Registry now imports the install's key file
+and reservations file as records wip-deploy owns, and refuses API writes
+to them. @wip/client 0.74.0 and @wip/react 0.25.0 drop the requalify
+identity synonyms call and its hook, whose endpoint is gone; RC never
+used them, and the maintenance gate's comment no longer names it. The
+refresh also brings wip-toolkit 0.24.1 and doc updates. CLAUDE.md's
+fresh render was not taken, as before.
+
+Tests: tsc clean; unit 363/363

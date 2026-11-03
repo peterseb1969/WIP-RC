@@ -3,6 +3,7 @@ import { AlertTriangle } from 'lucide-react'
 import type { APIKeyRevokeResult, NamespaceReservation } from '@wip/client'
 import { useReleaseReservation, useReservations } from '@/hooks/use-api-keys'
 import { cn } from '@/lib/cn'
+import { isManaged } from '@/lib/managed-records'
 import RefreshButton from '@/components/common/RefreshButton'
 
 function ReleaseButton({ prefix, onReleased }: { prefix: string; onReleased?: (prefix: string) => void }) {
@@ -87,7 +88,7 @@ export function ReservationsPanel() {
               >
                 <td className="px-4 py-1.5 font-mono text-gray-700">{r.prefix}</td>
                 <td className="px-2 py-1.5 text-gray-600">
-                  {r.source === 'file' ? `app ${r.app} (wip-deploy)` : `key ${r.app}`}
+                  {r.source === 'file' || isManaged(r) ? `app ${r.app} (wip-deploy)` : `key ${r.app}`}
                 </td>
                 <td className="px-2 py-1.5 text-gray-500">{r.namespace_exists ? 'created' : 'not created yet'}</td>
                 <td className="px-2 py-1.5 text-gray-500 font-mono break-all">
@@ -95,12 +96,12 @@ export function ReservationsPanel() {
                   {r.conflict && (
                     <p className="font-sans text-danger flex items-start gap-1 mt-0.5">
                       <AlertTriangle size={11} className="shrink-0 mt-0.5" />
-                      <span>{r.conflict} The namespace can&apos;t be created until one reservation is removed.</span>
+                      <span>{r.conflict}</span>
                     </p>
                   )}
                 </td>
                 <td className="px-4 py-1.5 text-right whitespace-nowrap">
-                  {r.source === 'runtime'
+                  {r.source === 'runtime' && !isManaged(r)
                     ? <ReleaseButton prefix={r.prefix} />
                     : <span className="text-[11px] text-gray-300">managed by wip-deploy</span>}
                 </td>

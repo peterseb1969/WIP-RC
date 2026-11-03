@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { Key, Plus, ShieldCheck, Trash2, Clock, UserRound, Users } from 'lucide-react'
 import { useWipClient } from '@wip/react'
 import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { APIKeyInfo, Grant, GrantPermission, GrantSubjectType } from '@wip/client'
+import { MANAGED_BY_DEPLOYER, type APIKeyInfo, type Grant, type GrantPermission, type GrantSubjectType } from '@wip/client'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import { cn } from '@/lib/cn'
+import { GRANTS_QUERY_KEY, useAPIKeys } from '@/hooks/use-api-keys'
+import { isManaged, isManagedRefusal, keyGrantsManaged, WIP_DEPLOY } from '@/lib/managed-records'
 
 // ---------------------------------------------------------------------------
 // Namespace grants — list / create / revoke (CASE-450 permission model).
@@ -16,8 +18,7 @@ import { cn } from '@/lib/cn'
 // non-expired grant; an in-scope key with no grant falls back to read.
 // ---------------------------------------------------------------------------
 
-export const GRANTS_QUERY_KEY = (prefix: string) =>
-  ['rc-console', 'grants', prefix] as const
+export { GRANTS_QUERY_KEY }
 
 /** Grant rows of one namespace (registry listGrants). */
 export function useGrants(prefix: string, enabled = true) {
@@ -60,6 +61,10 @@ function AddGrantForm({ prefix, onClose }: { prefix: string; onClose: () => void
   const [permission, setPermission] = useState<GrantPermission>('read')
   const [expiresAt, setExpiresAt] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const { data: keys } = useAPIKeys()
+  const managedSubject = subjectType === 'api_key'
+    ? keys?.items?.find(k => k.name === subject.trim() && keyGrantsManaged(k))
+    : undefined
 
   const create = useMutation({
     mutationFn: async () => {
@@ -71,7 +76,11 @@ function AddGrantForm({ prefix, onClose }: { prefix: string; onClose: () => void
       }])
       // Bulk-first: HTTP 200 can still carry a per-item error.
       const item = res.results[0]
-      if (item?.status === 'error') throw new Error(item.error ?? 'Grant creation failed')
+      if (item?.status === 'error') {
+        // The key's grants turned out to be wip-deploy's: re-read so it shows.
+        if (item.error_code === MANAGED_BY_DEPLOYER) qc.invalidateQueries({ queryKey: GRANTS_QUERY_KEY(prefix) })
+        throw new Error(item.error ?? 'Grant creation failed')
+      }
       return res
     },
     onSuccess: () => {
@@ -129,7 +138,13 @@ function AddGrantForm({ prefix, onClose }: { prefix: string; onClose: () => void
           className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
         />
       </div>
-      {subjectType === 'api_key' && (
+      {managedSubject && (
+        <p className="text-xs text-amber-700" role="alert">
+          {managedSubject.name}&apos;s grants are declared in the install&apos;s key file, so wip-deploy owns
+          them and this grant would be refused. Change them in the app&apos;s manifest with wip-deploy.
+        </p>
+      )}
+      {subjectType === 'api_key' && !managedSubject && (
         <p className="text-[10px] text-gray-400">
           Subject is the bare key name. The grant only takes effect if the namespace is also in the key's scoping list.
         </p>
@@ -138,7 +153,7 @@ function AddGrantForm({ prefix, onClose }: { prefix: string; onClose: () => void
       <div className="flex items-center gap-2">
         <button
           onClick={() => create.mutate()}
-          disabled={create.isPending || !subject.trim()}
+          disabled={create.isPending || !subject.trim() || !!managedSubject}
           className="px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-dark disabled:opacity-50"
         >
           {create.isPending ? 'Granting...' : 'Grant'}
@@ -160,6 +175,7 @@ function GrantRow({ prefix, grant }: { prefix: string; grant: Grant }) {
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const isExpired = grant.expires_at && new Date(grant.expires_at) < new Date()
+  const managed = isManaged(grant)
 
   const revoke = useMutation({
     mutationFn: async () => {
@@ -169,10 +185,18 @@ function GrantRow({ prefix, grant }: { prefix: string; grant: Grant }) {
       }])
       const item = res.results[0]
       if (item?.status === 'not_found') throw new Error('Grant not found — it may already be revoked')
+      // Bulk-first: a refusal (e.g. the grant is wip-deploy's) is an error item in a 200.
+      if (item?.status === 'error') {
+        if (item.error_code === MANAGED_BY_DEPLOYER) qc.invalidateQueries({ queryKey: GRANTS_QUERY_KEY(prefix) })
+        throw new Error(item.error ?? 'Grant revoke failed')
+      }
       return res
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: GRANTS_QUERY_KEY(prefix) }),
-    onError: (err: Error) => setError(err.message),
+    onError: (err: Error) => {
+      if (isManagedRefusal(err)) qc.invalidateQueries({ queryKey: GRANTS_QUERY_KEY(prefix) })
+      setError(err.message)
+    },
   })
 
   return (
@@ -192,7 +216,14 @@ function GrantRow({ prefix, grant }: { prefix: string; grant: Grant }) {
         by {grant.granted_by} · {new Date(grant.granted_at).toLocaleDateString()}
       </span>
       {error && <span className="text-danger">{error}</span>}
-      {confirming ? (
+      {managed ? (
+        <span
+          className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium shrink-0"
+          title="Declared in the install's key file. wip-deploy owns this grant; change it in the app's manifest."
+        >
+          {WIP_DEPLOY}
+        </span>
+      ) : confirming ? (
         <span className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => revoke.mutate()}

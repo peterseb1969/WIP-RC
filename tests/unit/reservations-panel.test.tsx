@@ -5,9 +5,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 
 // Reservations come from two sources: wip-deploy's file and runtime keys.
-// Only runtime ones can be released from the Console, and a conflict (both
-// sources reserving one prefix) blocks the namespace's creation, so it is
-// called out. Revoking a key reports what happened to its reservations.
+// Only runtime ones wip-deploy doesn't own can be released from the Console.
+// A conflict (reported only by Registries from before the import, when both
+// sources could reserve one prefix) is shown as the Registry words it.
+// Revoking a key reports what happened to its reservations.
 
 const listReservations = vi.hoisted(() => vi.fn())
 const releaseReservation = vi.hoisted(() => vi.fn())
@@ -50,12 +51,22 @@ describe('ReservationsPanel', () => {
     await waitFor(() => expect(releaseReservation).toHaveBeenCalledWith('my-app'))
   })
 
+  it('offers no Release on a reservation wip-deploy owns, whatever its source', async () => {
+    listReservations.mockResolvedValue([
+      { prefix: 'kb', app: 'wip-kb', source: 'runtime', managed_by: 'wip-deploy', settings: {}, namespace_exists: true, conflict: null },
+    ])
+    wrap(<ReservationsPanel />)
+    const row = await screen.findByTestId('reservation-kb')
+    expect(within(row).getByText('app wip-kb (wip-deploy)')).toBeInTheDocument()
+    expect(within(row).queryByRole('button')).not.toBeInTheDocument()
+  })
+
   it('calls out a conflict', async () => {
     listReservations.mockResolvedValue([
       { prefix: 'aa', app: 'k', source: 'runtime', settings: {}, namespace_exists: false, conflict: 'Also reserved by app wip-aa.' },
     ])
     wrap(<ReservationsPanel />)
-    expect(await screen.findByText(/can't be created until one reservation is removed/)).toBeInTheDocument()
+    expect(await screen.findByText('Also reserved by app wip-aa.')).toBeInTheDocument()
   })
 })
 
