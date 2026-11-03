@@ -1,5 +1,13 @@
 # RC-Console — Changelog
 
+## 2026-11-03 — Refresh shows its progress; opt-in auto-refresh on the documents list
+
+- Changed: every Refresh button spins and reads "Refreshing…" while its data is being read (also when the console re-reads on its own, e.g. on returning to the tab) and ignores clicks meanwhile. A second click used to cancel the running read and start it again, so on a large namespace (6.5 s for a page of documents in a namespace of 222k) each click made the wait longer. The counts a button refreshes stay on screen, dimmed and pulsing, with "updating…" beside the documents count.
+- Changed: a refresh of the documents list that fails keeps the documents last read, with an inline error and Retry.
+- Added: an **Auto** toggle on the documents list re-reads 5 s after each read finishes (never two at once, nothing while the tab is hidden), for watching a namespace fill. Off on every visit.
+- Fixed: Refresh on the Dashboard and the Namespaces page now re-reads the namespace counts; it used to leave them as they were until a browser reload.
+- Tests: E2E for a held refresh (indicator, no second request, count marked) and for auto-refresh picking up a write; unit tests for the button and the auto-refresh scheduling.
+
 ## 2026-11-02 — API keys that reserve namespaces; namespace edits keep grants in step
 
 - Added: the API key create dialog lists namespaces one row each and can **reserve** a namespace that doesn't exist yet, with its six settings (filled with the platform defaults; deletion mode "full" and inbound references "open" carry a warning). The key gets admin on it and its bootstrap creates it with exactly those settings. This is for apps wip-deploy does not manage. A namespace that exists can't be reserved: a reservation never changes one, so the dialog points to the admin permission.

@@ -135,3 +135,97 @@ WIP_DEPENDENCIES moves to @wip/client 0.73.0 and @wip/proxy 0.6.0 (it
 still said 0.54.0 and 0.5.1) and lists the reservation endpoints.
 
 Tests: tsc clean; unit 355/355; full E2E 82/82 (2.4 min) against the default install after the dev container restart onto @wip/client 0.73.0; no E2E key or runtime reservation left behind
+
+## 21a6fb0 — fix: Refresh re-reads the namespace counts on the Dashboard and Namespaces pages
+**Time:** 2026-11-03 01:52
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 5 changed, +206/-8
+**Tests:** not recorded
+**Why:** The document counts on these two pages come from per-namespace stats
+queries of their own, cached for a minute. The Dashboard's only Refresh
+re-checked service health, and the Namespaces page's Refresh refetched
+the namespace list, so neither touched the counts: while an install
+filled a namespace the numbers stayed put until a browser reload.
+
+The Dashboard's Namespaces section gets its own Refresh, which re-reads
+the namespace list and then every namespace's counts (the stats hook now
+returns a refresh for this). The health button keeps re-checking health
+only, as its tooltip says. The Namespaces page's Refresh now also
+re-reads the expanded namespace's counts. The other pages with a Refresh
+button show counts from the query that button refetches; the documents
+list, checked in a browser, picks up a new document on Refresh.
+
+A new E2E spec writes documents through the API between two reads and
+checks that each Refresh shows them. With the fix stashed it fails as
+reported (the Dashboard count stayed where it was).
+
+Tests: tsc clean; unit 355/355; full E2E 83/83 (3.4 min) against the default install
+Discovered: The first version of the spec compared fixed counts and passed alone but failed in the full suite, where other specs had already put 137 documents in the run namespace; it now compares with the count read at the start
+
+## b0c238a — feat: the documents list shows when it is refreshing and takes no second click
+**Time:** 2026-11-03 21:21
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 3 changed, +150/-8
+**Tests:** not recorded
+**Why:** On a large namespace the documents list takes seconds to re-read (6.5 s
+for a page of 25 on a namespace of 222k documents), and nothing showed
+that a refresh was running. A second click made it worse: refetch()
+cancels the running request and starts it again, so each impatient click
+restarted the wait.
+
+A shared RefreshButton spins and reads "Refreshing…" while the data
+behind it is being read, whether from a click or from TanStack re-reading
+on its own (e.g. on returning to the tab), and is disabled meanwhile.
+RefreshingValue keeps a count on screen but dims and pulses it, with an
+"updating…" tag beside it and "(updating)" for screen readers. On the
+documents list (one template or all) the count and the rows are marked
+this way, and the refresh no longer cancels a running read. A refresh
+that fails now keeps the documents last read, with an inline error and
+Retry, instead of replacing them with an error page; only a first load
+that fails shows the error page.
+
+Tests: tsc clean; unit 358/358 (3 new); E2E not run yet
+
+## e5fe2ea — feat: every Refresh button shows a running read and takes no second click
+**Time:** 2026-11-03 21:24
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 16 changed, +133/-150
+**Tests:** not recorded
+**Why:** The shared RefreshButton and RefreshingValue from the documents list now
+serve every Refresh on the console: templates, terminologies and their
+terms, files, the documents table view, activity and the audit log,
+API keys and reservations, namespaces, registered views, NATS streams,
+the Dashboard's health, namespace counts and integrity re-check, and
+Backup's recent jobs. Each spins and reads "Refreshing…" while its data
+is being read, including when TanStack re-reads on its own, ignores
+clicks meanwhile and no longer cancels a running read. The counts each
+one refreshes stay on screen, dimmed and pulsing: list totals, the
+Dashboard's totals and per-namespace counts, an expanded namespace's
+counts, a stream's messages, storage and consumers, a parity result,
+and the integrity summary, whose re-run no longer shows the first-run
+spinner above an old result.
+
+The Database settings and Parity buttons already spun and disabled
+themselves; they stay as they are, with the parity counts now dimmed
+while a re-check runs. Integrity's Run Check was already disabled while
+running. The PostgreSQL page's Batch Sync tab icon is not a button.
+
+Tests: tsc clean; unit 358/358; E2E not run yet
+
+## 90fcaae — feat: opt-in auto-refresh on the documents list
+**Time:** 2026-11-03 21:25
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 3 changed, +150/-0
+**Tests:** not recorded
+**Why:** For watching a namespace fill, during an install for example, the
+documents list (one template or all) gets an Auto toggle next to
+Refresh. While it is on, the list re-reads 5 s after each read finishes:
+the next read is scheduled only when the previous one is done, so reads
+never overlap, which matters where one read takes seconds (6.5 s on a
+namespace of 222k documents). Nothing is read while the browser tab is
+hidden; the read that was due runs when it is shown again. The count
+and rows show each read the way a Refresh does. The toggle is off on
+every visit, because each read of a large namespace costs the platform
+seconds.
+
+Tests: tsc clean; unit 363/363 (5 new: the scheduling, no read during a read, a new callback each render, hidden tab, switching off); E2E not run yet
