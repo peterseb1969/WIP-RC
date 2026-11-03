@@ -11,6 +11,7 @@ import {
   Plus,
   Trash2,
   Table2,
+  Timer,
   Upload,
   Network,
 } from 'lucide-react'
@@ -28,6 +29,7 @@ import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
 import { cn } from '@/lib/cn'
 import RefreshButton, { RefreshingValue, UpdatingTag } from '@/components/common/RefreshButton'
+import { AUTO_REFRESH_DELAY_MS, useAutoRefresh } from '@/hooks/use-auto-refresh'
 import { parseVersionParam, versionOptions, versionQuery } from '@/lib/document-version-filter'
 
 const CARD_THRESHOLD = 8
@@ -464,6 +466,11 @@ function DocumentTable({
   // the count and rows stay, marked as being updated.
   const refreshing = isFetching && !isLoading
   const refresh = () => refetch({ cancelRefetch: false })
+  // Opt-in live counts, for watching a namespace fill: one read at a time,
+  // the next one a few seconds after the previous finished. Off on every
+  // visit, since each read of a large namespace costs the platform seconds.
+  const [autoRefresh, setAutoRefresh] = useState(false)
+  useAutoRefresh(autoRefresh && !isLoading, isFetching, refresh)
 
   if (isLoading) return <LoadingState label="Loading documents..." />
   // A failed re-read keeps the documents already shown; only a first load
@@ -550,6 +557,23 @@ function DocumentTable({
               </Link>
             </>
           )}
+          <button
+            type="button"
+            onClick={() => setAutoRefresh(v => !v)}
+            aria-pressed={autoRefresh}
+            title={autoRefresh
+              ? `Auto-refresh is on: re-reads ${AUTO_REFRESH_DELAY_MS / 1000} s after each read finishes. Click to stop.`
+              : `Re-read the documents ${AUTO_REFRESH_DELAY_MS / 1000} s after each read finishes, until switched off`}
+            className={cn(
+              'inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border transition-colors',
+              autoRefresh
+                ? 'border-primary/30 bg-primary/5 text-primary'
+                : 'border-gray-200 bg-white text-gray-400 hover:text-gray-600 hover:border-gray-300',
+            )}
+          >
+            <Timer size={12} />
+            {autoRefresh ? 'Auto: on' : 'Auto'}
+          </button>
           <RefreshButton onRefresh={refresh} refreshing={refreshing} label="Refresh documents" />
         </div>
       </div>
