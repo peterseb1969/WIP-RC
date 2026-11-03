@@ -5,7 +5,6 @@ import {
   ChevronRight,
   ChevronDown,
   Layers,
-  RefreshCw,
   Calendar,
   Search,
   X,
@@ -28,6 +27,7 @@ import PeerHeader from '@/components/documents/PeerHeader'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
 import { cn } from '@/lib/cn'
+import RefreshButton, { RefreshingValue, UpdatingTag } from '@/components/common/RefreshButton'
 import { parseVersionParam, versionOptions, versionQuery } from '@/lib/document-version-filter'
 
 const CARD_THRESHOLD = 8
@@ -458,19 +458,28 @@ function DocumentTable({
     ),
     enabled: version !== null && !!templateId,
   })
-  const { data, isLoading, error, refetch } = version !== null ? versionQ : listQ
+  const { data, isLoading, isFetching, error, refetch } = version !== null ? versionQ : listQ
   const isAll = !templateId
+  // A re-read of data already on screen (Refresh, or TanStack's own refetch):
+  // the count and rows stay, marked as being updated.
+  const refreshing = isFetching && !isLoading
+  const refresh = () => refetch({ cancelRefetch: false })
 
   if (isLoading) return <LoadingState label="Loading documents..." />
-  if (error) return <ErrorState message={error.message} onRetry={() => refetch()} />
+  // A failed re-read keeps the documents already shown; only a first load
+  // that failed has nothing to show but the error.
+  if (error && !data) return <ErrorState message={error.message} onRetry={refresh} />
 
   const items = data?.items ?? []
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-gray-700">
-          {data?.total ?? 0} document{(data?.total ?? 0) !== 1 ? 's' : ''}
+        <h2 className="text-sm font-medium text-gray-700" data-testid="documents-count">
+          <RefreshingValue refreshing={refreshing}>
+            {data?.total ?? 0} document{(data?.total ?? 0) !== 1 ? 's' : ''}
+          </RefreshingValue>
+          <UpdatingTag refreshing={refreshing} />
         </h2>
         <div className="flex items-center gap-1">
           <SortSelect
@@ -541,12 +550,18 @@ function DocumentTable({
               </Link>
             </>
           )}
-          <button onClick={() => refetch()} className="p-1.5 text-gray-400 hover:text-gray-600" title="Refresh">
-            <RefreshCw size={14} />
-          </button>
+          <RefreshButton onRefresh={refresh} refreshing={refreshing} label="Refresh documents" />
         </div>
       </div>
 
+      {error && data && (
+        <div className="flex items-center gap-2 text-xs text-danger bg-danger/5 border border-danger/20 rounded-md px-3 py-1.5" role="alert">
+          <span className="flex-1">Refresh failed: {error.message}. Showing the documents from the last successful read.</span>
+          <button type="button" onClick={refresh} className="underline hover:no-underline">Retry</button>
+        </div>
+      )}
+
+      <div className={cn('transition-opacity', refreshing && 'opacity-60')} aria-busy={refreshing}>
       {items.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-8">{isAll ? 'No documents in this namespace.' : 'No documents for this template.'}</p>
       ) : (
@@ -639,6 +654,7 @@ function DocumentTable({
           })}
         </div>
       )}
+      </div>
 
       <Pagination page={page} totalPages={data?.pages ?? 1} onPageChange={setPage} />
     </div>
