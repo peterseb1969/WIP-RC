@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { useNamespaces, useWipClient, useCreateNamespace, useUpdateNamespace, useDeleteNamespace } from '@wip/react'
 import type { Namespace, IdAlgorithmConfig, UpdateNamespaceRequest } from '@wip/client'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
@@ -612,6 +612,12 @@ export default function NamespacesPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [expandedNs, setExpandedNs] = useState<string | null>(null)
   const { data: namespaces, isLoading, error, refetch } = useNamespaces()
+  const qc = useQueryClient()
+  // The expanded namespace's counts are a query of their own; refresh them too.
+  const refresh = () => {
+    refetch()
+    qc.invalidateQueries({ queryKey: ['rc-console', 'ns-detail'] })
+  }
 
   return (
     <div className="space-y-4 max-w-5xl">
@@ -622,7 +628,7 @@ export default function NamespacesPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => refetch()}
+            onClick={refresh}
             className="p-2 border border-gray-200 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-50"
             title="Refresh"
           >

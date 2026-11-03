@@ -158,7 +158,7 @@ function ServiceCard({ service }: { service: ServiceHealth }) {
 
 function NamespaceSummary() {
   const { namespace } = useNamespaceFilter()
-  const { data: allNamespaces, isLoading } = useNamespaceStats()
+  const { data: allNamespaces, isLoading, isFetching, refresh } = useNamespaceStats()
 
   if (isLoading) return <LoadingState label="Loading namespaces..." />
 
@@ -189,7 +189,17 @@ function NamespaceSummary() {
     <section>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Namespaces</h2>
-        <Link to="/namespaces" className="text-xs text-primary hover:text-primary-dark">View all</Link>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => refresh()}
+            className="text-gray-400 hover:text-gray-600"
+            title="Refresh namespace counts"
+            aria-label="Refresh namespace counts"
+          >
+            <RefreshCw size={12} className={cn(isFetching && 'animate-spin')} />
+          </button>
+          <Link to="/namespaces" className="text-xs text-primary hover:text-primary-dark">View all</Link>
+        </div>
       </div>
 
       {/* Totals bar */}

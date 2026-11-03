@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useWipClient, useNamespaces } from '@wip/react'
 
 export interface NamespaceWithStats {
@@ -9,6 +9,9 @@ export interface NamespaceWithStats {
   documents: number
 }
 
+/** Query-key root of the per-namespace counts. */
+export const NAMESPACE_STATS_KEY = ['rc-console', 'namespace-stats'] as const
+
 /**
  * Every namespace with its terminology / template / document counts, from the
  * Registry's per-namespace stats (registry getNamespaceStats). A namespace whose
@@ -17,10 +20,11 @@ export interface NamespaceWithStats {
  */
 export function useNamespaceStats() {
   const client = useWipClient()
-  const { data: namespaces, isLoading: nsLoading } = useNamespaces()
+  const qc = useQueryClient()
+  const { data: namespaces, isLoading: nsLoading, refetch: refetchNamespaces } = useNamespaces()
 
-  return useQuery({
-    queryKey: ['rc-console', 'namespace-stats', namespaces?.map(n => n.prefix)],
+  const query = useQuery({
+    queryKey: [...NAMESPACE_STATS_KEY, namespaces?.map(n => n.prefix)],
     queryFn: async (): Promise<NamespaceWithStats[]> => {
       if (!namespaces) return []
 
@@ -55,4 +59,16 @@ export function useNamespaceStats() {
     enabled: !nsLoading && !!namespaces && namespaces.length > 0,
     staleTime: 60_000,
   })
+
+  /**
+   * Re-read the namespace list and every namespace's counts. The counts are
+   * a query of their own, so refetching only the list leaves them as they
+   * were (up to a minute old).
+   */
+  const refresh = async () => {
+    await refetchNamespaces()
+    await qc.invalidateQueries({ queryKey: NAMESPACE_STATS_KEY })
+  }
+
+  return { ...query, refresh }
 }
