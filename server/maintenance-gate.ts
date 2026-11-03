@@ -2,8 +2,8 @@ import path from 'path'
 import type { RequestHandler } from 'express'
 import { requireAdmin } from './auth.js'
 
-// The document-store maintenance endpoints (rehash identities, requalify
-// identity synonyms) rewrite stored identities. WIP checks admin rights against
+// The document-store maintenance endpoints (today: rehash identities) rewrite
+// stored identities. WIP checks admin rights against
 // whoever calls it, and behind this app's proxy that is always the deployment's
 // admin key, so the check can never refuse a user. RC enforces admin itself.
 const MAINTENANCE_PREFIX = '/wip/api/document-store/maintenance'

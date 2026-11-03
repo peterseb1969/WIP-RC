@@ -229,3 +229,19 @@ every visit, because each read of a large namespace costs the platform
 seconds.
 
 Tests: tsc clean; unit 363/363 (5 new: the scheduling, no read during a read, a new callback each render, hidden tab, switching off); E2E not run yet
+
+## 4d69958 — test: E2E for a running refresh and for auto-refresh on the documents list
+**Time:** 2026-11-03 21:32
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 3 changed, +157/-0
+**Tests:** not recorded
+**Why:** The test holds the documents request in the browser so the in-between
+state can be checked on any install: while it is held the button reads
+"Refreshing…" and is disabled, the count is marked as updating, and a
+forced second click sends no second request. Once released the button
+and count return to normal. With Auto on, a document written through the
+API shows in the count without a click. The spec's namespace check now
+names its button by its new label. CHANGELOG has the entry.
+
+Tests: tsc clean; unit 363/363; full E2E 84/84 (2.5 min) against the default install
+Discovered: In the full suite the run namespace holds enough templates that the documents page shows a dropdown instead of cards, so the test selects its template through the URL, as the other specs do
