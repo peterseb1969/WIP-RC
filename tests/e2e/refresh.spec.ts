@@ -43,7 +43,7 @@ test('Dashboard and Namespaces Refresh show documents written since the page loa
   const namespaceDocs = page.locator(`main a[href$="/documents?ns=${ns}"]`)
   await expectCount(namespaceDocs, before + 1)
   await createDocuments(api, ns, 'REFRESH_PROBE', [{ code: `${stamp}-b` }])
-  await page.getByTitle('Refresh', { exact: true }).first().click()
+  await page.getByRole('button', { name: 'Refresh namespaces' }).click()
   await expectCount(namespaceDocs, before + 2)
   await api.dispose()
 })

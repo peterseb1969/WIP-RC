@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import {
   Activity as ActivityIcon,
   Clock,
-  RefreshCw,
   BookOpen,
   Tag,
   FileCode2,
@@ -18,6 +17,7 @@ import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import Pagination from '@/components/common/Pagination'
 import { cn } from '@/lib/cn'
+import RefreshButton, { RefreshingValue } from '@/components/common/RefreshButton'
 
 // ---------------------------------------------------------------------------
 // Entity type icon + color
@@ -55,7 +55,7 @@ function actionBadge(action: string) {
 function ActivityFeed() {
   const [typeFilter, setTypeFilter] = useState('')
   const [limit] = useState(50)
-  const { data, isLoading, error, refetch } = useActivity({
+  const { data, isLoading, isFetching, error, refetch } = useActivity({
     types: typeFilter || undefined,
     limit,
   })
@@ -78,10 +78,8 @@ function ActivityFeed() {
           <option value="document">Documents</option>
           <option value="file">Files</option>
         </select>
-        <button onClick={() => refetch()} className="p-1.5 text-gray-400 hover:text-gray-600" title="Refresh">
-          <RefreshCw size={14} />
-        </button>
-        <span className="text-xs text-gray-400 ml-auto">{data?.total ?? 0} events</span>
+        <RefreshButton onRefresh={() => refetch({ cancelRefetch: false })} refreshing={isFetching && !isLoading} label="Refresh activity" variant="plain" size={14} />
+        <span className="text-xs text-gray-400 ml-auto"><RefreshingValue refreshing={isFetching && !isLoading}>{data?.total ?? 0} events</RefreshingValue></span>
       </div>
 
       {isLoading && <LoadingState label="Loading activity..." />}
@@ -133,7 +131,7 @@ function AuditLogTab() {
   const { data: terminologies } = useTerminologies({ status: 'active', page_size: 1000 })
   const client = useWipClient()
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['rc-console', 'audit-log', selectedTerminology, actionFilter, page],
     queryFn: () => {
       if (selectedTerminology) {
@@ -178,10 +176,8 @@ function AuditLogTab() {
           <option value="deprecated">Deprecated</option>
           <option value="deleted">Deleted</option>
         </select>
-        <button onClick={() => refetch()} className="p-1.5 text-gray-400 hover:text-gray-600" title="Refresh">
-          <RefreshCw size={14} />
-        </button>
-        <span className="text-xs text-gray-400 ml-auto">{data?.total ?? 0} entries</span>
+        <RefreshButton onRefresh={() => refetch({ cancelRefetch: false })} refreshing={isFetching && !isLoading} label="Refresh audit log" variant="plain" size={14} />
+        <span className="text-xs text-gray-400 ml-auto"><RefreshingValue refreshing={isFetching && !isLoading}>{data?.total ?? 0} entries</RefreshingValue></span>
       </div>
 
       {isLoading && <LoadingState label="Loading audit log..." />}

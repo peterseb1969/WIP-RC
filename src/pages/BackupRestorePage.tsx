@@ -2,7 +2,6 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   Download,
   Upload,
-  RefreshCw,
   Trash2,
   Play,
   Loader2,
@@ -24,6 +23,7 @@ import type {
 import StatusBadge from '@/components/common/StatusBadge'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 import { cn } from '@/lib/cn'
+import RefreshButton from '@/components/common/RefreshButton'
 import { apiUrl } from '@/lib/wip'
 import {
   readArchiveManifest,
@@ -1549,9 +1549,7 @@ function JobsList() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-gray-700">Recent Jobs</h3>
-        <button onClick={loadJobs} disabled={loading} className="p-1.5 text-gray-400 hover:text-gray-600">
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-        </button>
+        <RefreshButton onRefresh={loadJobs} refreshing={loading} label="Refresh recent jobs" />
       </div>
 
       {error && <p className="text-xs text-danger">{error}</p>}

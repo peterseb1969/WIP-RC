@@ -14,6 +14,8 @@ export interface RegisteredViewsState {
   /** Namespaces whose listing failed, with the error — shown, never hidden. */
   failures: Array<{ namespace: string; message: string }>
   isLoading: boolean
+  /** A re-read of views already loaded (not the first load). */
+  isRefreshing: boolean
   refetch: () => void
 }
 
@@ -48,7 +50,9 @@ export function useRegisteredViews(): RegisteredViewsState {
     views,
     failures,
     isLoading: nsLoading || results.some(r => r.isLoading),
-    refetch: () => results.forEach(r => r.refetch()),
+    /** A re-read of views already loaded (not the first load). */
+    isRefreshing: results.some(r => r.isFetching && !r.isLoading),
+    refetch: () => results.forEach(r => r.refetch({ cancelRefetch: false })),
   }
 }
 

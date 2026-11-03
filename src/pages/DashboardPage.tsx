@@ -37,6 +37,7 @@ import { useNamespaceFilter, useNamespaceInUrl } from '@/hooks/use-namespace-fil
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import { cn } from '@/lib/cn'
+import RefreshButton, { RefreshingValue } from '@/components/common/RefreshButton'
 import { apiUrl } from '@/lib/wip'
 
 // ---------------------------------------------------------------------------
@@ -46,7 +47,7 @@ import { apiUrl } from '@/lib/wip'
 const HEALTH_COLLAPSED_KEY = 'rc-console:health-collapsed'
 
 function ServiceHealthGrid() {
-  const { data: services, isLoading, refetch, dataUpdatedAt } = useServiceHealth()
+  const { data: services, isLoading, isFetching, refetch, dataUpdatedAt } = useServiceHealth()
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(HEALTH_COLLAPSED_KEY) === '1' } catch { return false }
   })
@@ -83,14 +84,15 @@ function ServiceHealthGrid() {
             </span>
           )}
         </button>
-        <button
-          onClick={() => refetch()}
-          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"
-          title="Refresh health checks"
+        <RefreshButton
+          onRefresh={() => refetch({ cancelRefetch: false })}
+          refreshing={isFetching && !isLoading}
+          label="Refresh health checks"
+          variant="text"
+          size={12}
         >
-          <RefreshCw size={12} />
-          {updatedAgo}
-        </button>
+          {isFetching && !isLoading ? 'checking…' : updatedAgo}
+        </RefreshButton>
       </div>
       {!collapsed && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mt-3">
@@ -159,6 +161,7 @@ function ServiceCard({ service }: { service: ServiceHealth }) {
 function NamespaceSummary() {
   const { namespace } = useNamespaceFilter()
   const { data: allNamespaces, isLoading, isFetching, refresh } = useNamespaceStats()
+  const refreshing = isFetching && !isLoading
 
   if (isLoading) return <LoadingState label="Loading namespaces..." />
 
@@ -190,41 +193,35 @@ function NamespaceSummary() {
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Namespaces</h2>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => refresh()}
-            className="text-gray-400 hover:text-gray-600"
-            title="Refresh namespace counts"
-            aria-label="Refresh namespace counts"
-          >
-            <RefreshCw size={12} className={cn(isFetching && 'animate-spin')} />
-          </button>
+          <RefreshButton onRefresh={refresh} refreshing={refreshing} label="Refresh namespace counts" size={12} className="p-0" />
           <Link to="/namespaces" className="text-xs text-primary hover:text-primary-dark">View all</Link>
         </div>
       </div>
 
       {/* Totals bar */}
       <div className="grid grid-cols-4 gap-3 mb-4">
-        <TotalCard icon={FolderTree} label="Namespaces" value={namespaces.length} to="/namespaces" />
-        <TotalCard icon={BookOpen} label="Terminologies" value={totals.terminologies} to="/terminologies" />
-        <TotalCard icon={FileCode2} label="Templates" value={totals.templates} to="/templates" />
-        <TotalCard icon={FileText} label="Documents" value={totals.documents} to="/documents" />
+        <TotalCard icon={FolderTree} label="Namespaces" value={namespaces.length} to="/namespaces" refreshing={refreshing} />
+        <TotalCard icon={BookOpen} label="Terminologies" value={totals.terminologies} to="/terminologies" refreshing={refreshing} />
+        <TotalCard icon={FileCode2} label="Templates" value={totals.templates} to="/templates" refreshing={refreshing} />
+        <TotalCard icon={FileText} label="Documents" value={totals.documents} to="/documents" refreshing={refreshing} />
       </div>
 
       {/* Per-namespace rows */}
       <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100">
         {namespaces.map(ns => (
-          <NamespaceRow key={ns.prefix} ns={ns} />
+          <NamespaceRow key={ns.prefix} ns={ns} refreshing={refreshing} />
         ))}
       </div>
     </section>
   )
 }
 
-function TotalCard({ icon: Icon, label, value, to }: {
+function TotalCard({ icon: Icon, label, value, to, refreshing = false }: {
   icon: React.ComponentType<{ size?: number; className?: string }>
   label: string
   value: number
   to: string
+  refreshing?: boolean
 }) {
   return (
     <Link
@@ -235,12 +232,14 @@ function TotalCard({ icon: Icon, label, value, to }: {
         <Icon size={14} className="text-gray-400" />
         <span className="text-xs text-gray-500">{label}</span>
       </div>
-      <div className="text-2xl font-semibold text-gray-800">{value.toLocaleString()}</div>
+      <div className="text-2xl font-semibold text-gray-800">
+        <RefreshingValue refreshing={refreshing}>{value.toLocaleString()}</RefreshingValue>
+      </div>
     </Link>
   )
 }
 
-function NamespaceRow({ ns }: { ns: NamespaceWithStats }) {
+function NamespaceRow({ ns, refreshing }: { ns: NamespaceWithStats; refreshing: boolean }) {
   return (
     <div className="flex items-center justify-between px-4 py-3">
       <div className="flex items-center gap-3">
@@ -252,7 +251,7 @@ function NamespaceRow({ ns }: { ns: NamespaceWithStats }) {
           )}
         </div>
       </div>
-      <div className="flex items-center gap-6 text-xs text-gray-500">
+      <div className={cn('flex items-center gap-6 text-xs text-gray-500 transition-opacity', refreshing && 'opacity-50 animate-pulse')} aria-busy={refreshing}>
         <Link to={`/terminologies?ns=${ns.prefix}`} className="hover:text-primary transition-colors">{ns.terminologies} terms</Link>
         <Link to={`/templates?ns=${ns.prefix}`} className="hover:text-primary transition-colors">{ns.templates} tpl</Link>
         <Link to={`/documents?ns=${ns.prefix}`} className="hover:text-primary transition-colors">{ns.documents} docs</Link>
@@ -444,7 +443,7 @@ function DataQualityCard() {
             </button>
           </div>
         )}
-        {loading && (
+        {loading && !result && (
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <RefreshCw size={14} className="animate-spin" />
             Running integrity check...
@@ -469,11 +468,12 @@ function DataQualityCard() {
                   {result.status === 'healthy' || result.status === 'ok' ? 'Healthy' : 'Issues found'}
                 </span>
               </div>
-              <button onClick={handleCheck} className="text-xs text-gray-400 hover:text-gray-600">
-                <RefreshCw size={12} />
-              </button>
+              <RefreshButton onRefresh={handleCheck} refreshing={loading} label="Re-run integrity check" size={12} className="p-0" />
             </div>
-            <div className="grid grid-cols-4 gap-3 text-center text-xs">
+            <div
+              className={cn('grid grid-cols-4 gap-3 text-center text-xs transition-opacity', loading && 'opacity-50 animate-pulse')}
+              aria-busy={loading}
+            >
               <div>
                 <div className="text-lg font-semibold text-gray-700">{result.summary.total_templates}</div>
                 <div className="text-gray-400">Templates</div>

@@ -6,6 +6,7 @@ import type { NamespaceParityResult as NamespaceParity, TemplateParity as Parity
 import { useReportingInventory, PARITY_QUERY_KEY } from '@/hooks/use-reporting'
 import LoadingState from '@/components/common/LoadingState'
 import { cn } from '@/lib/cn'
+import { RefreshingValue } from '@/components/common/RefreshButton'
 
 // Parity surface (CASE-716 item 4): per-namespace document-vs-reporting
 // parity with the CASE-710 fields. legacy_table is the one state that needs
@@ -92,7 +93,7 @@ function NamespaceParityCard({
             ` · ${parity.templates_skipped_sync_disabled} sync-disabled`}
         </span>
         <span className="ml-auto text-xs text-gray-400">
-          {parity.structural_issues} structural · {parity.count_mismatches} count mismatches
+          <RefreshingValue refreshing={fetching}>{parity.structural_issues} structural · {parity.count_mismatches} count mismatches</RefreshingValue>
         </span>
         <button
           onClick={onRecheck}

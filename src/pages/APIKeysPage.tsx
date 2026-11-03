@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react'
 import {
   Key,
   Plus,
-  RefreshCw,
   Pencil,
   Trash2,
   Copy,
@@ -22,6 +21,7 @@ import ErrorState from '@/components/common/ErrorState'
 import AnthropicKeyCard from '@/components/settings/AnthropicKeyCard'
 import { KeyEffectivePermissions } from '@/components/grants/GrantsPanel'
 import { cn } from '@/lib/cn'
+import RefreshButton, { RefreshingValue } from '@/components/common/RefreshButton'
 import { buildCreateNamespaces, emptyRow, type NamespaceRow } from '@/lib/key-reservations'
 import NamespaceRowsInput from '@/components/api-keys/NamespaceRowsInput'
 import KeyNamespacesEditor from '@/components/api-keys/KeyNamespacesEditor'
@@ -668,7 +668,7 @@ export default function APIKeysPage() {
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
   const [createdKey, setCreatedKey] = useState<CreateAPIKeyResponse | null>(null)
   const [revokeResult, setRevokeResult] = useState<APIKeyRevokeResult | null>(null)
-  const { data: apiKeys, isLoading, error, refetch } = useAPIKeys()
+  const { data: apiKeys, isLoading, isFetching, error, refetch } = useAPIKeys()
 
   const handleCreated = (created: CreateAPIKeyResponse) => {
     setShowCreate(false)
@@ -691,13 +691,7 @@ export default function APIKeysPage() {
           <p className="text-sm text-gray-400 mt-1">Manage API keys for WIP access</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => refetch()}
-            className="p-2 border border-gray-200 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-            title="Refresh"
-          >
-            <RefreshCw size={14} />
-          </button>
+          <RefreshButton onRefresh={() => refetch({ cancelRefetch: false })} refreshing={isFetching && !isLoading} label="Refresh API keys" variant="boxed" size={14} />
           <button
             onClick={() => setShowCreate(s => !s)}
             className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-dark"
@@ -749,7 +743,7 @@ export default function APIKeysPage() {
 
       {sorted && (
         <p className="text-xs text-gray-400">
-          {sorted.length} key{sorted.length !== 1 ? 's' : ''}
+          <RefreshingValue refreshing={isFetching && !isLoading}>{sorted.length} key{sorted.length !== 1 ? 's' : ''}</RefreshingValue>
           {sorted.filter(k => k.source === 'config').length > 0 && (
             <> ({sorted.filter(k => k.source === 'config').length} config, {sorted.filter(k => k.source === 'runtime').length} runtime)</>
           )}

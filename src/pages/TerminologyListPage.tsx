@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BookOpen, ChevronRight, Hash, RefreshCw, Plus, Upload } from 'lucide-react'
+import { BookOpen, ChevronRight, Hash, Plus, Upload } from 'lucide-react'
 import { useTerminologies, useTerminology, useCreateTerminology, useNamespaces } from '@wip/react'
 import ImportPanel from '@/components/terminologies/ImportPanel'
 import SearchInput from '@/components/common/SearchInput'
@@ -10,6 +10,7 @@ import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
 import { useNamespaceFilter, useNamespaceInUrl } from '@/hooks/use-namespace-filter'
+import RefreshButton, { RefreshingValue } from '@/components/common/RefreshButton'
 
 // ---------------------------------------------------------------------------
 // Create Terminology Form
@@ -246,7 +247,7 @@ export default function TerminologyListPage() {
   const [sort, setSort] = useState(() => loadSort('terminologies', 'updated_at', 'desc'))
   const { data: namespaces } = useNamespaces()
 
-  const { data, isLoading, error, refetch } = useTerminologies({
+  const { data, isLoading, isFetching, error, refetch } = useTerminologies({
     status: statusFilter || undefined,
     namespace: namespace || undefined,
     page,
@@ -290,13 +291,7 @@ export default function TerminologyListPage() {
           <p className="text-sm text-gray-400 mt-1">Browse and manage controlled vocabularies</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => refetch()}
-            className="p-2 border border-gray-200 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-            title="Refresh"
-          >
-            <RefreshCw size={14} />
-          </button>
+          <RefreshButton onRefresh={() => refetch({ cancelRefetch: false })} refreshing={isFetching && !isLoading} label="Refresh terminologies" variant="boxed" size={14} />
           <button
             onClick={() => { setShowImport(s => !s); setShowCreate(false) }}
             className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-sm rounded-md text-gray-600 hover:bg-gray-50"
@@ -419,7 +414,7 @@ export default function TerminologyListPage() {
               />
 
               <p className="text-xs text-gray-400">
-                {data.total ?? items.length} terminolog{(data.total ?? items.length) !== 1 ? 'ies' : 'y'} total
+                <RefreshingValue refreshing={isFetching && !isLoading}>{data.total ?? items.length} terminolog{(data.total ?? items.length) !== 1 ? 'ies' : 'y'} total</RefreshingValue>
               </p>
             </>
           )}

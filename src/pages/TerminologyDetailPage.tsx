@@ -7,7 +7,6 @@ import {
   Tag,
   Copy,
   Check,
-  RefreshCw,
   Plus,
   Pencil,
   Trash2,
@@ -39,6 +38,7 @@ import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
 import JsonViewer from '@/components/common/JsonViewer'
 import NamespaceMismatchBadge from '@/components/common/NamespaceMismatchBadge'
+import RefreshButton, { RefreshingValue } from '@/components/common/RefreshButton'
 
 // ---------------------------------------------------------------------------
 // Create Term Form (inline)
@@ -692,7 +692,7 @@ export default function TerminologyDetailPage() {
 
   const client = useWipClient()
   const { data: terminology, isLoading: termLoading, error: termError } = useTerminology(id ?? '')
-  const { data: termsData, isLoading: termsLoading, error: termsError, refetch } = useTerms(id ?? '', {
+  const { data: termsData, isLoading: termsLoading, isFetching: termsFetching, error: termsError, refetch } = useTerms(id ?? '', {
     search: search || undefined,
     status: statusFilter || undefined,
     page,
@@ -1050,13 +1050,11 @@ export default function TerminologyDetailPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Terms</h2>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => refetch()}
-              className="p-1.5 text-gray-400 hover:text-gray-600"
-              title="Refresh terms"
-            >
-              <RefreshCw size={14} />
-            </button>
+            <RefreshButton
+              onRefresh={() => refetch({ cancelRefetch: false })}
+              refreshing={termsFetching && !termsLoading}
+              label="Refresh terms"
+            />
             <button
               onClick={() => setShowCreateTerm(s => !s)}
               className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-primary text-white text-xs rounded-md hover:bg-primary-dark"
@@ -1119,7 +1117,7 @@ export default function TerminologyDetailPage() {
 
             <div className="flex items-center justify-between">
               <p className="text-xs text-gray-400">
-                {termsData.total ?? 0} term{(termsData.total ?? 0) !== 1 ? 's' : ''} total
+                <RefreshingValue refreshing={termsFetching && !termsLoading}>{termsData.total ?? 0} term{(termsData.total ?? 0) !== 1 ? 's' : ''} total</RefreshingValue>
               </p>
               <Pagination
                 page={page}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import {
   Radio,
   Wifi,
@@ -15,8 +15,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
-  RefreshCw,
-} from 'lucide-react'
+  } from 'lucide-react'
 import {
   useNatsStatus,
   useNatsStreams,
@@ -29,6 +28,7 @@ import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import { cn } from '@/lib/cn'
+import RefreshButton, { RefreshingValue } from '@/components/common/RefreshButton'
 
 // ---------------------------------------------------------------------------
 // Connection Status Bar
@@ -109,11 +109,13 @@ function NatsStatusBar() {
 // Stream Card
 // ---------------------------------------------------------------------------
 
-function StreamCard({ stream, isExpanded, onToggle, onRefresh }: {
+function StreamCard({ stream, isExpanded, onToggle, onRefresh, refreshing }: {
   stream: NatsStream
   isExpanded: boolean
   onToggle: () => void
   onRefresh: () => void
+  /** Stream stats or consumers are being re-read. */
+  refreshing: boolean
 }) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -133,15 +135,15 @@ function StreamCard({ stream, isExpanded, onToggle, onRefresh }: {
         <div className="flex items-center gap-4 text-xs text-gray-500 shrink-0">
           <span className="flex items-center gap-1" title="Messages">
             <MessageSquare size={12} />
-            {stream.messages.toLocaleString()}
+            <RefreshingValue refreshing={refreshing}>{stream.messages.toLocaleString()}</RefreshingValue>
           </span>
           <span className="flex items-center gap-1" title="Storage">
             <HardDrive size={12} />
-            {formatBytes(stream.bytes)}
+            <RefreshingValue refreshing={refreshing}>{formatBytes(stream.bytes)}</RefreshingValue>
           </span>
           <span className="flex items-center gap-1" title="Consumers">
             <Users size={12} />
-            {stream.consumers}
+            <RefreshingValue refreshing={refreshing}>{stream.consumers}</RefreshingValue>
           </span>
         </div>
       </button>
@@ -150,14 +152,16 @@ function StreamCard({ stream, isExpanded, onToggle, onRefresh }: {
       {isExpanded && (
         <div className="border-t border-gray-100 px-4 py-3 space-y-4">
           <div className="flex items-center justify-end">
-            <button
-              onClick={e => { e.stopPropagation(); onRefresh() }}
-              className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-              title="Refresh stream stats and consumers"
+            <RefreshButton
+              onRefresh={onRefresh}
+              refreshing={refreshing}
+              label="Refresh stream stats and consumers"
+              variant="text"
+              size={12}
+              className="px-2 py-1 border border-gray-200 rounded-md hover:bg-gray-50"
             >
-              <RefreshCw size={12} />
-              Refresh
-            </button>
+              {refreshing ? 'Refreshing…' : 'Refresh'}
+            </RefreshButton>
           </div>
           {/* Config */}
           <div>
@@ -341,11 +345,13 @@ export default function NatsPage() {
   const queryClient = useQueryClient()
   const { data: status } = useNatsStatus()
   const isInactive = !!status && !status.connected
-  const { data: streams, isLoading, error, refetch } = useNatsStreams(!isInactive)
+  const { data: streams, isLoading, isFetching, error, refetch } = useNatsStreams(!isInactive)
+  const consumersFetching = useIsFetching({ queryKey: ['rc-console', 'nats', 'consumers'] }) > 0
+  const refreshing = (isFetching && !isLoading) || consumersFetching
 
   const refreshAll = () => {
-    refetch()
-    queryClient.invalidateQueries({ queryKey: ['rc-console', 'nats', 'consumers'] })
+    refetch({ cancelRefetch: false })
+    queryClient.invalidateQueries({ queryKey: ['rc-console', 'nats', 'consumers'] }, { cancelRefetch: false })
   }
 
   const toggleStream = (name: string) => {
@@ -391,6 +397,7 @@ export default function NatsPage() {
                   isExpanded={expandedStream === stream.name}
                   onToggle={() => toggleStream(stream.name)}
                   onRefresh={refreshAll}
+                  refreshing={refreshing}
                 />
               ))
             )}

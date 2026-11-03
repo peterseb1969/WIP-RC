@@ -8,7 +8,6 @@ import {
   Pencil,
   Play,
   Plus,
-  RefreshCw,
   Save,
   Trash2,
   X,
@@ -19,6 +18,7 @@ import DataTable from '@/components/common/DataTable'
 import SearchInput from '@/components/common/SearchInput'
 import LoadingState from '@/components/common/LoadingState'
 import { cn } from '@/lib/cn'
+import RefreshButton, { RefreshingValue } from '@/components/common/RefreshButton'
 import { useAuth } from '@/hooks/use-auth'
 import { useQueryRows, useRunQuery, useSqlCompletionSchema } from '@/hooks/use-reporting'
 import LazyCodeEditor from '@/components/editor/LazyCodeEditor'
@@ -56,7 +56,7 @@ interface Props {
  * `onOpenInQueryPad` hands a read of the selected view to the Query Pad tab.
  */
 export default function RegisteredViewsPanel({ onOpenInQueryPad }: Props) {
-  const { views, failures, isLoading, refetch } = useRegisteredViews()
+  const { views, failures, isLoading, isRefreshing, refetch } = useRegisteredViews()
   const [nsFilter, setNsFilter] = useState('')
   const [search, setSearch] = useState('')
   const [mode, setMode] = useState<Mode>({ kind: 'idle' })
@@ -79,15 +79,8 @@ export default function RegisteredViewsPanel({ onOpenInQueryPad }: Props) {
         <div className="p-3 border-b border-gray-100 space-y-2">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-gray-700">Registered views</h3>
-            <span className="text-xs text-gray-400">{views.length}</span>
-            <button
-              onClick={refetch}
-              className="ml-auto p-1 text-gray-400 hover:text-gray-600"
-              title="Reload views"
-              aria-label="Reload views"
-            >
-              <RefreshCw size={13} />
-            </button>
+            <span className="text-xs text-gray-400"><RefreshingValue refreshing={isRefreshing}>{views.length}</RefreshingValue></span>
+            <RefreshButton onRefresh={refetch} refreshing={isRefreshing} label="Reload views" size={13} className="ml-auto p-1" />
             <button
               onClick={() => setMode({ kind: 'new' })}
               className="inline-flex items-center gap-1 px-2 py-1 bg-primary text-white text-xs rounded-md hover:bg-primary-dark"

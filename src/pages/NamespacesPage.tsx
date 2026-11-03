@@ -9,20 +9,20 @@ import {
   FileCode2,
   FileText,
   Settings2,
-  RefreshCw,
   Pencil,
   Trash2,
   AlertTriangle,
 } from 'lucide-react'
 import { useNamespaces, useWipClient, useCreateNamespace, useUpdateNamespace, useDeleteNamespace } from '@wip/react'
 import type { Namespace, IdAlgorithmConfig, UpdateNamespaceRequest } from '@wip/client'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useIsFetching, useQuery, useQueryClient } from '@tanstack/react-query'
 import StatusBadge from '@/components/common/StatusBadge'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import JsonViewer from '@/components/common/JsonViewer'
 import GrantsPanel from '@/components/grants/GrantsPanel'
 import { cn } from '@/lib/cn'
+import RefreshButton, { RefreshingValue } from '@/components/common/RefreshButton'
 
 // ---------------------------------------------------------------------------
 // Namespace Stats Hook (per-namespace detail)
@@ -242,7 +242,7 @@ function NamespaceRow({
   onToggle: () => void
 }) {
   const client = useWipClient()
-  const { data: stats } = useNamespaceDetail(isExpanded ? ns.prefix : null)
+  const { data: stats, isFetching: statsFetching } = useNamespaceDetail(isExpanded ? ns.prefix : null)
 
   const [editing, setEditing] = useState(false)
   const [editDesc, setEditDesc] = useState(ns.description ?? '')
@@ -363,7 +363,7 @@ function NamespaceRow({
                   Terminologies
                 </div>
                 <div className="text-lg font-semibold text-gray-800 mt-0.5">
-                  {(stats.entity_counts.terminologies ?? 0).toLocaleString()}
+                  <RefreshingValue refreshing={statsFetching}>{(stats.entity_counts.terminologies ?? 0).toLocaleString()}</RefreshingValue>
                 </div>
               </Link>
               <Link
@@ -375,7 +375,7 @@ function NamespaceRow({
                   Templates
                 </div>
                 <div className="text-lg font-semibold text-gray-800 mt-0.5">
-                  {(stats.entity_counts.templates ?? 0).toLocaleString()}
+                  <RefreshingValue refreshing={statsFetching}>{(stats.entity_counts.templates ?? 0).toLocaleString()}</RefreshingValue>
                 </div>
               </Link>
               <Link
@@ -387,7 +387,7 @@ function NamespaceRow({
                   Documents
                 </div>
                 <div className="text-lg font-semibold text-gray-800 mt-0.5">
-                  {(stats.entity_counts.documents ?? 0).toLocaleString()}
+                  <RefreshingValue refreshing={statsFetching}>{(stats.entity_counts.documents ?? 0).toLocaleString()}</RefreshingValue>
                 </div>
               </Link>
             </div>
@@ -611,12 +611,13 @@ function NamespaceRow({
 export default function NamespacesPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [expandedNs, setExpandedNs] = useState<string | null>(null)
-  const { data: namespaces, isLoading, error, refetch } = useNamespaces()
+  const { data: namespaces, isLoading, isFetching, error, refetch } = useNamespaces()
   const qc = useQueryClient()
+  const detailFetching = useIsFetching({ queryKey: ['rc-console', 'ns-detail'] }) > 0
   // The expanded namespace's counts are a query of their own; refresh them too.
   const refresh = () => {
-    refetch()
-    qc.invalidateQueries({ queryKey: ['rc-console', 'ns-detail'] })
+    refetch({ cancelRefetch: false })
+    qc.invalidateQueries({ queryKey: ['rc-console', 'ns-detail'] }, { cancelRefetch: false })
   }
 
   return (
@@ -627,13 +628,12 @@ export default function NamespacesPage() {
           <p className="text-sm text-gray-400 mt-1">Browse and manage namespaces</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={refresh}
-            className="p-2 border border-gray-200 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-            title="Refresh"
-          >
-            <RefreshCw size={14} />
-          </button>
+          <RefreshButton
+            onRefresh={refresh}
+            refreshing={(isFetching && !isLoading) || detailFetching}
+            label="Refresh namespaces"
+            variant="boxed"
+          />
           <button
             onClick={() => setShowCreate(s => !s)}
             className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-dark"

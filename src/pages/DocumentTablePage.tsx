@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
 import {
   ArrowLeft,
-  RefreshCw,
   Download,
   Layers,
   FileCode2,
@@ -15,6 +14,7 @@ import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import Pagination from '@/components/common/Pagination'
+import RefreshButton, { RefreshingValue } from '@/components/common/RefreshButton'
 
 // ---------------------------------------------------------------------------
 // Cell formatting
@@ -70,7 +70,7 @@ export default function DocumentTablePage() {
 
   const templateId = template?.template_id ?? ''
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['rc-console', 'table-view', templateId, page, pageSize],
     // Active documents only. The table endpoint has no latest-version option, so
     // it cannot add deleted documents without every superseded version too, and
@@ -130,7 +130,7 @@ export default function DocumentTablePage() {
             <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
               <span className="font-mono">{template.value}</span>
               <span className="flex items-center gap-1"><Layers size={10} /> v{template.version ?? 1}</span>
-              {data && <span>{data.total_documents} document{data.total_documents !== 1 ? 's' : ''}{data.total_rows !== data.total_documents ? ` (${data.total_rows} rows after array expansion)` : ''}</span>}
+              {data && <RefreshingValue refreshing={isFetching && !isLoading}>{data.total_documents} document{data.total_documents !== 1 ? 's' : ''}{data.total_rows !== data.total_documents ? ` (${data.total_rows} rows after array expansion)` : ''}</RefreshingValue>}
             </div>
           </div>
         </div>
@@ -157,9 +157,7 @@ export default function DocumentTablePage() {
             <Download size={12} />
             {exporting ? 'Exporting...' : 'CSV'}
           </button>
-          <button onClick={() => refetch()} className="p-1.5 text-gray-400 hover:text-gray-600" title="Refresh">
-            <RefreshCw size={14} />
-          </button>
+          <RefreshButton onRefresh={() => refetch({ cancelRefetch: false })} refreshing={isFetching && !isLoading} label="Refresh table" variant="plain" size={14} />
         </div>
       </div>
 

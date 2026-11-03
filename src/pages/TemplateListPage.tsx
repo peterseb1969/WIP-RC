@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FileCode2, ChevronRight, Hash, Layers, RefreshCw, Plus, Archive, Network } from 'lucide-react'
+import { FileCode2, ChevronRight, Hash, Layers, Plus, Archive, Network } from 'lucide-react'
 import { useTemplates, useTemplate } from '@wip/react'
 import SearchInput from '@/components/common/SearchInput'
 import SortSelect, { loadSort, saveSort } from '@/components/common/SortSelect'
@@ -9,6 +9,7 @@ import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
 import { useNamespaceFilter, useNamespaceInUrl } from '@/hooks/use-namespace-filter'
+import RefreshButton, { RefreshingValue } from '@/components/common/RefreshButton'
 
 type UsageFilter = 'all' | 'entity' | 'relationship'
 
@@ -25,7 +26,7 @@ export default function TemplateListPage() {
   const [usageFilter, setUsageFilter] = useState<UsageFilter>('all')
   const [sort, setSort] = useState(() => loadSort('templates', 'updated_at', 'desc'))
 
-  const { data, isLoading, error, refetch } = useTemplates({
+  const { data, isLoading, isFetching, error, refetch } = useTemplates({
     status: showAll ? undefined : 'active',
     latest_only: true,
     namespace: namespace || undefined,
@@ -74,9 +75,7 @@ export default function TemplateListPage() {
           <p className="text-sm text-gray-400 mt-1">Browse and manage document schemas</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => refetch()} className="p-2 border border-gray-200 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-50" title="Refresh">
-            <RefreshCw size={14} />
-          </button>
+          <RefreshButton onRefresh={() => refetch({ cancelRefetch: false })} refreshing={isFetching && !isLoading} label="Refresh templates" variant="boxed" size={14} />
           {namespace ? (
             <Link
               to="/templates/new"
@@ -201,7 +200,7 @@ export default function TemplateListPage() {
           {!showDirectHit && (
             <>
               <Pagination page={page} totalPages={data.pages ?? 1} onPageChange={setPage} />
-              <p className="text-xs text-gray-400">{data.total ?? items.length} template{(data.total ?? items.length) !== 1 ? 's' : ''} total</p>
+              <p className="text-xs text-gray-400"><RefreshingValue refreshing={isFetching && !isLoading}>{data.total ?? items.length} template{(data.total ?? items.length) !== 1 ? 's' : ''} total</RefreshingValue></p>
             </>
           )}
         </>

@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import type { APIKeyRevokeResult, NamespaceReservation } from '@wip/client'
 import { useReleaseReservation, useReservations } from '@/hooks/use-api-keys'
 import { cn } from '@/lib/cn'
+import RefreshButton from '@/components/common/RefreshButton'
 
 function ReleaseButton({ prefix, onReleased }: { prefix: string; onReleased?: (prefix: string) => void }) {
   const [error, setError] = useState<string | null>(null)
@@ -42,7 +43,7 @@ function settingsSummary(settings: Record<string, unknown>): string {
  * released here; the namespace itself is never touched.
  */
 export function ReservationsPanel() {
-  const { data, isLoading, error, refetch } = useReservations()
+  const { data, isLoading, isFetching, error, refetch } = useReservations()
   const rows: NamespaceReservation[] = (data ?? []).slice().sort((a, b) => a.prefix.localeCompare(b.prefix))
 
   return (
@@ -54,14 +55,14 @@ export function ReservationsPanel() {
             A reservation lets its holder create the namespace, with exactly its settings.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          className="p-1.5 border border-gray-200 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-          title="Refresh reservations"
-        >
-          <RefreshCw size={12} />
-        </button>
+        <RefreshButton
+          onRefresh={() => refetch({ cancelRefetch: false })}
+          refreshing={isFetching && !isLoading}
+          label="Refresh reservations"
+          variant="boxed"
+          size={12}
+          className="p-1.5"
+        />
       </div>
       {isLoading && <p className="text-xs text-gray-400 px-4 py-3">Loading reservations...</p>}
       {error && <p className="text-xs text-danger px-4 py-3">{error.message}</p>}

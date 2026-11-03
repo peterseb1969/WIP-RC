@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { FileIcon, Calendar, Hash, RefreshCw, HardDrive, ChevronRight, AlertTriangle, Upload, Plus, X, Trash2, Search as SearchIcon, Loader2 } from 'lucide-react'
+import { FileIcon, Calendar, Hash, HardDrive, ChevronRight, AlertTriangle, Upload, Plus, X, Trash2, Search as SearchIcon, Loader2 } from 'lucide-react'
 import { useFiles, useUploadFile, useNamespaces, useWipClient } from '@wip/react'
 import type { FileEntity } from '@wip/client'
 import SortSelect, { loadSort, saveSort } from '@/components/common/SortSelect'
@@ -9,6 +9,7 @@ import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import StatusBadge from '@/components/common/StatusBadge'
 import { useNamespaceFilter, useNamespaceInUrl } from '@/hooks/use-namespace-filter'
+import RefreshButton, { RefreshingValue } from '@/components/common/RefreshButton'
 
 // ---------------------------------------------------------------------------
 // Upload form
@@ -152,7 +153,7 @@ export default function FileListPage() {
   const [status, setStatus] = useState<'active' | 'inactive' | ''>('')
   const [showUpload, setShowUpload] = useState(false)
   const [sort, setSort] = useState(() => loadSort('files', 'uploaded_at', 'desc'))
-  const { data, isLoading, error, refetch } = useFiles({
+  const { data, isLoading, isFetching, error, refetch } = useFiles({
     namespace: namespace || undefined,
     status: status || undefined,
     page,
@@ -198,9 +199,7 @@ export default function FileListPage() {
             <option value="inactive">Inactive</option>
             <option value="">All</option>
           </select>
-          <button onClick={() => refetch()} className="p-2 border border-gray-200 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-50" title="Refresh">
-            <RefreshCw size={14} />
-          </button>
+          <RefreshButton onRefresh={() => refetch({ cancelRefetch: false })} refreshing={isFetching && !isLoading} label="Refresh files" variant="boxed" size={14} />
         </div>
       </div>
 
@@ -257,7 +256,7 @@ export default function FileListPage() {
             )}
           </div>
           <Pagination page={page} totalPages={data.pages ?? 1} onPageChange={setPage} />
-          <p className="text-xs text-gray-400">{data.total ?? 0} file{(data.total ?? 0) !== 1 ? 's' : ''}</p>
+          <p className="text-xs text-gray-400"><RefreshingValue refreshing={isFetching && !isLoading}>{data.total ?? 0} file{(data.total ?? 0) !== 1 ? 's' : ''}</RefreshingValue></p>
         </>
       )}
 
