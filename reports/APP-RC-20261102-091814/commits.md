@@ -298,3 +298,34 @@ The grants query key moved into the key hooks module, which the grants
 panel now imports for the key list, so the two don't import each other.
 
 Tests: tsc clean; unit 376/376 (13 new); full E2E 87/87 (2.6 min) against the default install on @wip/client 0.75.0, including a new spec that checks the install's own managed key, grant and reservation read-only without changing them
+
+## 6207340 — feat: an expanded namespace shows live and retired contents, with its own Refresh
+**Time:** 2026-11-04 16:57
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 7 changed, +307/-46
+**Tests:** not recorded
+**Why:** The expanded namespace showed the Registry's per-namespace counts. Those
+count every entity the Registry ever registered, soft-deleted ones
+included (kb: 5,908 documents = 5,885 live + 23 deleted), so deleting
+never lowered them, and watching a namespace showed additions only.
+
+Each kind now shows its live count with its retired count beneath,
+read from the service that owns the data:
+- documents: latest_only active and inactive totals;
+- templates: from every version grouped by template, live while any
+  version is active (latest_only with status=inactive returns
+  superseded versions of live templates, so it can't count retired ones);
+- terminologies: active and inactive totals;
+- terms: the active terms (the sum of each terminology's term_count,
+  which counts active terms), with the deprecated ones as the Registry's
+  term count minus that, since a hard-deleted term leaves the Registry;
+- files: active plus orphan (orphans named), and deleted.
+
+Terms and files are new. The Registry's figure stays in each card's
+tooltip. A Refresh next to the counts re-reads the namespace's settings,
+counts and grants, with the shared spinner and dimmed counts; the page's
+own Refresh re-reads the counts too, as before. The refresh E2E now
+checks that a deletion shows: one fewer live, one more deleted.
+
+Tests: tsc clean; unit 380/380 (4 new); full E2E 87/87 (2.6 min) against the default install
+Discovered: The Dashboard's totals still come from the Registry's counts, deleted entities included
