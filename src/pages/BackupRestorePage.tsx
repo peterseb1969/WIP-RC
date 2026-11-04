@@ -10,8 +10,7 @@ import {
   AlertTriangle,
   HardDrive,
   Eye,
-  ShieldCheck,
-} from 'lucide-react'
+  ShieldCheck, KeyRound } from 'lucide-react'
 import { useNamespaces } from '@wip/react'
 import type {
   BackupJobKind,
@@ -24,6 +23,7 @@ import StatusBadge from '@/components/common/StatusBadge'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 import { cn } from '@/lib/cn'
 import RefreshButton from '@/components/common/RefreshButton'
+import SystemBackupTab from '@/components/backup/SystemBackupTab'
 import { apiUrl } from '@/lib/wip'
 import {
   readArchiveManifest,
@@ -1642,12 +1642,13 @@ function JobsList() {
 // ---------------------------------------------------------------------------
 
 export default function BackupRestorePage() {
-  const [tab, setTab] = useState<'backup' | 'restore' | 'validate'>('backup')
+  const [tab, setTab] = useState<'backup' | 'restore' | 'validate' | 'system'>('backup')
 
   const TABS = [
     { id: 'backup' as const, icon: Download, label: 'Backup' },
     { id: 'restore' as const, icon: Upload, label: 'Restore' },
     { id: 'validate' as const, icon: ShieldCheck, label: 'Validate' },
+    { id: 'system' as const, icon: KeyRound, label: 'System' },
   ]
 
   return (
@@ -1674,7 +1675,10 @@ export default function BackupRestorePage() {
       </div>
 
       {/* Tab content */}
-      {tab === 'backup' ? <BackupTab /> : tab === 'restore' ? <RestoreTab /> : <ValidateTab />}
+      {tab === 'backup' ? <BackupTab />
+        : tab === 'restore' ? <RestoreTab />
+        : tab === 'validate' ? <ValidateTab />
+        : <SystemBackupTab />}
 
       {/* Jobs list */}
       <JobsList />

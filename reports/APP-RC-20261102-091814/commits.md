@@ -329,3 +329,19 @@ checks that a deletion shows: one fewer live, one more deleted.
 
 Tests: tsc clean; unit 380/380 (4 new); full E2E 87/87 (2.6 min) against the default install
 Discovered: The Dashboard's totals still come from the Registry's counts, deleted entities included
+
+## 5be5aa1 — chore: scaffold refresh — @wip/client 0.77.0
+**Time:** 2026-11-04 21:09
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 9 changed, +332/-51
+**Tests:** not recorded
+**Why:** @wip/client 0.76.0 and 0.77.0 add the system backup and restore
+(systemBackup, systemRestore with mode upsert, overwrite or mirror, and
+expect for the dry run's plan digest), attachment records
+(upsertAttachments, deactivateAttachments, listAttachments,
+getAttachment), orphaned grants (listAllGrants, activateGrants,
+Grant.orphaned) and typed error codes (SALT_MISMATCH, RESTORE_REFUSED,
+PLAN_CHANGED, wipErrorCode). The refresh also brings wip-toolkit 0.25.6
+and doc updates. CLAUDE.md's fresh render was not taken, as before.
+
+Tests: tsc clean; unit 380/380
