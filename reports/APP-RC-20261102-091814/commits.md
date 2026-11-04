@@ -345,3 +345,40 @@ PLAN_CHANGED, wipErrorCode). The refresh also brings wip-toolkit 0.25.6
 and doc updates. CLAUDE.md's fresh render was not taken, as before.
 
 Tests: tsc clean; unit 380/380
+
+## 2a977e8 — feat: a System tab on Backup & Restore for the Registry's auth state
+**Time:** 2026-11-04 21:12
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 5 changed, +556/-4
+**Tests:** not recorded
+**Why:** The Registry can back up and restore its auth state as one archive:
+every API key (bcrypt hash, never the key), grant, namespace
+reservation and app attachment. The new System tab on Backup & Restore
+does both.
+
+- Download saves the archive as a JSON file, named by host and time,
+  with a note that it holds every key hash and the key salt. The
+  console only holds it in memory on the way to the file.
+- Restore reads an uploaded archive (only its envelope is checked here;
+  the Registry checks every record), lets the operator pick upsert,
+  overwrite or mirror and whether to restore user grants from another
+  login provider, and always runs a dry run first. The report leads
+  with the Registry's warnings (for example, that the stack holds auth
+  state of its own), says whether the archive's salt would be adopted,
+  lists refusals, and counts per section (keys, grants, reservations,
+  attachments) what would be created, replaced, unchanged, skipped
+  (with each reason), orphaned, unresolved, deleted or deactivated,
+  with the records behind each number.
+- Apply applies exactly the reviewed plan: changing the file or an
+  option drops the dry run. A plan with refusals can't be applied. A
+  mirror needs "mirror" typed first and sends the dry run's plan digest,
+  so the Registry refuses it if what it would remove has changed.
+- The coded refusals are explained: a salt this stack can't take (the
+  archive's key hashes would not work here; retrying doesn't help), a
+  restore that would remove or replace the console's own key, and a
+  mirror whose plan changed since the dry run.
+
+Peter chose no extra admin gate in RC's server for these endpoints for
+now; the gateway limits RC to wip-admins.
+
+Tests: tsc clean; unit 389/389 (9 new); E2E not run yet (the dev container needs a restart onto @wip/client 0.77.0)

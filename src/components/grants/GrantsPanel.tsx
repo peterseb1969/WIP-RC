@@ -7,6 +7,7 @@ import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import { cn } from '@/lib/cn'
 import { GRANTS_QUERY_KEY, useAPIKeys } from '@/hooks/use-api-keys'
+import { ORPHAN_RULE, useActivateGrant } from '@/hooks/use-orphaned-grants'
 import { isManaged, isManagedRefusal, keyGrantsManaged, WIP_DEPLOY } from '@/lib/managed-records'
 
 // ---------------------------------------------------------------------------
@@ -176,6 +177,7 @@ function GrantRow({ prefix, grant }: { prefix: string; grant: Grant }) {
   const [error, setError] = useState<string | null>(null)
   const isExpired = grant.expires_at && new Date(grant.expires_at) < new Date()
   const managed = isManaged(grant)
+  const activate = useActivateGrant(err => setError(err.message))
 
   const revoke = useMutation({
     mutationFn: async () => {
@@ -215,7 +217,25 @@ function GrantRow({ prefix, grant }: { prefix: string; grant: Grant }) {
       <span className="text-gray-300 ml-auto shrink-0">
         by {grant.granted_by} · {new Date(grant.granted_at).toLocaleDateString()}
       </span>
+      {grant.orphaned && (
+        <span
+          className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-medium shrink-0"
+          title={ORPHAN_RULE}
+        >
+          orphaned
+        </span>
+      )}
       {error && <span className="text-danger">{error}</span>}
+      {grant.orphaned && !managed && (
+        <button
+          onClick={() => { setError(null); activate.mutate({ namespace: prefix, subject: grant.subject, subject_type: grant.subject_type }) }}
+          disabled={activate.isPending}
+          className="px-2 py-0.5 border border-primary/30 text-primary rounded hover:bg-primary/5 disabled:opacity-50 shrink-0"
+          title="Make this grant effective on this namespace"
+        >
+          {activate.isPending ? 'Activating…' : 'Activate'}
+        </button>
+      )}
       {managed ? (
         <span
           className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium shrink-0"

@@ -27,6 +27,7 @@ import NamespaceRowsInput from '@/components/api-keys/NamespaceRowsInput'
 import KeyNamespacesEditor from '@/components/api-keys/KeyNamespacesEditor'
 import { isKeyReadOnly, isManaged, managedKeyHint } from '@/lib/managed-records'
 import { ReservationsPanel, RevokeResultBanner } from '@/components/api-keys/ReservationsPanel'
+import OrphanedGrantsPanel from '@/components/grants/OrphanedGrantsPanel'
 import {
   useAPIKeys,
   useCreateAPIKey,
@@ -775,6 +776,8 @@ export default function APIKeysPage() {
       )}
 
       <ReservationsPanel />
+
+      <OrphanedGrantsPanel />
 
       {/* LLM key — distinct from WIP access keys above. Anthropic key for the
           askBar / NL-query feature, settable at runtime (in-memory override). */}
