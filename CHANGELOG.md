@@ -1,5 +1,12 @@
 # RC-Console — Changelog
 
+## 2026-11-04 — System backup and restore, orphaned grants, app attachments
+
+- Added: a **System** tab on Backup & Restore. Download the Registry's auth state (keys as hashes, grants, reservations, attachments) as a JSON file; upload one, pick upsert, overwrite or mirror, and dry-run it. The report leads with the Registry's warnings and counts per section what would be created, replaced, unchanged, skipped (with reasons), orphaned, unresolved, deleted or deactivated. Apply applies exactly the reviewed plan; a mirror needs "mirror" typed and is pinned to the dry run's plan. The salt-mismatch, own-key and changed-plan refusals are explained.
+- Added: an **Orphaned grants** section on API Keys: grants a restore wrote for namespaces this stack doesn't have, with what activates each (a platform admin creating the namespace, or Activate on an existing one; a reservation holder creating it does not). The per-namespace Grants panel marks orphans and offers Activate.
+- Added: an **Attachments** page under Admin for apps served at /apps/<name> that wip-deploy doesn't deploy: attach, edit, deactivate and revive, with every field of the record, the Registry's refusals explained, a trust warning, and each app's keys by owner app:<name> (with "Create a key for <name>").
+- Changed: adopted @wip/client 0.77.0 (scaffold refresh).
+
 ## 2026-11-04 — An expanded namespace shows live and retired contents, with its own Refresh
 
 - Changed: an expanded namespace on the Namespaces page shows, for terminologies, terms, templates, documents and files, what is live now and what is retired beneath it (deactivated, deprecated or deleted, plus orphan files). The counts come from the services that own the data. The Registry's figures, which it used to show, count every entity it ever registered, soft-deleted ones included (kb: 5,908 documents = 5,885 live + 23 deleted), so a deletion never lowered them; they are now in each card's tooltip.

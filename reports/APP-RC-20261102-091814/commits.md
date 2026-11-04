@@ -408,3 +408,38 @@ creating the namespace activates nothing.
   not taken as success.
 
 Tests: tsc clean; unit 393/393 (4 new); E2E not run yet (the dev container needs a restart onto @wip/client 0.77.0)
+
+## 32fec92 — feat: an Attachments page for apps served at /apps/<name> that wip-deploy doesn't deploy
+**Time:** 2026-11-04 21:16
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 9 changed, +622/-5
+**Tests:** not recorded
+**Why:** The Registry now holds attachment records: an app the router's app edge
+serves at /apps/<name>, proxied to an upstream, behind the auth gateway
+or not. A new Attachments page under Admin manages them.
+
+- The list shows each record's path, upstream, status and whether
+  wip-deploy manages it; inactive records are hidden until asked for.
+  Expanded, a record shows its login rule, health path and TLS setting,
+  a link to open it, and the keys whose owner is app:<name>, the
+  convention that ties a key to an attached app without a field. "Create
+  a key for <name>" opens the API Keys create form with that owner.
+- Attach and Edit use one form with every field, since a write replaces
+  the whole record: name (fixed on edit; the path is /apps/<name>),
+  upstream (scheme, host and port), display name, health path, login
+  required and allowed groups, the proxy options, and upstream TLS
+  (verify, and an optional CA as PEM). New records start with the
+  Registry's defaults. The form checks the name rule, the upstream shape
+  and that groups need login, and leaves the rest to the Registry.
+- Attaching warns that the app is served on WIP's own origin and can act
+  in the browser as its visitors, so only trusted apps should be
+  attached.
+- The Registry's per-item refusals are explained: an upstream that is
+  one of the install's own services or an internal address, a name an
+  app of this install already routes under, a record wip-deploy manages.
+  Warnings, such as an upstream not reachable from the Registry yet, are
+  shown after saving.
+- Deactivate asks first and keeps the record; Revive writes it again.
+  wip-deploy's records are read-only.
+
+Tests: tsc clean; unit 402/402 (9 new); E2E not run yet (the dev container needs a restart onto @wip/client 0.77.0)
