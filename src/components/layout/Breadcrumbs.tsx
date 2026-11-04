@@ -32,6 +32,7 @@ const TOP_LEVEL_LABELS: Record<string, string> = {
   activity: 'Activity',
   query: 'NL Query',
   'api-keys': 'API Keys',
+  attachments: 'Attachments',
 }
 
 /** Clickable path for the current route, rendered under the TopBar (nothing on the dashboard). */

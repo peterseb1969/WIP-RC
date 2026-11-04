@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Key,
   Plus,
@@ -103,12 +104,14 @@ function TierAdvisory() {
 // Create API Key Form
 // ---------------------------------------------------------------------------
 
-function CreateAPIKeyForm({ onClose, onCreated }: {
+function CreateAPIKeyForm({ onClose, onCreated, initialOwner = '' }: {
   onClose: () => void
   onCreated: (created: CreateAPIKeyResponse) => void
+  /** Prefilled owner, e.g. app:<name> when coming from an attachment. */
+  initialOwner?: string
 }) {
   const [name, setName] = useState('')
-  const [owner, setOwner] = useState('')
+  const [owner, setOwner] = useState(initialOwner)
   const [description, setDescription] = useState('')
   const [rows, setRows] = useState<NamespaceRow[]>([emptyRow()])
   const [groupsInput, setGroupsInput] = useState('')
@@ -689,7 +692,11 @@ function APIKeyRow({
 // ---------------------------------------------------------------------------
 
 export default function APIKeysPage() {
-  const [showCreate, setShowCreate] = useState(false)
+  // ?create=1&owner=app:<name> (from the Attachments page) opens the create
+  // form with that owner, the convention that links a key to an attached app.
+  const [searchParams] = useSearchParams()
+  const [showCreate, setShowCreate] = useState(searchParams.get('create') === '1')
+  const initialOwner = searchParams.get('owner') ?? ''
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
   const [createdKey, setCreatedKey] = useState<CreateAPIKeyResponse | null>(null)
   const [revokeResult, setRevokeResult] = useState<APIKeyRevokeResult | null>(null)
@@ -742,6 +749,7 @@ export default function APIKeysPage() {
         <CreateAPIKeyForm
           onClose={() => setShowCreate(false)}
           onCreated={handleCreated}
+          initialOwner={initialOwner}
         />
       )}
 

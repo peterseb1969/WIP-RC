@@ -30,6 +30,7 @@ import APIKeysPage from '@/pages/APIKeysPage'
 import TermDetailPage from '@/pages/TermDetailPage'
 import BackupRestorePage from '@/pages/BackupRestorePage'
 import IdentityMaintenancePage from '@/pages/IdentityMaintenancePage'
+import AttachmentsPage from '@/pages/AttachmentsPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,6 +82,7 @@ export default function App() {
               <Route path="api-keys" element={<APIKeysPage />} />
               <Route path="backup" element={<BackupRestorePage />} />
               <Route path="identity-maintenance" element={<IdentityMaintenancePage />} />
+              <Route path="attachments" element={<AttachmentsPage />} />
             </Route>
           </Routes>
         </BrowserRouter>

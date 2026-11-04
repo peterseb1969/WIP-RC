@@ -382,3 +382,29 @@ Peter chose no extra admin gate in RC's server for these endpoints for
 now; the gateway limits RC to wip-admins.
 
 Tests: tsc clean; unit 389/389 (9 new); E2E not run yet (the dev container needs a restart onto @wip/client 0.77.0)
+
+## d1ac4e1 — feat: orphaned grants are listed with what activates them
+**Time:** 2026-11-04 21:13
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 6 changed, +322/-0
+**Tests:** not recorded
+**Why:** A system restore writes a grant on a namespace the stack neither has
+nor reserves as orphaned: it gives nothing until activated. A platform
+admin creating the namespace activates every orphan on it; a namespace
+admin can activate one on an existing namespace; a reservation holder
+creating the namespace activates nothing.
+
+- API Keys page: an "Orphaned grants" section (beside Reservations)
+  lists every orphan from the Registry's global listing, since an
+  orphan's namespace usually doesn't exist and so has no grants panel to
+  show it. Each row has namespace, subject, permission, when it was
+  orphaned, and the namespace's state: exists (with Activate), absent
+  and reserved (named, with the note that the holder creating it will
+  not activate the grant), or absent (activates when a platform admin
+  creates it). Revoke asks first. wip-deploy's records get no actions.
+- Namespaces page: a grant still orphaned on an existing namespace is
+  marked "orphaned" in that namespace's Grants panel, with Activate.
+- Activate and revoke are bulk-first calls; a per-item error is shown,
+  not taken as success.
+
+Tests: tsc clean; unit 393/393 (4 new); E2E not run yet (the dev container needs a restart onto @wip/client 0.77.0)
