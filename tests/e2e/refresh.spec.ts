@@ -37,14 +37,30 @@ test('Dashboard and Namespaces Refresh show documents written since the page loa
   await page.getByRole('button', { name: 'Refresh namespace counts' }).click()
   await expectCount(dashboardDocs, before + 1)
 
-  // Namespaces page, with this run's namespace expanded.
+  // Namespaces page, with this run's namespace expanded. Its counts are the
+  // live documents (the Dashboard's are the Registry's, deleted included),
+  // so they get their own baseline.
   await page.goto('namespaces')
   await page.getByRole('button', { name: new RegExp(`^${ns}RC end`) }).click()
-  const namespaceDocs = page.locator(`main a[href$="/documents?ns=${ns}"]`)
-  await expectCount(namespaceDocs, before + 1)
-  await createDocuments(api, ns, 'REFRESH_PROBE', [{ code: `${stamp}-b` }])
+  const card = page.getByTestId(`contents-${ns}`).getByTestId('count-documents')
+  const live = card.getByTestId('count-live')
+  const deleted = card.getByTestId('count-retired')
+  await expect(live).toBeVisible()
+  const liveBefore = await countIn(live)
+  const deletedBefore = await countIn(deleted)
+
+  // The page's Refresh re-reads the expanded namespace's counts.
+  const [added] = await createDocuments(api, ns, 'REFRESH_PROBE', [{ code: `${stamp}-b` }])
   await page.getByRole('button', { name: 'Refresh namespaces' }).click()
-  await expectCount(namespaceDocs, before + 2)
+  await expectCount(live, liveBefore + 1)
+
+  // So does the namespace's own Refresh, and a deletion shows: one fewer
+  // live, one more deleted.
+  const del = await api.fetch('/api/document-store/documents', { method: 'DELETE', data: [{ id: added }] })
+  expect(del.status()).toBe(200)
+  await page.getByRole('button', { name: `Refresh ${ns}` }).click()
+  await expectCount(live, liveBefore)
+  await expectCount(deleted, deletedBefore + 1)
   await api.dispose()
 })
 

@@ -262,3 +262,39 @@ refresh also brings wip-toolkit 0.24.1 and doc updates. CLAUDE.md's
 fresh render was not taken, as before.
 
 Tests: tsc clean; unit 363/363
+
+## a0e8abe — feat: keys, grants and reservations wip-deploy owns are read-only in the console
+**Time:** 2026-11-03 23:20
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 10 changed, +410/-30
+**Tests:** not recorded
+**Why:** The Registry now imports the install's key file and reservations file as
+records marked managed_by: wip-deploy and refuses every API write to
+them (409, error_code managed_by_deployer). The console decides on
+managed_by, never on source, since a deployer key is listed as a config
+entry now and as a stored record once the services switch over.
+
+- API keys: a managed key gets a "wip-deploy" badge and no Edit, Revoke
+  or namespace editor. In their place it names the command to use,
+  wip-deploy app-namespace add|remove <app> <namespace> and
+  wip-deploy rotate-key <key> (both checked against the deployer's CLI).
+  A key restored from another install gets a "restored" badge and stays
+  editable. The "not covered by backups" warning shows only on keys the
+  console can change.
+- Grants (Namespaces page): a managed grant shows "wip-deploy" instead
+  of a revoke button. A grant to a key whose grants the key file
+  declares (its grants field is set, even to {}) is not offered: the
+  form says why and the Grant button is disabled. A revoke the Registry
+  refuses per item, inside a 200, used to look like success; it now
+  shows the error.
+- Reservations: no Release on managed rows, whatever their source, and
+  the conflict text no longer claims the namespace can't be created
+  (current Registries never report one).
+- A key, grant or reservation write refused with managed_by_deployer,
+  from a stale view or another tab, shows the refusal and re-reads the
+  listing, so the record turns read-only on screen.
+
+The grants query key moved into the key hooks module, which the grants
+panel now imports for the key list, so the two don't import each other.
+
+Tests: tsc clean; unit 376/376 (13 new); full E2E 87/87 (2.6 min) against the default install on @wip/client 0.75.0, including a new spec that checks the install's own managed key, grant and reservation read-only without changing them

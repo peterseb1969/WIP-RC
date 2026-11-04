@@ -8,6 +8,8 @@ import {
   BookOpen,
   FileCode2,
   FileText,
+  Tags,
+  Paperclip,
   Settings2,
   Pencil,
   Trash2,
@@ -23,6 +25,9 @@ import JsonViewer from '@/components/common/JsonViewer'
 import GrantsPanel from '@/components/grants/GrantsPanel'
 import { cn } from '@/lib/cn'
 import RefreshButton, { RefreshingValue } from '@/components/common/RefreshButton'
+import { NS_DETAIL_KEY, useNamespaceCounts } from '@/hooks/use-namespace-counts'
+import { GRANTS_QUERY_KEY } from '@/hooks/use-api-keys'
+import { RETIRED_LABEL, termCounts, type KindCount, type NamespaceCounts } from '@/lib/namespace-counts'
 
 // ---------------------------------------------------------------------------
 // Namespace Stats Hook (per-namespace detail)
@@ -31,7 +36,7 @@ import RefreshButton, { RefreshingValue } from '@/components/common/RefreshButto
 function useNamespaceDetail(prefix: string | null) {
   const client = useWipClient()
   return useQuery({
-    queryKey: ['rc-console', 'ns-detail', prefix],
+    queryKey: NS_DETAIL_KEY(prefix ?? ''),
     queryFn: async () => {
       if (!prefix) return null
       const stats = await client.registry.getNamespaceStats(prefix)
@@ -232,17 +237,66 @@ function CreateNamespaceForm({ onClose }: { onClose: () => void }) {
 // Namespace Row (expandable)
 // ---------------------------------------------------------------------------
 
+/** One kind's live count, with its retired count beneath and the Registry's figure on hover. */
+function CountCard({ to, icon: Icon, label, count, kind, registered, refreshing, extra }: {
+  to: string
+  icon: React.ComponentType<{ size?: number; className?: string }>
+  label: string
+  count: KindCount
+  kind: keyof NamespaceCounts
+  /** The Registry's count: every entity it registered, retired ones included. */
+  registered: number | undefined
+  refreshing: boolean
+  extra?: string
+}) {
+  return (
+    <Link
+      to={to}
+      className="bg-gray-50 rounded-lg px-3 py-2 hover:bg-gray-100 transition-colors"
+      title={registered !== undefined ? `${registered.toLocaleString()} registered in the Registry, retired ones included` : undefined}
+      data-testid={`count-${kind}`}
+    >
+      <div className="flex items-center gap-1.5 text-xs text-gray-500">
+        <Icon size={12} />
+        {label}
+      </div>
+      <div className="text-lg font-semibold text-gray-800 mt-0.5" data-testid="count-live">
+        <RefreshingValue refreshing={refreshing}>{count.active.toLocaleString()}</RefreshingValue>
+      </div>
+      <div className="text-[10px] text-gray-400 leading-tight" data-testid="count-retired">
+        <RefreshingValue refreshing={refreshing}>
+          {count.retired.toLocaleString()} {RETIRED_LABEL[kind]}
+          {extra && <> · {extra}</>}
+        </RefreshingValue>
+      </div>
+    </Link>
+  )
+}
+
 function NamespaceRow({
   ns,
   isExpanded,
   onToggle,
+  onRefreshList,
 }: {
   ns: Namespace
   isExpanded: boolean
+  /** Re-read the namespace list, which carries this namespace's settings. */
+  onRefreshList: () => void
   onToggle: () => void
 }) {
   const client = useWipClient()
+  const qc = useQueryClient()
   const { data: stats, isFetching: statsFetching } = useNamespaceDetail(isExpanded ? ns.prefix : null)
+  const { data: counts, isFetching: countsFetching, error: countsError } = useNamespaceCounts(isExpanded ? ns.prefix : null)
+  const detailRefreshing = statsFetching || countsFetching
+  // Re-read everything the expanded namespace shows: its record (settings),
+  // its counts and its grants. Running reads are not cancelled.
+  const refreshDetail = () => {
+    onRefreshList()
+    qc.invalidateQueries({ queryKey: NS_DETAIL_KEY(ns.prefix) }, { cancelRefetch: false })
+    qc.invalidateQueries({ queryKey: GRANTS_QUERY_KEY(ns.prefix) }, { cancelRefetch: false })
+  }
 
   const [editing, setEditing] = useState(false)
   const [editDesc, setEditDesc] = useState(ns.description ?? '')
@@ -351,47 +405,40 @@ function NamespaceRow({
 
       {isExpanded && (
         <div className="px-4 pb-3 pl-12 space-y-3">
-          {/* Stats */}
-          {stats && (
-            <div className="grid grid-cols-3 gap-3">
-              <Link
-                to={`/terminologies?ns=${ns.prefix}`}
-                className="bg-gray-50 rounded-lg px-3 py-2 hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                  <BookOpen size={12} />
-                  Terminologies
-                </div>
-                <div className="text-lg font-semibold text-gray-800 mt-0.5">
-                  <RefreshingValue refreshing={statsFetching}>{(stats.entity_counts.terminologies ?? 0).toLocaleString()}</RefreshingValue>
-                </div>
-              </Link>
-              <Link
-                to={`/templates?ns=${ns.prefix}`}
-                className="bg-gray-50 rounded-lg px-3 py-2 hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                  <FileCode2 size={12} />
-                  Templates
-                </div>
-                <div className="text-lg font-semibold text-gray-800 mt-0.5">
-                  <RefreshingValue refreshing={statsFetching}>{(stats.entity_counts.templates ?? 0).toLocaleString()}</RefreshingValue>
-                </div>
-              </Link>
-              <Link
-                to={`/documents?ns=${ns.prefix}`}
-                className="bg-gray-50 rounded-lg px-3 py-2 hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                  <FileText size={12} />
-                  Documents
-                </div>
-                <div className="text-lg font-semibold text-gray-800 mt-0.5">
-                  <RefreshingValue refreshing={statsFetching}>{(stats.entity_counts.documents ?? 0).toLocaleString()}</RefreshingValue>
-                </div>
-              </Link>
+          {/* Contents: live and retired per kind, from the services that own the data */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Contents</span>
+              <RefreshButton
+                onRefresh={refreshDetail}
+                refreshing={detailRefreshing}
+                label={`Refresh ${ns.prefix}`}
+                size={12}
+                className="p-0.5"
+              />
+              {countsError && (
+                <span className="text-xs text-danger" role="alert">Counts failed: {countsError.message}</span>
+              )}
             </div>
-          )}
+            {(!stats || !counts) && !countsError && (
+              <p className="text-xs text-gray-400">Counting…</p>
+            )}
+            {stats && counts && (
+              <div className="grid grid-cols-5 gap-2" data-testid={`contents-${ns.prefix}`}>
+                <CountCard to={`/terminologies?ns=${ns.prefix}`} icon={BookOpen} label="Terminologies"
+                  count={counts.terminologies} kind="terminologies" registered={stats.entity_counts.terminologies} refreshing={detailRefreshing} />
+                <CountCard to={`/terminologies?ns=${ns.prefix}`} icon={Tags} label="Terms"
+                  count={termCounts([counts.activeTerms], stats.entity_counts.terms)} kind="terms" registered={stats.entity_counts.terms} refreshing={detailRefreshing} />
+                <CountCard to={`/templates?ns=${ns.prefix}`} icon={FileCode2} label="Templates"
+                  count={counts.templates} kind="templates" registered={stats.entity_counts.templates} refreshing={detailRefreshing} />
+                <CountCard to={`/documents?ns=${ns.prefix}`} icon={FileText} label="Documents"
+                  count={counts.documents} kind="documents" registered={stats.entity_counts.documents} refreshing={detailRefreshing} />
+                <CountCard to={`/files?ns=${ns.prefix}`} icon={Paperclip} label="Files"
+                  count={counts.files} kind="files" registered={stats.entity_counts.files} refreshing={detailRefreshing}
+                  extra={counts.files.orphan > 0 ? `${counts.files.orphan.toLocaleString()} orphan` : undefined} />
+              </div>
+            )}
+          </div>
 
           {/* Metadata */}
           <div className="flex items-center flex-wrap gap-4 text-xs text-gray-400">
@@ -660,6 +707,7 @@ export default function NamespacesPage() {
                   ns={ns}
                   isExpanded={expandedNs === ns.prefix}
                   onToggle={() => setExpandedNs(prev => prev === ns.prefix ? null : ns.prefix)}
+                  onRefreshList={() => refetch({ cancelRefetch: false })}
                 />
               ))
           )}

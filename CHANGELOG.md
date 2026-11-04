@@ -1,5 +1,10 @@
 # RC-Console — Changelog
 
+## 2026-11-04 — An expanded namespace shows live and retired contents, with its own Refresh
+
+- Changed: an expanded namespace on the Namespaces page shows, for terminologies, terms, templates, documents and files, what is live now and what is retired beneath it (deactivated, deprecated or deleted, plus orphan files). The counts come from the services that own the data. The Registry's figures, which it used to show, count every entity it ever registered, soft-deleted ones included (kb: 5,908 documents = 5,885 live + 23 deleted), so a deletion never lowered them; they are now in each card's tooltip.
+- Added: terms and files counts, and a Refresh next to the counts that re-reads the namespace's settings, counts and grants.
+
 ## 2026-11-03 — Refresh shows its progress; opt-in auto-refresh on the documents list
 
 - Changed: every Refresh button spins and reads "Refreshing…" while its data is being read (also when the console re-reads on its own, e.g. on returning to the tab) and ignores clicks meanwhile. A second click used to cancel the running read and start it again, so on a large namespace (6.5 s for a page of documents in a namespace of 222k) each click made the wait longer. The counts a button refreshes stay on screen, dimmed and pulsing, with "updating…" beside the documents count.
