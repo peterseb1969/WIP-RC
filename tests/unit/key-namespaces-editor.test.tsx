@@ -91,7 +91,10 @@ describe('KeyNamespacesEditor', () => {
     renderEditor(key())
     await userEvent.click(screen.getByRole('button', { name: 'Add namespace' }))
     await userEvent.type(screen.getByLabelText('Namespace to add'), 'brand-new')
-    await userEvent.selectOptions(screen.getByLabelText('Access on the added namespace'), 'reserve')
+    await userEvent.click(screen.getByLabelText('Reserve brand-new'))
+    // A reserved namespace always gets admin: the permission picker steps aside.
+    expect(screen.getByLabelText('Access on the added namespace')).toBeDisabled()
+    expect(screen.getByLabelText('Access on the added namespace')).toHaveValue('admin')
     await userEvent.selectOptions(screen.getByLabelText('Deletion mode'), 'full')
     expect(screen.getByText(/permanent hard deletes/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Add' }))
@@ -104,8 +107,8 @@ describe('KeyNamespacesEditor', () => {
     renderEditor(key())
     await userEvent.click(screen.getByRole('button', { name: 'Add namespace' }))
     await userEvent.type(screen.getByLabelText('Namespace to add'), 'kb')
-    const reserve = screen.getByRole('option', { name: 'reserve (admin)' }) as HTMLOptionElement
-    expect(reserve.disabled).toBe(true)
+    expect(screen.getByLabelText('Reserve kb')).toBeDisabled()
+    expect(screen.getByLabelText('Access on the added namespace')).toBeEnabled()
   })
 
   it('shows the Registry refusal as it comes', async () => {
@@ -113,7 +116,7 @@ describe('KeyNamespacesEditor', () => {
     renderEditor(key())
     await userEvent.click(screen.getByRole('button', { name: 'Add namespace' }))
     await userEvent.type(screen.getByLabelText('Namespace to add'), 'wip-x')
-    await userEvent.selectOptions(screen.getByLabelText('Access on the added namespace'), 'reserve')
+    await userEvent.click(screen.getByLabelText('Reserve wip-x'))
     await userEvent.click(screen.getByRole('button', { name: 'Add' }))
     expect(await screen.findByText("the 'wip' namespace cannot be reserved")).toBeInTheDocument()
   })

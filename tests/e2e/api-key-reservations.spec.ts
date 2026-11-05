@@ -16,10 +16,12 @@ test.describe('API key reservations', () => {
   let ns = ''
   let reservedNs = ''
   let keyName = ''
+  let laterNs = ''
 
   test.beforeAll(() => {
     ;({ namespace: ns } = run())
     reservedNs = `${ns}-resv`
+    laterNs = `${ns}-resv2`
     keyName = `${ns}-resv-key`
   })
 
@@ -28,6 +30,7 @@ test.describe('API key reservations', () => {
     const api = await wipApi()
     await api.delete(`/api/registry/api-keys/${keyName}`)
     await api.delete(`/api/registry/reservations/${reservedNs}`)
+    await api.delete(`/api/registry/reservations/${laterNs}`)
     await api.dispose()
   })
 
@@ -75,11 +78,32 @@ test.describe('API key reservations', () => {
     await editor.getByRole('button', { name: 'Add namespace' }).click()
     await editor.getByLabel('Namespace to add').fill(ns)
     // The run namespace exists, so it can't be reserved.
-    await expect(editor.getByRole('option', { name: 'reserve (admin)' })).toBeDisabled()
+    await expect(editor.getByLabel(`Reserve ${ns}`)).toBeDisabled()
     await editor.getByLabel('Access on the added namespace').selectOption('write')
     await editor.getByRole('button', { name: 'Add', exact: true }).click()
     await expect(editor.getByText(`Added ${ns} with write.`)).toBeVisible()
     await expect(editor.getByRole('button', { name: `Remove ${ns} from ${keyName}` })).toBeVisible()
+  })
+
+  test('reserve another uncreated namespace on the existing key', async ({ page }) => {
+    await page.goto('api-keys')
+    await keyRow(page).click()
+    const editor = page.getByRole('group', { name: `Namespaces of ${keyName}` })
+    await editor.getByRole('button', { name: 'Add namespace' }).click()
+    await editor.getByLabel('Namespace to add').fill(laterNs)
+    await editor.getByLabel(`Reserve ${laterNs}`).check()
+    await expect(editor.getByLabel('Access on the added namespace')).toBeDisabled()
+    const settings = editor.getByRole('group', { name: `Reservation settings for ${laterNs}` })
+    await settings.getByLabel('Isolation mode').selectOption('strict')
+    await editor.getByRole('button', { name: 'Add', exact: true }).click()
+    await expect(editor.getByText(`Added ${laterNs}, reserved, with admin.`)).toBeVisible()
+    await expect(page.getByTestId(`reservation-${laterNs}`)).toContainText(`key ${keyName}`)
+    await expect(page.getByTestId(`reservation-${laterNs}`)).toContainText('isolation_mode: strict')
+
+    // Narrow it again: never created, so the reservation is released.
+    await editor.getByRole('button', { name: `Remove ${laterNs} from ${keyName}` }).click()
+    await editor.getByRole('button', { name: 'Yes, remove' }).click()
+    await expect(editor.getByText(new RegExp(`Removed ${laterNs} and released its reservation`))).toBeVisible()
   })
 
   test('a reservation the Registry refuses shows its reason', async ({ page }) => {
@@ -89,7 +113,7 @@ test.describe('API key reservations', () => {
     await editor.getByRole('button', { name: 'Add namespace' }).click()
     // Uppercase is not a valid namespace prefix; the Registry refuses it (400).
     await editor.getByLabel('Namespace to add').fill('BAD_PREFIX')
-    await editor.getByLabel('Access on the added namespace').selectOption('reserve')
+    await editor.getByLabel('Reserve BAD_PREFIX').check()
     await editor.getByRole('button', { name: 'Add', exact: true }).click()
     await expect(editor.getByText(/Invalid namespace prefix 'BAD_PREFIX'/)).toBeVisible()
     await expect(editor.getByRole('button', { name: /Remove BAD_PREFIX/ })).toHaveCount(0)

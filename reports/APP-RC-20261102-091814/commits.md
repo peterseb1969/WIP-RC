@@ -443,3 +443,20 @@ or not. A new Attachments page under Admin manages them.
   wip-deploy's records are read-only.
 
 Tests: tsc clean; unit 402/402 (9 new); E2E not run yet (the dev container needs a restart onto @wip/client 0.77.0)
+
+## dcf5724 — test: E2E for the system backup and restore, orphaned grants and attachments
+**Time:** 2026-11-04 21:33
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 3 changed, +139/-0
+**Tests:** not recorded
+**Why:** The new spec never changes the install's auth state. It downloads a
+system backup from the System tab, uploads that file and dry-runs an
+upsert restore; dry-runs a mirror and checks Apply stays disabled until
+"mirror" is typed; checks the API Keys page's orphaned-grants section
+against the Registry's own listing; and on the Attachments page has a
+blocked upstream refused, attaches a probe with an upstream that
+resolves nowhere, edits it and deactivates it. The probe reuses one
+fixed name on every run, so at most one inactive record exists
+(attachment records are never hard-deleted). CHANGELOG has the entry.
+
+Tests: tsc clean; unit 402/402; full E2E 91/91 (2.8 min) against the default install on @wip/client 0.77.0

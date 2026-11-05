@@ -12,7 +12,6 @@ import {
 import { useAddKeyNamespace, useRemoveKeyNamespace } from '@/hooks/use-api-keys'
 import ReservationSettingsEditor from './ReservationSettingsEditor'
 
-type AddMode = GrantLevel | 'reserve'
 
 /**
  * A runtime key's namespaces, changed one at a time through the Registry's
@@ -32,12 +31,16 @@ export default function KeyNamespacesEditor({ apiKey }: { apiKey: APIKeyInfo }) 
   const [error, setError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [prefix, setPrefix] = useState('')
-  const [mode, setMode] = useState<AddMode>('write')
+  const [permission, setPermission] = useState<GrantLevel>('write')
+  // Reserve is offered as in the create dialog: a checkbox beside the
+  // namespace, for a namespace that doesn't exist yet. A reserved namespace
+  // always gets admin, so the permission picker steps aside.
+  const [reserve, setReserve] = useState(false)
   const [draft, setDraft] = useState(defaultDraft())
 
   const trimmed = prefix.trim()
   const prefixExists = existing.has(trimmed)
-  const effectiveMode: AddMode = mode === 'reserve' && prefixExists ? 'admin' : mode
+  const reserving = reserve && !prefixExists && !!trimmed
 
   const remove = useRemoveKeyNamespace({
     onSuccess: (result) => { setConfirmRemove(null); setError(null); setMessage(narrowOutcome(result)) },
@@ -45,13 +48,14 @@ export default function KeyNamespacesEditor({ apiKey }: { apiKey: APIKeyInfo }) 
   })
   const add = useAddKeyNamespace({
     onSuccess: () => {
-      setMessage(effectiveMode === 'reserve'
+      setMessage(reserving
         ? `Added ${trimmed}, reserved, with admin.`
-        : `Added ${trimmed} with ${effectiveMode}.`)
+        : `Added ${trimmed} with ${permission}.`)
       setError(null)
       setAdding(false)
       setPrefix('')
-      setMode('write')
+      setPermission('write')
+      setReserve(false)
       setDraft(defaultDraft())
     },
     onError: (err) => setError(err.message),
@@ -61,12 +65,12 @@ export default function KeyNamespacesEditor({ apiKey }: { apiKey: APIKeyInfo }) 
     if (!trimmed) { setError('Name the namespace to add'); return }
     if (namespaces.includes(trimmed)) { setError(`The key already has ${trimmed}`); return }
     let request: AddAPIKeyNamespaceRequest
-    if (effectiveMode === 'reserve') {
+    if (reserving) {
       const result = draftToSettings(draft)
       if ('error' in result) { setError(result.error); return }
       request = { reserve: result.settings }
     } else {
-      request = { permission: effectiveMode }
+      request = { permission }
     }
     setMessage(null)
     add.mutate({ name: apiKey.name, prefix: trimmed, request })
@@ -151,16 +155,31 @@ export default function KeyNamespacesEditor({ apiKey }: { apiKey: APIKeyInfo }) 
               placeholder="namespace"
               className="flex-1 border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-primary-light"
             />
+            <label
+              className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer"
+              title={prefixExists ? EXISTING_NAMESPACE_HINT : 'Reserve the namespace so the key can create it'}
+            >
+              <input
+                type="checkbox"
+                checked={reserving}
+                disabled={prefixExists || !trimmed}
+                onChange={e => setReserve(e.target.checked)}
+                aria-label={`Reserve ${trimmed || 'the namespace'}`}
+                className="rounded border-gray-300"
+              />
+              Reserve
+            </label>
             <select
               aria-label="Access on the added namespace"
-              value={effectiveMode}
-              onChange={e => setMode(e.target.value as AddMode)}
-              className="border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-primary-light"
+              value={reserving ? 'admin' : permission}
+              onChange={e => setPermission(e.target.value as GrantLevel)}
+              disabled={reserving}
+              title={reserving ? 'A reserved namespace always gets admin' : undefined}
+              className="border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:border-primary-light disabled:bg-gray-100 disabled:text-gray-400"
             >
               <option value="read">read</option>
               <option value="write">write</option>
               <option value="admin">admin</option>
-              <option value="reserve" disabled={prefixExists}>reserve (admin)</option>
             </select>
             <button
               type="button"
@@ -178,10 +197,10 @@ export default function KeyNamespacesEditor({ apiKey }: { apiKey: APIKeyInfo }) 
               Cancel
             </button>
           </div>
-          {prefixExists && mode === 'reserve' && (
+          {prefixExists && reserve && (
             <p className="text-[10px] text-gray-400">{EXISTING_NAMESPACE_HINT}</p>
           )}
-          {effectiveMode === 'reserve' && trimmed && (
+          {reserving && (
             <ReservationSettingsEditor prefix={trimmed} draft={draft} onChange={setDraft} />
           )}
         </div>
