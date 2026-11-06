@@ -482,3 +482,23 @@ with a non-default setting, checks it under Reservations, and narrows it
 again, which releases the reservation.
 
 Tests: tsc clean; unit 402/402; full E2E 92/92 (2.6 min) against the default install
+
+## 30b3556 — chore: scaffold refresh — @wip/react 0.26.0, @wip/client 0.83.0, @wip/proxy 0.7.0
+**Time:** 2026-11-06 20:36
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 16 changed, +199/-39
+**Tests:** not recorded
+**Why:** @wip/react 0.26.0's WipProvider keeps an app origin's session fresh: on
+an install that serves each app on its own origin, the gateway's app
+session lasts 15 minutes, and the provider renews it silently through a
+hidden iframe. RC wraps the app in WipProvider, so it gets the renewal
+with no code change.
+
+@wip/client 0.78.0 to 0.83.0 add system backups scoped to one app's
+namespaces, more restore skip codes, and attachment reads that say
+whether the app is served; RC's use of them is unchanged. @wip/proxy
+0.7.0 trims the API key and refuses a malformed one at startup. The
+refresh also brings wip-toolkit 0.25.7, wip-archive 0.25.0 and doc
+updates, among them the app contract's app-origin rule.
+
+Tests: tsc clean; unit 402/402

@@ -11,6 +11,8 @@ import { useAttachments, useDeactivateAttachment, useSaveAttachment } from '@/ho
 import { draftFrom, keysOfApp, newDraft, requestFrom, type AttachmentDraft } from '@/lib/attachments'
 import { isManaged, WIP_DEPLOY } from '@/lib/managed-records'
 import { cn } from '@/lib/cn'
+import { appUrl } from '@/lib/app-origins'
+import { basePath } from '@/lib/wip'
 
 const input = 'w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:border-primary-light'
 
@@ -173,7 +175,7 @@ function AttachmentRow({ a, expanded, onToggle, onMessage }: {
         <div className="px-4 pb-3 pl-12 space-y-3 text-xs">
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-gray-500">
             {a.status === 'active' && (
-              <a href={`${a.path}/`} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1">
+              <a href={appUrl(a.name, window.location, basePath)} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1">
                 Open {a.path}/ <ExternalLink size={10} />
               </a>
             )}
