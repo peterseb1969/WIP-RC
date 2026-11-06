@@ -10,13 +10,14 @@ const secrets = path.join(homedir(), '.wip-deploy', process.env.E2E_DEPLOYMENT ?
 export const E2E = {
   /**
    * RC behind the WIP router (trailing slash: page paths resolve under it).
-   * On an install that serves each app on its own origin, this is
-   * https://rc.<host>/apps/rc/ (e.g. https://rc.localhost:8443/apps/rc/);
-   * the login says so if it lands there. `wipURL` stays WIP's own origin.
+   * The default is the `default` dev install, which serves each app on its
+   * own origin (https://rc.<host>/apps/rc/). For an install that serves apps
+   * under WIP's origin, point it at https://<host>/apps/rc/; the login says
+   * so if it lands elsewhere. `wipURL` is WIP's own origin.
    */
-  baseURL: process.env.E2E_BASE_URL ?? 'https://localhost:8443/apps/rc/',
+  baseURL: process.env.E2E_BASE_URL ?? 'https://rc.wip.localhost:8443/apps/rc/',
   /** The WIP gateway, for fixture setup through the API. */
-  wipURL: process.env.E2E_WIP_URL ?? 'https://localhost:8443',
+  wipURL: process.env.E2E_WIP_URL ?? 'https://wip.localhost:8443',
   user: process.env.E2E_USER ?? 'e2e@wip.local',
   passwordFile: process.env.E2E_PASSWORD_FILE ?? path.join(secrets, 'dex-password-e2e'),
   apiKeyFile: process.env.E2E_API_KEY_FILE ?? path.join(secrets, 'api-key'),

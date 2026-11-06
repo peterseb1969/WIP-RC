@@ -59,10 +59,11 @@ Express listens on `PORT` (default **3011**, `server/index.ts`). Vite serves the
 ### Under wip-deploy (`--app-source`)
 
 ```bash
-wip-deploy install --target dev --app react-console \
-  --app-source react-console=~/Development/WIP-ReactConsole
-open https://localhost:8443/apps/rc/
+wip-deploy add-app react-console --app-source ~/Development/WIP-RC --name default
+open https://rc.wip.localhost:8443/apps/rc/
 ```
+
+The `default` dev install runs at `wip.localhost:8443` and serves each app on its own origin, so RC is at `https://rc.<host>/apps/rc/`. WIP's old `/apps/rc/` URL answers 301 there. On an install that still serves apps under WIP's origin, RC is at `https://<host>/apps/rc/`.
 
 The deployer builds `Dockerfile.dev`, which bind-mounts the repo and runs `npm run dev` through `docker-entrypoint-dev.sh`. That entrypoint re-runs `npm ci` into a named `node_modules` volume only when `package-lock.json` changes, so restart the container after a lockfile change. Caddy routes `/apps/rc/*` to Vite on 5174. Express runs on 3011 inside the container, with `APP_BASE_PATH=/apps/rc`. The app's route is **`/apps/rc/`**, not `/apps/react-console/`. The manifest lives in the WIP repo at `apps/react-console/wip-app.yaml`.
 
