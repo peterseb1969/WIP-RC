@@ -531,3 +531,21 @@ RC's base path, the logout link is relative and exists on an app origin,
 and WipProvider (@wip/react 0.26.0) renews the app session.
 
 Tests: tsc clean; unit 406/406 (4 new); full E2E 92/92 (2.9 min) against the default install, which still serves apps under WIP's origin; not yet run on an install with app origins
+
+## 6b8c2c2 — test: the E2E suite targets the default install at wip.localhost by default
+**Time:** 2026-11-06 22:27
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 2 changed, +10/-8
+**Tests:** not recorded
+**Why:** The default dev install was reinstalled as wip.localhost:8443 and serves
+each app on its own origin, so the suite's defaults move with it: RC at
+https://rc.wip.localhost:8443/apps/rc/ and WIP at
+https://wip.localhost:8443. Other installs still set E2E_BASE_URL and
+E2E_WIP_URL (and E2E_DEPLOYMENT for their secrets).
+
+The README's wip-deploy example now uses the add-app command RC is
+redeployed with, opens RC on its own origin, and says where RC is on an
+install that serves apps under WIP's origin.
+
+Tests: smoke 17/17 with no E2E variables set; the full suite passed 92/92 against wip.localhost with the same URLs given explicitly
+Discovered: The reinstall dropped the e2e Dex user, and re-creating it in wip-editors locks it out of RC, whose route allows only wip-admins
