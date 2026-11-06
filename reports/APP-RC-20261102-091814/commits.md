@@ -502,3 +502,32 @@ refresh also brings wip-toolkit 0.25.7, wip-archive 0.25.0 and doc
 updates, among them the app contract's app-origin rule.
 
 Tests: tsc clean; unit 402/402
+
+## 4042527 — fix: RC works when each app is served on its own origin
+**Time:** 2026-11-06 20:41
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 7 changed, +136/-5
+**Tests:** not recorded
+**Why:** Installs can now serve each app on an origin of its own,
+https://<name>.<host>/apps/<name>/, the default for new installs. WIP's
+/apps/<name>/ then answers 301, a path on RC's own origin reaches only
+RC, and logging in happens on WIP's origin through the gateway's
+handshake. Three places assumed WIP's origin:
+
+- A 401 from RC's own server (the gateway session ended) sent the
+  browser to /auth/login, which doesn't exist on an app origin. RC now
+  reloads its own URL, which takes the browser through the gateway's
+  login or handshake in either mode. If a 401 comes again within 30 s
+  of such a reload, RC stops and says so instead of reloading in a loop.
+- The Attachments page's Open link pointed at /apps/<name>/ on RC's own
+  origin. RC now works out the mode from its location: on rc.<host> it
+  links <name>.<host>/apps/<name>/, otherwise the path as before.
+- The E2E login waited for WIP's origin. It now waits for RC's path on
+  any origin, and if RC turns out to be on its own origin it fails with
+  the E2E_BASE_URL to use (e.g. https://rc.localhost:8443/apps/rc/).
+
+Everything else already followed the rules: every browser call is under
+RC's base path, the logout link is relative and exists on an app origin,
+and WipProvider (@wip/react 0.26.0) renews the app session.
+
+Tests: tsc clean; unit 406/406 (4 new); full E2E 92/92 (2.9 min) against the default install, which still serves apps under WIP's origin; not yet run on an install with app origins
