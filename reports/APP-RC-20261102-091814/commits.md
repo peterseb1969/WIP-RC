@@ -460,3 +460,25 @@ fixed name on every run, so at most one inactive record exists
 (attachment records are never hard-deleted). CHANGELOG has the entry.
 
 Tests: tsc clean; unit 402/402; full E2E 91/91 (2.8 min) against the default install on @wip/client 0.77.0
+
+## 2ca89a1 — fix: reserving a namespace on an existing key is a visible checkbox, as on create
+**Time:** 2026-11-05 22:07
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 4 changed, +83/-20
+**Tests:** not recorded
+**Why:** Adding a namespace to an existing key could reserve it, but only through
+a "reserve (admin)" entry in the access dropdown, beside read, write and
+admin. The create dialog offers the same thing as a Reserve checkbox
+next to each namespace, so on an existing key the option went unnoticed.
+
+The key's namespace editor now has the same Reserve checkbox next to the
+namespace field. Ticking it opens the reservation settings and disables
+the access dropdown, showing admin, since a reserved namespace always
+gets admin. As before, it can't be ticked for a namespace that exists:
+a reservation never changes an existing namespace.
+
+A new E2E step reserves a second, uncreated namespace on an existing key
+with a non-default setting, checks it under Reservations, and narrows it
+again, which releases the reservation.
+
+Tests: tsc clean; unit 402/402; full E2E 92/92 (2.6 min) against the default install

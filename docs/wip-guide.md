@@ -70,7 +70,7 @@ wip-toolkit status --integrity   # adds the heavy referential-integrity scan
 |---|---|
 | `headless` | API services only, no UI |
 | `core` | + console + API keys |
-| `analytics` | + OIDC (Dex) + reporting-sync + Postgres |
+| `analytics` | + OIDC (Dex) + reporting-sync + Postgres + the app edge (§6.5) |
 | `standard` (default) | + Garage + MCP server — fully exercisable platform |
 | `full` | + ingest-gateway (async bulk via NATS JetStream) |
 
@@ -249,6 +249,24 @@ Networking is where most operator failures happen. The three callouts below prev
 Choose by what you need. If you want auth, go with 1 or 3 (and pick `--hostname` deliberately — it becomes the OIDC issuer, §3.1). If you want absolute simplicity for local hacking, scenarios 2 and 4 use API keys only and skip Caddy entirely (services bind to their direct ports, console is on `:3000`).
 
 For scenarios 2 and 4 the console's dev server needs proxy rules (Vite `vite.config.ts → server.proxy`) pointing `/api/registry`, `/api/def-store`, etc. at the matching `localhost:800x`.
+
+### 3.5 Apps on origins of their own (`network.app_origins`)
+
+Served under `/apps/<name>` on WIP's own origin, every app shares the visitor's login: an app's server receives the session cookie, and an app's JavaScript can call any other app as the visitor. With **`subdomain`** each app has an origin of its own and a session that works nowhere else:
+
+| | `path` | `subdomain` |
+|---|---|---|
+| App URL | `https://<hostname>:8443/apps/rc/` | `https://rc.<hostname>:8443/apps/rc/` |
+| Session | `wip_session`, shared by WIP and every app | per app: `wip_app_session`, host-only, naming the app |
+| Old app URLs | — | answer 301 to the app's origin |
+| Default for | installs made before this setting | new installs |
+
+- **Logging in once still covers every app.** The app origin sends the browser through `/auth/app-login` on WIP's origin, which hands it a one-time code; `/auth/handoff` on the app origin turns that into the app's session. Only WIP's origin talks to Dex, so Dex needs nothing per app.
+- **Logout reaches an app within its session lifetime** (`APP_SESSION_MAX_AGE`, 15 minutes by default). An app built on `@wip/react` 0.26.0 or later renews its session in the background while it is open; see the app contract.
+- **DNS:** every `<label>.<hostname>` must reach the install. `localhost` needs nothing (browsers resolve `*.localhost` to loopback); for any other hostname, add a wildcard record (`*.<hostname>`) or one per app.
+- **TLS:** `tls internal` issues a certificate per app origin from Caddy's CA, which browsers already trust once they trust the install's CA. Attached apps' origins are not known when wip-caddy is rendered: it gets their certificates on demand, and only for a name the app edge confirms as an active attachment. With `tls letsencrypt`, deployer apps get a certificate per origin the same way the hostname does; attached apps' on-demand certificates have not been tried against a public CA yet.
+- **k8s:** the Ingress gets a `*.<hostname>` rule and TLS host, and wip-caddy behind it answers each origin on plain HTTP. A self-signed certificate the deployer mints names `*.<hostname>`; an existing self-signed `wip-tls` without it is refused, and the remedy is `kubectl delete secret wip-tls -n <namespace>` and another apply. With `tls external`, your certificate must cover `*.<hostname>`.
+- **Switching an existing install:** `wip-deploy redeploy --name <install> --app-origins subdomain` (or `path`). An install over an existing one keeps its mode unless `--app-origins` says otherwise. Bookmarks keep working through the 301; **non-browser clients of app URLs** (for example a CLI that writes to an app's `server-api`) must use the new origin, because a `POST` does not follow the redirect.
 
 ---
 
@@ -757,6 +775,29 @@ in §5.5.
   A mirror is not one transaction: if it fails part-way, re-run it. After a
   mirror the stack holds no keys of its own beyond the file's, so a mirror
   also adopts a file's other hash salt, where an upsert refuses it.
+- **A scoped backup covers one app.** `wip-toolkit system-backup aa.json
+  --namespace aa --namespace aa-data --attachment aa` carries the grants and
+  reservations of those namespaces, the keys whose namespaces all lie in them,
+  and the named attachments, and the file declares that scope. Attachments
+  have no namespace, so name the ones to carry. A key in a stack-wide group
+  (`wip-admins`, `wip-services`) reaches every namespace, so it is never in a
+  scope, whatever its namespace list. The backup lists the keys the
+  scope touches but cannot carry (a namespace outside it, none, or a
+  stack-wide group); the file
+  still carries their grants inside the scope, and the restore warns about
+  them. **A restore of a scoped file changes nothing outside its scope**:
+  - a mirror never removes keys outside the scope, grants and reservations
+    on other namespaces, or unnamed attachments;
+  - a key whose copy on this stack reaches outside the scope (or holds no
+    namespace list, or is in a stack-wide group) is never replaced
+    (`out_of_scope_here`);
+  - the file's own records outside its declared scope are skipped
+    (`outside_archive_scope`).
+
+  An empty `--namespace` or `--attachment` is refused. A scoped file under
+  another hash salt is adopted only by a stack with no keys of its own, so in
+  practice it is restored onto the stack it came from, or one sharing its
+  salt.
 - **Restored records are unmanaged** (`origin: restored`). Where the install's
   own key file or reservations file declares the same key, grant or prefix,
   the Registry's import takes it over on its next pass (§4.3).
@@ -809,7 +850,11 @@ in §5.5.
   by an admin does, or when a namespace admin activates it (`POST
   /api/registry/namespaces/{prefix}/grants/activate`) or grants it again. A key
   that reserves the prefix later and creates the namespace does not inherit
-  it. `GET /api/registry/grants?orphaned=true` lists every orphan. So the
+  it. **A platform admin's create activates every orphan on the name**,
+  including those written because another owner reserves it here: a
+  namespace is known only by its name, so they cannot be told apart. Before
+  an admin creates such a namespace, list its orphans and revoke any that
+  should not apply. `GET /api/registry/grants?orphaned=true` lists every orphan. So the
   system backup and the namespace backups can be restored in either order,
   and re-running the system restore is safe.
 - **A namespace restore creates namespaces as the requester.** A platform
@@ -1013,12 +1058,37 @@ be **attached** under the umbrella through the Registry's API instead of being
 deployed by wip-deploy. Its key is an ordinary Console key (§4.3). The
 deployer knows nothing about the app.
 
-**Served by the app edge.** The `app-edge` component (rendered whenever the
-auth gateway is on) reads the active attachments every 10 s with its own
-key, and serves each one at `/apps/<name>`: behind the gateway with the
-record's `allowed_groups`, then to the upstream. The public router hands it
-every `/apps` path that no deployed app's longer route claims. What it
-guarantees:
+**Served by the app edge.** The `app-edge` component reads the active
+attachments every 10 s with its own key, and serves each one at
+`/apps/<name>`: behind the gateway with the record's `allowed_groups`, then
+to the upstream. The public router hands it every `/apps` path that no
+deployed app's longer route claims.
+
+**The edge is an optional module.** The presets with the auth gateway
+(`standard`, `full`, `analytics`) include it. `wip-deploy remove-module
+app-edge` turns it off, and `wip-deploy add-module app-edge` turns it back on.
+It needs the auth gateway and core; the deployer refuses it otherwise, and
+`install --no-auth-gateway` leaves a preset's edge out with a note. Without
+the edge:
+
+- an `/apps/<name>` that no deployed app routes answers 404;
+- the Registry refuses every attachment write (`invalid_state`,
+  `details.rule: no_app_edge`), reviving included. Listing, reading and
+  deactivating still work, so records from before the edge was removed stay
+  manageable;
+- records already active stay active but are not served, so their apps go
+  offline until the edge is back. Reads say so: every attachment in a list or
+  get carries `served` (true when it is active and an edge runs) and, when
+  false, `not_served_reason`: `inactive`, `upstream_invalid` (a record
+  stored before the host rule below: the edge refuses its host),
+  `no_app_edge`, or `policy_unavailable` (the attach policy file cannot be
+  used, so the edge serves nothing). `served` is not a reachability check: the Registry never
+  calls an upstream, and the edge can still refuse a record when it resolves
+  it;
+- a system restore skips the archive's active attachments
+  (`reason_code: no_app_edge`) and restores its inactive ones as records.
+
+What the edge guarantees:
 
 - **It dials the address it checked.** Each upstream host is resolved and
   every address checked against the blocklist below, and the edge connects
@@ -1067,6 +1137,12 @@ curl -k -X POST https://<host>/api/registry/attachments/deactivate \
 - **The upstream is scheme, host and optional port only:** no path,
   credentials, query or fragment. The router proxies `/apps/<name>/…` to
   the upstream's root; `strip_prefix` drops the prefix.
+- **The host is an IP literal or a DNS name of RFC 1123 labels:** letters,
+  digits and inner hyphens, 1 to 63 characters each. An underscore (common
+  in container names), an empty label or a non-ASCII name is refused with
+  `validation_failed`, `details.rule: upstream_invalid`; give an
+  internationalised name in its `xn--` form. The app edge applies the same
+  rule, so a record the Registry accepts is one the edge can serve.
 - **Reading** (`GET /attachments`) is open to platform admins and to the
   router's app edge, whose key's group `wip-app-edge` may read attachments
   and nothing else. Every write stays platform admin. A record the deployer
@@ -1098,19 +1174,35 @@ curl -k -X POST https://<host>/api/registry/attachments/deactivate \
   rendered NetworkPolicy `app-edge-egress` takes the edge out of the
   namespace's broad allows. It lets the edge reach only the Registry, the
   auth gateway, DNS, pods in other namespaces and addresses outside the
-  cluster. **Two caveats:**
-  - The rule for addresses outside the cluster (`ipBlock 0.0.0.0/0`, `::/0`)
-    also reaches the API server's real endpoint and the kubelets: node
-    addresses on ports such as 6443/16443 and 10250 are outside the
-    cluster's pod network as far as that rule is concerned. The edge's
-    blocklist catches the `kubernetes…` names and their ClusterIP, but not
-    those addresses.
-  - Whether the same rule also matches in-cluster pod and Service IPs
-    depends on the network plugin.
-
-  Until the rule can exclude the cluster's own ranges, an attached app's
-  upstream given as a node or pod address isn't stopped at the network
-  layer. Attaching is platform admin only (above).
+  cluster.
+  - **Give the cluster's own ranges at install:** `--cluster-cidr
+    pods=<CIDR> --cluster-cidr services=<CIDR> --cluster-cidr nodes=<CIDR>`
+    (repeatable; `platform.k8s.cluster_ranges`). They are excepted from the
+    "outside the cluster" rule (`ipBlock 0.0.0.0/0`, `::/0`), which
+    otherwise also reaches the API server's endpoint and the kubelets on the
+    node addresses (ports such as 6443/16443 and 10250) and, depending on
+    the network plugin, pod and Service IPs. The node ranges also join the
+    attach blocklist: the Registry and the edge refuse an upstream that
+    resolves into them. `wip-deploy` warns about each kind left out.
+    On an existing install, `wip-deploy redeploy --name <install>
+    --cluster-cidr …` replaces the saved ranges (pass every kind to keep).
+    Give IPv4 ranges as IPv4: an IPv4-mapped IPv6 range is refused, since
+    it would never match.
+  - **Node ranges are the cluster's own node addresses** (for example
+    `192.168.1.20/32`), never a LAN it shares with other machines: an app
+    another cluster on that LAN serves through a NodePort would be refused
+    too. **Where the API endpoint is not a node address,** name it as
+    well: a load balancer's virtual IP in front of an HA control plane, or
+    a managed cluster's API endpoint. On kubeadm the API server runs as a
+    hostNetwork pod in `kube-system`; whether the "other namespaces" rule
+    matches hostNetwork pods depends on the network plugin, so give the node
+    addresses there too. Pod and Service ranges never block an upstream, since attached
+    apps in other namespaces live there.
+  - **The edge still reaches every other Kubernetes namespace's pods,** on
+    any port, including kube-system and other tenants' services. That is
+    part of "attaching is full trust" (above): an attachment can publish an
+    in-cluster service that has no authentication of its own. Attaching is
+    platform admin only.
 - **The app's key** is created in RC or through `/api-keys` (§4.4),
   widened with `reserve` for the namespaces it creates. The app holds the
   plaintext itself.
