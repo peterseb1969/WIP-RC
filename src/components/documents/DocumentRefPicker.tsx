@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { FileText } from 'lucide-react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { useTemplates, useWipClient } from '@wip/react'
-import { WipNotFoundError } from '@wip/client'
+import { lookupNote } from '@/lib/lookup-note'
 import type { Document, FieldDefinition, Template } from '@wip/client'
 import { documentLabel } from '@/lib/document-label'
 import { referenceNamespaces, resolveTargetTemplate } from '@/lib/reference-targets'
@@ -187,6 +187,13 @@ export default function DocumentRefPicker({ field, value, onChange, disabled, na
       </RefFooterNote>,
     )
   }
+  if (nsConfig.isError && namespace) {
+    notes.push(
+      <RefFooterNote key="ns-config" warn>
+        Couldn&apos;t read {namespace}&apos;s reference settings ({nsConfig.error.message}); only documents in {namespace} are offered.
+      </RefFooterNote>,
+    )
+  }
   if (!searching && browseTotal > browseDocs.length) {
     notes.push(
       <RefFooterNote key="browse">
@@ -214,7 +221,7 @@ export default function DocumentRefPicker({ field, value, onChange, disabled, na
       id={id}
       items={shown.map(toItem)}
       selectedItem={selectedDoc ? toItem(selectedDoc) : undefined}
-      unmatchedNote={valueQ.error instanceof WipNotFoundError ? 'not found' : valueQ.isError ? 'lookup failed' : ''}
+      unmatchedNote={lookupNote(valueQ.error)}
       value={valueStr}
       onChange={onChange}
       disabled={disabled}

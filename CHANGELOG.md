@@ -7,6 +7,7 @@
 - Added: an attachment the install doesn't serve says why (no app edge, a refused upstream host, an unreadable attach policy), and a write refused because the install runs no app edge says so.
 - Fixed: logout without a `return_to` redirected to `//` when no base path was set.
 - Changed: adopted @wip/client 0.88.0 and @wip/react 0.26.1 (scaffold refresh).
+- Fixed: the documents table said "Template not found" whenever the template could not be read; it shows the error, so a Registry outage (now a 503 the platform asks callers to retry) is no longer reported as a missing template. A stored term or document value that names several entities (now a 409) is marked "ambiguous" instead of "lookup failed", and a document picker that can't read its namespace's reference settings says it offers only that namespace's documents.
 - Tests: the E2E suite defaults to `https://rc.wip.localhost:8443/` and its login waits for RC's origin.
 
 ## 2026-11-04 — System backup and restore, orphaned grants, app attachments

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { ChevronDown, Search, X, Tag } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useTerms, useTerminologies, useWipClient } from '@wip/react'
-import { WipNotFoundError } from '@wip/client'
+import { lookupNote } from '@/lib/lookup-note'
 import type { FieldDefinition, Term, Terminology } from '@wip/client'
 import { cn } from '@/lib/cn'
 import { resolveTerminologyRef } from '@/lib/reference-targets'
@@ -200,11 +200,9 @@ export default function TermFieldInput({ field, value, onChange, disabled, names
           <span className="flex items-center gap-2 min-w-0">
             <Tag size={12} className="text-orange-400 shrink-0" />
             <span className="text-xs font-mono text-gray-500 truncate">{valueStr}</span>
-            {valueQuery.error instanceof WipNotFoundError ? (
-              <span className="text-[10px] text-amber-500">(not found)</span>
-            ) : valueQuery.isError ? (
-              <span className="text-[10px] text-amber-500">(lookup failed)</span>
-            ) : null}
+            {valueQuery.isError && (
+              <span className="text-[10px] text-amber-500" title={valueQuery.error.message}>({lookupNote(valueQuery.error)})</span>
+            )}
           </span>
         ) : (
           <span className="text-gray-400">

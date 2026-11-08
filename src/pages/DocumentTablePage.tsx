@@ -58,7 +58,7 @@ export default function DocumentTablePage() {
   const { templateValue } = useParams()
   const [searchParams] = useSearchParams()
   const { namespace } = useNamespaceFilter()
-  const { data: template, isLoading: templateLoading } = useRouteTemplate(templateValue, {
+  const { data: template, isLoading: templateLoading, error: templateError } = useRouteTemplate(templateValue, {
     templateId: searchParams.get('template_id'),
     namespace,
   })
@@ -104,6 +104,7 @@ export default function DocumentTablePage() {
   }, [templateId, templateValue, client])
 
   if (templateLoading) return <LoadingState label="Loading template..." />
+  if (templateError) return <ErrorState message={templateError.message} />
   if (!template) return <ErrorState message="Template not found" />
 
   const columns = data?.columns ?? []
