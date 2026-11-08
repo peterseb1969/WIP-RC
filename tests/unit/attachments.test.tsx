@@ -21,9 +21,8 @@ vi.mock('@wip/react', () => ({
 import AttachmentsPage from '@/pages/AttachmentsPage'
 
 const record = (over = {}) => ({
-  name: 'shop', path: '/apps/shop', upstream: 'http://shop:8080', status: 'active',
-  auth_required: true, allowed_groups: ['wip-admins'], strip_prefix: false, preserve_prefix_subpaths: [],
-  redirect_bare_path: true, upstream_host_header: false, streaming: false, ui_only: true,
+  name: 'shop', upstream: 'http://shop:8080', status: 'active',
+  auth_required: true, allowed_groups: ['wip-admins'], upstream_host_header: false, streaming: false, ui_only: true,
   upstream_tls: { verify: true, ca_pem: null }, display_name: 'Shop', health: '/api/health', managed_by: null,
   created_at: '2026-11-04T10:00:00Z', created_by: 'ops', updated_at: '2026-11-04T10:00:00Z', updated_by: 'ops', ...over,
 })
@@ -43,8 +42,13 @@ describe('requestFrom', () => {
     const r = requestFrom({ ...newDraft(), name: 'shop', upstream: 'http://shop:8080/', allowed_groups: 'a, b ,', health: ' ' })
     expect(r).toEqual({ request: expect.objectContaining({
       name: 'shop', upstream: 'http://shop:8080', auth_required: true, allowed_groups: ['a', 'b'],
-      redirect_bare_path: true, ui_only: true, health: null, upstream_tls: { verify: true, ca_pem: null }, preserve_prefix_subpaths: [],
+      ui_only: true, health: null, upstream_tls: { verify: true, ca_pem: null },
     }) })
+  })
+
+  it('sends none of the prefix settings the Registry now refuses', () => {
+    const r = requestFrom({ ...newDraft(), name: 'shop', upstream: 'http://shop:8080' })
+    expect('request' in r && Object.keys(r.request)).toEqual(expect.not.arrayContaining(['strip_prefix', 'preserve_prefix_subpaths', 'redirect_bare_path', 'path']))
   })
 
   it('says what to fix first', () => {
@@ -65,7 +69,9 @@ describe('attachmentErrorMessage and keysOfApp', () => {
     expect(attachmentErrorMessage({ index: 0, status: 'error', error: 'no', error_code: 'forbidden', details: { rule: 'upstream_blocked' } }))
       .toMatch(/install's own services/)
     expect(attachmentErrorMessage({ index: 0, status: 'error', name: 'rc', error: 'no', error_code: 'name_collision' }))
-      .toMatch(/already routes under \/apps\/rc/)
+      .toMatch(/already has the origin rc\.<host>/)
+    expect(attachmentErrorMessage({ index: 0, status: 'error', error: 'no', error_code: 'invalid_state', details: { rule: 'no_app_edge' } }))
+      .toMatch(/doesn't serve attached apps/)
   })
 
   it('finds an app\'s keys by owner', () => {
@@ -75,14 +81,16 @@ describe('attachmentErrorMessage and keysOfApp', () => {
 
 describe('AttachmentsPage', () => {
   it('lists active records with their keys, hides inactive ones until asked', async () => {
-    listAttachments.mockResolvedValue({ items: [record(), record({ name: 'old', path: '/apps/old', status: 'inactive' })] })
+    listAttachments.mockResolvedValue({ items: [record(), record({ name: 'old', status: 'inactive' })] })
     renderPage()
     const row = await screen.findByTestId('attachment-shop')
-    expect(row).toHaveTextContent('/apps/shop → http://shop:8080')
+    // jsdom runs at localhost, not an app origin: the origin is shown generically, with no Open link.
+    expect(row).toHaveTextContent('shop.<host> → http://shop:8080')
     expect(screen.queryByTestId('attachment-old')).not.toBeInTheDocument()
     expect(screen.getByText(/1 inactive hidden/)).toBeInTheDocument()
     await userEvent.click(within(row).getAllByRole('button')[0])
     expect(within(row).getByRole('link', { name: 'shop-key' })).toBeInTheDocument()
+    expect(within(row).queryByRole('link', { name: /^Open/ })).not.toBeInTheDocument()
     expect(within(row).getByRole('link', { name: /Create a key for shop/ })).toHaveAttribute('href', '/api-keys?create=1&owner=app%3Ashop')
     await userEvent.click(screen.getByLabelText('Show inactive'))
     expect(screen.getByTestId('attachment-old')).toBeInTheDocument()
@@ -112,7 +120,13 @@ describe('AttachmentsPage', () => {
     await userEvent.click(within(row).getAllByRole('button')[0])
     await userEvent.click(within(row).getByRole('button', { name: 'Revive' }))
     await waitFor(() => expect(upsertAttachments).toHaveBeenCalledWith([expect.objectContaining({ name: 'shop', upstream: 'http://shop:8080' })]))
-    expect(await screen.findByText('Revived /apps/shop.')).toBeInTheDocument()
+    expect(await screen.findByText('Revived shop.')).toBeInTheDocument()
+  })
+
+  it('says why an active record is not served', async () => {
+    listAttachments.mockResolvedValue({ items: [record({ served: false, not_served_reason: 'no_app_edge' })] })
+    renderPage()
+    expect(await screen.findByTestId('attachment-shop')).toHaveTextContent('not served: this install runs no app edge')
   })
 
   it('shows a wip-deploy record read-only', async () => {

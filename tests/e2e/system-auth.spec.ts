@@ -79,7 +79,7 @@ test.describe('system auth state', () => {
     // A name that resolves nowhere is accepted, with the Registry's warning.
     await form.getByLabel('Upstream *').fill('http://rc-e2e-probe-upstream.invalid:8080')
     await form.getByRole('button', { name: 'Attach' }).click()
-    await expect(page.getByRole('status')).toContainText(`/apps/${PROBE}`)
+    await expect(page.getByRole('status')).toContainText(`Attached ${PROBE}`)
 
     if (!(await page.getByTestId(`attachment-${PROBE}`).isVisible())) await page.getByLabel('Show inactive').check()
     const row = page.getByTestId(`attachment-${PROBE}`)
@@ -87,11 +87,11 @@ test.describe('system auth state', () => {
     await row.getByRole('button', { name: 'Edit' }).click()
     await row.getByLabel('Display name').fill('RC E2E probe')
     await row.getByRole('button', { name: 'Save' }).click()
-    await expect(page.getByRole('status')).toContainText(`Saved /apps/${PROBE}`)
+    await expect(page.getByRole('status')).toContainText(`Saved ${PROBE}`)
     await expect(row).toContainText('RC E2E probe')
 
     await row.getByRole('button', { name: 'Deactivate' }).click()
     await row.getByRole('button', { name: 'Yes, deactivate' }).click()
-    await expect(page.getByRole('status')).toContainText(`Deactivated /apps/${PROBE}`)
+    await expect(page.getByRole('status')).toContainText(`Deactivated ${PROBE}`)
   })
 })

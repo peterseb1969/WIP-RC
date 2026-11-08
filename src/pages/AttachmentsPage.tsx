@@ -12,7 +12,15 @@ import { draftFrom, keysOfApp, newDraft, requestFrom, type AttachmentDraft } fro
 import { isManaged, WIP_DEPLOY } from '@/lib/managed-records'
 import { cn } from '@/lib/cn'
 import { appUrl } from '@/lib/app-origins'
-import { basePath } from '@/lib/wip'
+
+/** An app's origin as shown: its full URL when RC can work it out, else <name>.<host>. */
+const originOf = (name: string) => appUrl(name, window.location) ?? `${name}.<host>`
+
+const NOT_SERVED: Record<string, string> = {
+  upstream_invalid: 'not served: its upstream host is refused by the app edge',
+  no_app_edge: 'not served: this install runs no app edge',
+  policy_unavailable: 'not served: the app edge cannot read its attach policy',
+}
 
 const input = 'w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:border-primary-light'
 
@@ -25,7 +33,7 @@ function Check({ label, checked, onChange, hint }: { label: string; checked: boo
   )
 }
 
-/** Create or edit form. On edit the name is fixed: it is the record's identity and its path. */
+/** Create or edit form. On edit the name is fixed: it is the record's identity and its origin. */
 function AttachmentForm({ initial, isNew, onDone, onCancel }: {
   initial: AttachmentDraft
   isNew: boolean
@@ -37,7 +45,7 @@ function AttachmentForm({ initial, isNew, onDone, onCancel }: {
   const set = <K extends keyof AttachmentDraft>(k: K, v: AttachmentDraft[K]) => { setD(prev => ({ ...prev, [k]: v })); setError(null) }
   const save = useSaveAttachment(item => {
     const warn = item.warnings?.length ? ` ${item.warnings.join(' ')}` : ''
-    onDone(`${item.status === 'unchanged' ? 'No change to' : isNew ? 'Attached' : 'Saved'} /apps/${item.name}.${warn}`)
+    onDone(`${item.status === 'unchanged' ? 'No change to' : isNew ? 'Attached' : 'Saved'} ${item.name}.${warn}`)
   })
 
   const submit = () => {
@@ -52,8 +60,8 @@ function AttachmentForm({ initial, isNew, onDone, onCancel }: {
         <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 flex items-start gap-1.5">
           <AlertTriangle size={12} className="shrink-0 mt-0.5" />
           <span>
-            An attached app is served on WIP&apos;s own origin, under /apps/&lt;name&gt;, and receives its visitors&apos;
-            requests. Its pages can act in the browser as the visitor. Attach only apps you trust.
+            An attached app is served at the root of its own origin, &lt;name&gt;.&lt;host&gt;, behind WIP&apos;s gateway,
+            and receives its visitors&apos; requests. Its pages can act in the browser as the visitor. Attach only apps you trust.
           </span>
         </p>
       )}
@@ -62,7 +70,7 @@ function AttachmentForm({ initial, isNew, onDone, onCancel }: {
           <label htmlFor="att-name" className="block text-xs text-gray-500 mb-1">Name *</label>
           <input id="att-name" className={cn(input, !isNew && 'bg-gray-100 text-gray-500')} value={d.name} readOnly={!isNew}
             onChange={e => set('name', e.target.value)} placeholder="my-app" />
-          <p className="text-[10px] text-gray-400 mt-0.5">Served at /apps/{d.name.trim() || '<name>'}/</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">Served at {originOf(d.name.trim() || '<name>')}</p>
         </div>
         <div>
           <label htmlFor="att-upstream" className="block text-xs text-gray-500 mb-1">Upstream *</label>
@@ -93,15 +101,9 @@ function AttachmentForm({ initial, isNew, onDone, onCancel }: {
       <fieldset className="space-y-1.5">
         <legend className="text-xs font-medium text-gray-500 mb-1">Proxy</legend>
         <div className="grid grid-cols-2 gap-1.5">
-          <Check label="Strip /apps/<name> before proxying" checked={d.strip_prefix} onChange={v => set('strip_prefix', v)} />
-          <Check label="Redirect /apps/<name> to /apps/<name>/" checked={d.redirect_bare_path} onChange={v => set('redirect_bare_path', v)} />
           <Check label="Send the upstream's host as Host" checked={d.upstream_host_header} onChange={v => set('upstream_host_header', v)} />
           <Check label="Streaming (flush responses as they arrive)" checked={d.streaming} onChange={v => set('streaming', v)} />
           <Check label="UI only" checked={d.ui_only} onChange={v => set('ui_only', v)} />
-        </div>
-        <div>
-          <label htmlFor="att-preserve" className="block text-xs text-gray-500 mb-1">Keep the prefix for these subpaths <span className="text-gray-300">(comma-separated, under /apps/&lt;name&gt;/)</span></label>
-          <input id="att-preserve" className={input} value={d.preserve_prefix_subpaths} onChange={e => set('preserve_prefix_subpaths', e.target.value)} />
         </div>
       </fieldset>
 
@@ -141,7 +143,11 @@ function AttachmentRow({ a, expanded, onToggle, onMessage }: {
   const appKeys = keysOfApp(keys?.items ?? [], a.name)
   const managed = isManaged(a)
   const deactivate = useDeactivateAttachment()
-  const revive = useSaveAttachment(() => onMessage(`Revived /apps/${a.name}.`))
+  const revive = useSaveAttachment(() => onMessage(`Revived ${a.name}.`))
+
+  const url = appUrl(a.name, window.location)
+  const notServed = a.served === false && a.not_served_reason && a.not_served_reason !== 'inactive'
+    ? NOT_SERVED[a.not_served_reason] ?? `not served: ${a.not_served_reason}` : null
 
   const doRevive = () => {
     const built = requestFrom(draftFrom(a))
@@ -158,7 +164,8 @@ function AttachmentRow({ a, expanded, onToggle, onMessage }: {
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium text-gray-800">{a.name}</span>
           {a.display_name && <span className="text-xs text-gray-400 ml-2">{a.display_name}</span>}
-          <span className="text-xs text-gray-400 ml-2 font-mono">{a.path} → {a.upstream}</span>
+          <span className="text-xs text-gray-400 ml-2 font-mono">{originOf(a.name)} → {a.upstream}</span>
+          {notServed && <span className="text-xs text-amber-700 ml-2">{notServed}</span>}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {managed && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">{WIP_DEPLOY}</span>}
@@ -174,9 +181,9 @@ function AttachmentRow({ a, expanded, onToggle, onMessage }: {
       {expanded && (
         <div className="px-4 pb-3 pl-12 space-y-3 text-xs">
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-gray-500">
-            {a.status === 'active' && (
-              <a href={appUrl(a.name, window.location, basePath)} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1">
-                Open {a.path}/ <ExternalLink size={10} />
+            {a.status === 'active' && url && (
+              <a href={url} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1">
+                Open {url} <ExternalLink size={10} />
               </a>
             )}
             <span>Login: {a.auth_required ? (a.allowed_groups.length ? a.allowed_groups.join(', ') : 'any logged-in user') : 'not required'}</span>
@@ -209,11 +216,11 @@ function AttachmentRow({ a, expanded, onToggle, onMessage }: {
               onDone={m => { setEditing(false); onMessage(m) }} onCancel={() => setEditing(false)} />
           ) : confirming ? (
             <div className="bg-danger/5 border border-danger/20 rounded-lg p-2.5 space-y-1.5">
-              <p className="text-danger">Deactivate /apps/{a.name}? The router stops serving it; the record stays and can be revived.</p>
+              <p className="text-danger">Deactivate {a.name}? The router stops serving it; the record stays and can be revived.</p>
               <div className="flex gap-2">
                 <button type="button" disabled={deactivate.isPending}
                   onClick={() => deactivate.mutate(a.name, {
-                    onSuccess: () => { setConfirming(false); onMessage(`Deactivated /apps/${a.name}.`) },
+                    onSuccess: () => { setConfirming(false); onMessage(`Deactivated ${a.name}.`) },
                     onError: err => setError(err.message),
                   })}
                   className="px-2.5 py-1 bg-danger text-white rounded disabled:opacity-50">
@@ -259,7 +266,7 @@ export default function AttachmentsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-800">Attachments</h1>
-          <p className="text-sm text-gray-400 mt-1">Apps served at /apps/&lt;name&gt; that wip-deploy doesn&apos;t deploy</p>
+          <p className="text-sm text-gray-400 mt-1">Apps served on their own origin, &lt;name&gt;.&lt;host&gt;, that wip-deploy doesn&apos;t deploy</p>
         </div>
         <div className="flex items-center gap-2">
           <RefreshButton onRefresh={() => refetch({ cancelRefetch: false })} refreshing={isFetching && !isLoading}

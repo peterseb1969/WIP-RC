@@ -1,10 +1,12 @@
 import type { APIKeyInfo, Attachment, AttachmentBulkResult, AttachmentRequest } from '@wip/client'
 
-// App attachments: an app served at /apps/<name> by the router's app edge,
-// recorded in the Registry rather than in wip-deploy's manifests. Every
-// write replaces the whole record, so the form always sends all fields.
+// App attachments: an app served by the router's app edge at the root of its
+// own origin, https://<name>.<host>/, recorded in the Registry rather than in
+// wip-deploy's manifests. The upstream gets every path as the browser sent
+// it. Every write replaces the whole record, so the form always sends all
+// fields.
 
-/** The Registry's name rule; the path is always /apps/<name>. */
+/** The Registry's name rule; the name is also the app's origin label. */
 export const NAME_PATTERN = /^[a-z][a-z0-9-]{1,40}$/
 
 /** The form's view of a record: lists as comma text, every field present. */
@@ -14,9 +16,6 @@ export interface AttachmentDraft {
   display_name: string
   auth_required: boolean
   allowed_groups: string
-  strip_prefix: boolean
-  preserve_prefix_subpaths: string
-  redirect_bare_path: boolean
   upstream_host_header: boolean
   streaming: boolean
   ui_only: boolean
@@ -30,7 +29,6 @@ export function newDraft(): AttachmentDraft {
   return {
     name: '', upstream: '', display_name: '',
     auth_required: true, allowed_groups: '',
-    strip_prefix: false, preserve_prefix_subpaths: '', redirect_bare_path: true,
     upstream_host_header: false, streaming: false, ui_only: true, health: '',
     tls_verify: true, ca_pem: '',
   }
@@ -40,8 +38,7 @@ export function draftFrom(a: Attachment): AttachmentDraft {
   return {
     name: a.name, upstream: a.upstream, display_name: a.display_name ?? '',
     auth_required: a.auth_required, allowed_groups: (a.allowed_groups ?? []).join(', '),
-    strip_prefix: a.strip_prefix, preserve_prefix_subpaths: (a.preserve_prefix_subpaths ?? []).join(', '),
-    redirect_bare_path: a.redirect_bare_path, upstream_host_header: a.upstream_host_header,
+    upstream_host_header: a.upstream_host_header,
     streaming: a.streaming, ui_only: a.ui_only, health: a.health ?? '',
     tls_verify: a.upstream_tls?.verify ?? true, ca_pem: a.upstream_tls?.ca_pem ?? '',
   }
@@ -70,9 +67,6 @@ export function requestFrom(d: AttachmentDraft): { request: AttachmentRequest } 
       upstream: upstream.replace(/\/$/, ''),
       auth_required: d.auth_required,
       allowed_groups: groups,
-      strip_prefix: d.strip_prefix,
-      preserve_prefix_subpaths: list(d.preserve_prefix_subpaths),
-      redirect_bare_path: d.redirect_bare_path,
       upstream_host_header: d.upstream_host_header,
       streaming: d.streaming,
       upstream_tls: { verify: d.tls_verify, ca_pem: d.ca_pem.trim() || null },
@@ -91,7 +85,10 @@ export function attachmentErrorMessage(item: AttachmentBulkResult): string {
     return `The upstream is one of this install's own services or an internal address, which an attachment may not proxy to. ${said}`
   }
   if (item.error_code === 'name_collision') {
-    return `An app of this install already routes under /apps/${item.name ?? ''}. Pick another name. ${said}`
+    return `An app of this install already has the origin ${item.name ?? ''}.<host>. Pick another name. ${said}`
+  }
+  if (item.error_code === 'invalid_state' && rule === 'no_app_edge') {
+    return `This install doesn't serve attached apps: it runs no app edge, so attachments can't be created or changed (deactivating still works). ${said}`
   }
   if (item.error_code === 'managed_by_deployer') {
     return `wip-deploy manages this attachment; change it in the install's manifests. ${said}`

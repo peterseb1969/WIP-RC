@@ -1,33 +1,32 @@
 import { describe, it, expect } from 'vitest'
-import { appLabel, appUrl, RELOGIN_WINDOW_MS, shouldReloadForLogin } from '@/lib/app-origins'
+import { appUrl, installHost, RELOGIN_WINDOW_MS, shouldReloadForLogin } from '@/lib/app-origins'
 
-// Apps are served under WIP's origin (/apps/<name>/) or each on its own
-// origin (<name>.<host>). RC links another app by working out, from its own
-// location, which of the two the install uses.
+// Every app is served at the root of its own origin, <label>.<host>, RC
+// included. RC links another app by swapping its own label for the app's.
 
-describe('appLabel', () => {
-  it('reads the label from an /apps/ base path', () => {
-    expect(appLabel('/apps/rc')).toBe('rc')
-    expect(appLabel('/apps/rc/')).toBe('rc')
-    expect(appLabel('')).toBeNull()
-    expect(appLabel('/console')).toBeNull()
+describe('installHost', () => {
+  it('drops the first label of RC\'s hostname', () => {
+    expect(installHost('rc.wip.localhost')).toBe('wip.localhost')
+    expect(installHost('rc.dev-test.internal')).toBe('dev-test.internal')
+  })
+
+  it('is null for a hostname no install serves apps on', () => {
+    expect(installHost('localhost')).toBeNull()
+    expect(installHost('.localhost')).toBeNull()
+    expect(installHost('rc.')).toBeNull()
   })
 })
 
 describe('appUrl', () => {
-  it('links another app on its own origin when RC is on its own', () => {
-    expect(appUrl('shop', { protocol: 'https:', hostname: 'rc.localhost', port: '8443' }, '/apps/rc'))
-      .toBe('https://shop.localhost:8443/apps/shop/')
-    expect(appUrl('shop', { protocol: 'https:', hostname: 'rc.wip.example', port: '' }, '/apps/rc'))
-      .toBe('https://shop.wip.example/apps/shop/')
+  it('links another app at the root of its own origin', () => {
+    expect(appUrl('shop', { protocol: 'https:', hostname: 'rc.wip.localhost', port: '8443' }))
+      .toBe('https://shop.wip.localhost:8443/')
+    expect(appUrl('shop', { protocol: 'https:', hostname: 'rc.kb.internal', port: '' }))
+      .toBe('https://shop.kb.internal/')
   })
 
-  it('links under WIP\'s origin in path mode', () => {
-    expect(appUrl('shop', { protocol: 'https:', hostname: 'localhost', port: '8443' }, '/apps/rc')).toBe('/apps/shop/')
-    // A host that merely starts with "rc" is not RC's own origin.
-    expect(appUrl('shop', { protocol: 'https:', hostname: 'rcbox.lan', port: '' }, '/apps/rc')).toBe('/apps/shop/')
-    // RC served at the root (local dev): plain path.
-    expect(appUrl('shop', { protocol: 'http:', hostname: 'localhost', port: '5173' }, '')).toBe('/apps/shop/')
+  it('has no link when RC is not on an app origin (the local dev server)', () => {
+    expect(appUrl('shop', { protocol: 'http:', hostname: 'localhost', port: '5174' })).toBeNull()
   })
 })
 
