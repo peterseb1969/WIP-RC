@@ -26,8 +26,8 @@ name: Build & Push Image
 #   - The arch-suffixed tags (<tag>-amd64, <tag>-arm64) stay in the registry as
 #     provenance; deploys always pin the bare <tag>.
 #
-# VITE_BASE_PATH must match APP_BASE_PATH in the platform manifest
-# (apps/react-console/wip-app.yaml in World-in-a-Pie).
+# The image is built at Vite's default base '/': RC is served at the root of
+# its own origin (label rc in apps/react-console/wip-app.yaml in World-in-a-Pie).
 
 on:
   workflow_dispatch:
@@ -90,7 +90,6 @@ jobs:
         run: |
           docker buildx build \
             --platform "linux/${{ matrix.arch }}" \
-            --build-arg VITE_BASE_PATH=/apps/rc/ \
             --build-arg VITE_BUILD_STAMP="${{ needs.resolve-tag.outputs.stamp }}" \
             --build-arg VITE_BUILD_SHA="${{ needs.resolve-tag.outputs.sha }}" \
             -t "ghcr.io/${{ github.repository_owner }}/react-console:${{ needs.resolve-tag.outputs.tag }}-${{ matrix.arch }}" \

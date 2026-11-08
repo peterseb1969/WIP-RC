@@ -14,18 +14,9 @@ import { resolveWipApiKey } from './wip-key.js'
 
 const PORT = parseInt(process.env.PORT || '3011')
 
-/**
- * APP_BASE_PATH — the external path prefix when behind a reverse proxy.
- * E.g. /apps/rc when Caddy routes https://host:8443/apps/rc/* to this app.
- *
- * With Option 2 (CASE-38), Caddy does NOT strip the prefix. The app
- * receives the full path and mounts all routes under APP_BASE_PATH.
- * This means the app is fully aware of where it lives — cookies,
- * OIDC redirects, and internal routing all use the same prefix.
- *
- * When unset (local dev), defaults to '/' — no prefix.
- */
-const BASE_PATH = (process.env.APP_BASE_PATH || '').replace(/\/$/, '') || '/'
+// RC is served at the root of its own origin (https://rc.<host>/), so every
+// route, the session cookie and the OIDC callback live at '/'. There is no
+// base path to configure.
 
 const app = express()
 const router = Router()
@@ -48,7 +39,7 @@ app.use(session({
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000,
-    path: BASE_PATH.endsWith('/') ? BASE_PATH : `${BASE_PATH}/`,
+    path: '/',
   },
 }))
 
@@ -333,8 +324,7 @@ if (process.env.NODE_ENV === 'production') {
   // API prefixes never fall through to the SPA: a JSON client asking for a
   // route this server does not serve gets a 404 it can parse, not a page of
   // HTML that dies in JSON.parse and reads as a parse bug. Any method. Sits
-  // after every real route; req.path is relative to the router's mount, so
-  // BASE_PATH needs no handling. (/wip is answered by the proxy above.)
+  // after every real route. (/wip is answered by the proxy above.)
   const API_PREFIXES = /^\/(api|auth|wip|server-api|mcp)(\/|$)/
   router.use((req, res, next) => {
     if (API_PREFIXES.test(req.path)) {
@@ -350,8 +340,7 @@ if (process.env.NODE_ENV === 'production') {
   router.get('{*path}', (_req, res) => { res.sendFile(indexHtml) })
 }
 
-// Mount router at BASE_PATH
-app.use(BASE_PATH, router)
+app.use('/', router)
 
 async function main() {
   // Sign-in setup runs in the background: the server must listen (and answer its
@@ -359,9 +348,6 @@ async function main() {
   void startAuth()
   app.listen(PORT, () => {
     console.log(`rc-console backend listening on http://localhost:${PORT}`)
-    if (BASE_PATH !== '/') {
-      console.log(`  base path: ${BASE_PATH}`)
-    }
   })
 }
 

@@ -9,7 +9,7 @@ Browser (React SPA)
     ↓
 Vite dev server :5174 (dev, proxies to Express) / Express static (prod)
     ↓
-Express backend :3011 — every route mounted under APP_BASE_PATH (e.g. /apps/rc)
+Express backend :3011 — every route at the root of RC's origin (https://rc.<host>/)
     ├── /health, /api/health         → liveness, public, no WIP dependency
     ├── /api/app-config              → runtime client config ({namespace: null})
     ├── /auth/callback, /auth/logout → standalone OIDC flow (server/auth.ts)
@@ -23,7 +23,7 @@ Express backend :3011 — every route mounted under APP_BASE_PATH (e.g. /apps/rc
     └── /api/nl/*                    → Claude agent loop with read-only WIP tools
 ```
 
-In local dev, `APP_BASE_PATH` is unset and everything lives at `/`.
+In local dev and deployed alike, everything lives at `/`: there is no base path.
 
 ## Route structure
 
@@ -252,8 +252,8 @@ WIP has no REST endpoints for collection stats, indexes or stream monitoring. Ex
 ### Why a single Express server
 One container, one port. In dev, Vite proxies to Express; in production, Express serves `dist/` with an SPA fallback.
 
-### Why APP_BASE_PATH (path prefix not stripped)
-Behind the WIP router at `/apps/rc`, the prefix is not stripped. Express mounts every route under `APP_BASE_PATH`, Vite's `base` comes from `VITE_BASE_PATH || APP_BASE_PATH`, and the client and every `fetch` use `BASE_URL`. Cookies, OIDC redirects, logout's `return_to` and client routing then agree without path rewriting.
+### Why there is no base path
+WIP serves every app at the root of an origin of its own, `https://<label>.<host>/`, and RC's label is `rc`. Express mounts every route at `/`, Vite keeps its default base `/`, and the session cookie and OIDC callback live at `/`. Client fetches still go through `BASE_URL` (now `/`), as the app contract asks. RC links another app at `https://<name>.<host>/`, swapping its own first hostname label for the app's (`src/lib/app-origins.ts`).
 
 ### Why per-namespace reporting schemas show up everywhere
 Since CASE-628, each namespace has its own PostgreSQL schema, and the same table name can exist in several. The Table Browser groups by namespace and uses the server's `qualified_name`. Column lookups filter on `table_schema`. The Query Pad and CSV export pass `namespace`. The NL prompt tells the agent to either pass `namespace` or schema-qualify.
@@ -287,7 +287,7 @@ Claude answers in markdown; react-markdown + remark-gfm render tables, lists and
 ```
 server/
 ├── index.ts          # Express entry: session, auth gate, /wip proxy, infra health,
-│                     #   file + backup streaming, /api/me, static/SPA, APP_BASE_PATH mount
+│                     #   file + backup streaming, /api/me, static/SPA, router at /
 ├── auth.ts           # Standalone OIDC (openid-client), group gate, requireAdmin
 ├── wip-key.ts        # Shared WIP key resolution (file first, inline fallback)
 ├── infra/

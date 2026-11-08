@@ -1,5 +1,14 @@
 # RC-Console — Changelog
 
+## 2026-11-08 — RC at the root of its own origin; attachments lose their prefix settings
+
+- Changed: RC is served at the root of its own origin, `https://rc.<host>/`, as every app now is. There is no base path: `APP_BASE_PATH` and `VITE_BASE_PATH` are gone from the server, the Vite config, the Dockerfile and the CI image build, and the session cookie and OIDC callback live at `/`.
+- Changed: the Attachments page no longer offers strip prefix, redirect bare path or kept subpaths, and no longer sends them: the Registry refuses an attachment write that carries them. Each attachment shows its origin, and Open links `https://<name>.<host>/`.
+- Added: an attachment the install doesn't serve says why (no app edge, a refused upstream host, an unreadable attach policy), and a write refused because the install runs no app edge says so.
+- Fixed: logout without a `return_to` redirected to `//` when no base path was set.
+- Changed: adopted @wip/client 0.88.0 and @wip/react 0.26.1 (scaffold refresh).
+- Tests: the E2E suite defaults to `https://rc.wip.localhost:8443/` and its login waits for RC's origin.
+
 ## 2026-11-04 — System backup and restore, orphaned grants, app attachments
 
 - Added: a **System** tab on Backup & Restore. Download the Registry's auth state (keys as hashes, grants, reservations, attachments) as a JSON file; upload one, pick upsert, overwrite or mirror, and dry-run it. The report leads with the Registry's warnings and counts per section what would be created, replaced, unchanged, skipped (with reasons), orphaned, unresolved, deleted or deactivated. Apply applies exactly the reviewed plan; a mirror needs "mirror" typed and is pinned to the dry run's plan. The salt-mismatch, own-key and changed-plan refusals are explained.

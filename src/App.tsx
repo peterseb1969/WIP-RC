@@ -44,7 +44,7 @@ const queryClient = new QueryClient({
 /**
  * Root component. Order matters: QueryClientProvider and WipProvider must both wrap
  * the tree or @wip/react hooks mount without ever fetching; the router's basename
- * follows the Vite base so the app works under APP_BASE_PATH (e.g. /apps/rc).
+ * follows the Vite base, which is '/' (RC is served at the root of its own origin).
  */
 export default function App() {
   return (

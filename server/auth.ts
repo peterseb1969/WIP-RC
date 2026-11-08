@@ -40,9 +40,6 @@ const OIDC_INTERNAL_ISSUER = process.env.OIDC_INTERNAL_ISSUER || OIDC_ISSUER
 const OIDC_CLIENT_ID = process.env.OIDC_CLIENT_ID || 'wip-apps'
 const OIDC_CLIENT_SECRET = process.env.OIDC_CLIENT_SECRET || 'wip-apps-secret'
 
-/** Base path when running behind a reverse proxy (e.g. /apps/rc). No trailing slash. */
-const BASE_PATH = (process.env.APP_BASE_PATH || '').replace(/\/$/, '')
-
 /** Comma-separated list of Dex groups allowed to access this app. Empty = all authenticated users. */
 const ALLOWED_GROUPS = process.env.ALLOWED_GROUPS
   ? process.env.ALLOWED_GROUPS.split(',').map(g => g.trim()).filter(Boolean)
@@ -186,7 +183,7 @@ function signInUnavailable(res: Response): void {
 function getCallbackUrl(req: Request): string {
   const proto = req.headers['x-forwarded-proto'] || req.protocol
   const host = req.headers['x-forwarded-host'] || req.get('host')
-  return `${proto}://${host}${BASE_PATH}/auth/callback`
+  return `${proto}://${host}/auth/callback`
 }
 
 /**
@@ -324,7 +321,7 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
 export function handleLogout(req: Request, res: Response): void {
   const returnTo = typeof req.query.return_to === 'string' && req.query.return_to.startsWith('/')
     ? req.query.return_to
-    : (process.env.APP_BASE_PATH || '/') + '/'
+    : '/'
   req.session.destroy(() => {
     res.redirect(returnTo)
   })

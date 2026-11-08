@@ -60,12 +60,12 @@ Express listens on `PORT` (default **3011**, `server/index.ts`). Vite serves the
 
 ```bash
 wip-deploy add-app react-console --app-source ~/Development/WIP-RC --name default
-open https://rc.wip.localhost:8443/apps/rc/
+open https://rc.wip.localhost:8443/
 ```
 
-The `default` dev install runs at `wip.localhost:8443` and serves each app on its own origin, so RC is at `https://rc.<host>/apps/rc/`. WIP's old `/apps/rc/` URL answers 301 there. On an install that still serves apps under WIP's origin, RC is at `https://<host>/apps/rc/`.
+The `default` dev install runs at `wip.localhost:8443` and serves each app at the root of its own origin, so RC is at `https://rc.<host>/`. WIP no longer serves anything under `/apps/`, and old `/apps/rc/` links have no redirect.
 
-The deployer builds `Dockerfile.dev`, which bind-mounts the repo and runs `npm run dev` through `docker-entrypoint-dev.sh`. That entrypoint re-runs `npm ci` into a named `node_modules` volume only when `package-lock.json` changes, so restart the container after a lockfile change. Caddy routes `/apps/rc/*` to Vite on 5174. Express runs on 3011 inside the container, with `APP_BASE_PATH=/apps/rc`. The app's route is **`/apps/rc/`**, not `/apps/react-console/`. The manifest lives in the WIP repo at `apps/react-console/wip-app.yaml`.
+The deployer builds `Dockerfile.dev`, which bind-mounts the repo and runs `npm run dev` through `docker-entrypoint-dev.sh`. That entrypoint re-runs `npm ci` into a named `node_modules` volume only when `package-lock.json` changes, so restart the container after a lockfile change. Caddy routes `rc.<host>` to Vite on 5174. Express runs on 3011 inside the container. The app's origin label is **`rc`**, not `react-console`. The manifest lives in the WIP repo at `apps/react-console/wip-app.yaml`.
 
 Note: `--app-source` mounts the repo, so `dotenv` loads this `.env` inside the container too. Any path in `.env` must therefore tolerate not existing there (see `WIP_API_KEY_FILE` below).
 
@@ -79,11 +79,11 @@ npm start             # Express serves dist/ + API (NODE_ENV=production)
 Or with Docker (multi-stage `Dockerfile`):
 
 ```bash
-docker build --build-arg VITE_BASE_PATH=/apps/rc/ -t rc-console .
+docker build -t rc-console .
 docker run -p 3011:3011 --env-file .env rc-console
 ```
 
-The image's healthcheck hits `${APP_BASE_PATH}/health` (public even in OIDC mode; `/api/health` is an alias for the deployable-app contract, and `/api/app-config` serves `{"namespace": null}`). CI: `.gitea/workflows/test.yaml` runs tsc, the test suite and a production build. `.github/workflows/build.yaml` builds and pushes a dual-arch image to GHCR on manual trigger.
+The image's healthcheck hits `/health` (public even in OIDC mode; `/api/health` is an alias for the deployable-app contract, and `/api/app-config` serves `{"namespace": null}`). CI: `.gitea/workflows/test.yaml` runs tsc, the test suite and a production build. `.github/workflows/build.yaml` builds and pushes a dual-arch image to GHCR on manual trigger.
 
 ## Environment variables
 
@@ -106,7 +106,6 @@ Server-side (`process.env`, loaded from `.env` by `dotenv`):
 | `NL_QUERY_MODEL` | No | Claude model for NL Query (default `claude-sonnet-5-5`) | — |
 | `NL_QUERY_EFFORT` | No | Thinking depth for NL Query: `low` (default), `medium`, `high`, `xhigh`, `max` | `medium` |
 | `PORT` | No | Express port (default 3011) | `3011` |
-| `APP_BASE_PATH` | No | Path prefix when served behind a router that does not strip it | `/apps/rc` |
 | `NODE_ENV` | No | `production` serves `dist/` with an SPA fallback and secure cookies | `production` |
 | `SESSION_SECRET` | No | Express session secret (OIDC mode) | random string |
 | `OIDC_ISSUER` | No | Public OIDC issuer; setting it enables standalone OIDC login | `https://localhost:8443/dex` |
@@ -122,7 +121,7 @@ Key resolution lives in one place: `server/wip-key.ts` serves the direct callers
 - **Standalone OIDC**: set `OIDC_ISSUER`.
 - **Neither set**: open dev mode, where `/api/me` answers `anonymous`.
 
-Build-time (Vite): `VITE_BASE_PATH` (falls back to `APP_BASE_PATH`, then `/`), and `VITE_BUILD_STAMP` / `VITE_BUILD_SHA`, which feed the footer build stamp. All three are Dockerfile build args.
+Build-time (Vite): `VITE_BUILD_STAMP` / `VITE_BUILD_SHA`, which feed the footer build stamp. Both are Dockerfile build args. There is no base path: the image is built at `/`.
 
 ## WIP prerequisites
 
