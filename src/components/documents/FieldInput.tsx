@@ -24,10 +24,10 @@ export interface FieldInputProps {
   onChange: (v: unknown) => void
   disabled?: boolean
   error?: string
-  /** The document's namespace. File widgets upload into it (CASE-249); term and
-   *  reference widgets resolve bare terminology/template values in it. Optional
-   *  for standalone callers. */
-  namespace?: string
+  /** The document's namespace. File widgets upload into it (an upload needs
+   *  one); term and reference widgets resolve bare terminology/template values
+   *  in it. DocumentForm always has one, and every FieldInput is under it. */
+  namespace: string
   /** Document references may point only into `namespace` itself (edge endpoints). */
   ownNamespaceOnly?: boolean
   /** id for the input control, so a <label htmlFor> names it (plain text, number, choice, term and reference fields). */

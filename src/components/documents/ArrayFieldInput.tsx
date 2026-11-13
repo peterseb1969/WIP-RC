@@ -24,7 +24,7 @@ export interface ArrayFieldInputProps {
   onChange: (v: unknown) => void
   disabled?: boolean
   /** Forwarded to the items: file uploads, term and reference pickers use the document's namespace. */
-  namespace?: string
+  namespace: string
   /** The field's input id; nested items derive their input ids from it. */
   id?: string
 }

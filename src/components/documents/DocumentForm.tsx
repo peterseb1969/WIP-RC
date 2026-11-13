@@ -136,7 +136,7 @@ function FieldRow({
   onChange: (v: unknown) => void
   error?: string
   disabled?: boolean
-  namespace?: string
+  namespace: string
   ownNamespaceOnly?: boolean
 }) {
   const id = `df-${field.name}`

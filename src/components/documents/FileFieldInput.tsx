@@ -19,9 +19,9 @@ export interface FileFieldInputProps {
   value: unknown
   onChange: (v: unknown) => void
   disabled?: boolean
-  /** Namespace the uploaded file should be stored in.
-   *  Required by the backend on the latest stack (CASE-249). */
-  namespace?: string
+  /** Namespace the uploaded file is stored in. The document-store requires one
+   *  on every upload, and so does @wip/client's uploadFile. */
+  namespace: string
 }
 
 /**

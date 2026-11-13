@@ -25,7 +25,8 @@ export interface NestedObjectInputProps {
   value: unknown
   onChange: (v: Record<string, unknown>) => void
   disabled?: boolean
-  namespace?: string
+  /** The document's namespace, forwarded to the nested fields. */
+  namespace: string
   /** Prefix for the nested inputs' ids, so each nested label names its input. */
   idPrefix: string
   /** Names the sub-form as a group (an object field's label). */
