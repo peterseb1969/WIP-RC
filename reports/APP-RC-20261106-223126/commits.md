@@ -81,3 +81,24 @@ GET on 503 twice first.
 
 Tests: tsc clean; unit 411/411 (2 new); full E2E 92/92 (3.0 min) on wip.localhost
 Discovered: Neither picker has a component test, so the 409 and failed-settings notes are covered by the helper's unit test only
+
+## 2a6ad98 — fix: the document form's fields take a required namespace
+**Time:** 2026-11-13 07:54
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 5 changed, +11/-10
+**Tests:** not recorded
+**Why:** @wip/client's uploadFile and @wip/react's useUploadFile now require the
+namespace the file is stored in: the document-store refuses an upload
+without one (422), and the client throws on an empty one before sending.
+RC's file widget got it as namespace?: string from FieldInput,
+ArrayFieldInput, NestedObjectInput and the form's FieldRow, so it would
+stop compiling once a scaffold refresh brings that client.
+
+The chain is closed: FieldInput is rendered only from DocumentForm's
+FieldRow, ArrayFieldInput and NestedObjectInput, and DocumentForm always
+resolves a namespace (the document's, else its template's). The prop is
+now a required string along it, so the compiler proves the upload always
+has one. TermFieldInput and ReferenceFieldInput keep it optional; they
+have callers without a namespace.
+
+Tests: tsc clean against the vendored @wip/client 0.88.0 (not yet against the client that requires it, which has no tarball); unit 411/411; E2E files, nested objects and namespaces 11/11 on wip.localhost
