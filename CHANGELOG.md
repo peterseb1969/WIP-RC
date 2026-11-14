@@ -1,5 +1,13 @@
 # RC-Console — Changelog
 
+## 2026-11-13 — Merging an archive with several namespaces
+
+- Fixed: a merge of an archive holding several namespaces offered one "Target namespace" field, which the platform refuses for such an archive (400). The merge panel now lists each namespace merging into itself, with no redirect field, and RC never sends the field for such an archive.
+- Added: a merge flags each target namespace this install doesn't have, and refuses to start, since the platform refuses a merge into a missing namespace. This applies to a single-namespace archive's redirect too.
+- Added: **Align templates by value, not version number** (`align_templates`), for merging an archive from another install whose template version numbers don't line up with this one's.
+- Added: **Retire terms the archive has retired** (`carry_retirements`): a merge retires the target's active terms the archive has retired, with the archive's reason and replacement. Without it they stay active and are reported as kept.
+- Tests: E2E for a three-namespace archive with one namespace missing; unit tests for the merge targets and the redirect field.
+
 ## 2026-11-08 — RC at the root of its own origin; attachments lose their prefix settings
 
 - Changed: RC is served at the root of its own origin, `https://rc.<host>/`, as every app now is. There is no base path: `APP_BASE_PATH` and `VITE_BASE_PATH` are gone from the server, the Vite config, the Dockerfile and the CI image build, and the session cookie and OIDC callback live at `/`.

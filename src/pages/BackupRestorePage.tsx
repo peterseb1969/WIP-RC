@@ -483,6 +483,8 @@ function RestoreTab() {
   }
   const [addMissing, setAddMissing] = useState(false)
   const [extendTerminologies, setExtendTerminologies] = useState(false)
+  const [alignTemplates, setAlignTemplates] = useState(false)
+  const [carryRetirements, setCarryRetirements] = useState(false)
   const [skipDocuments, setSkipDocuments] = useState(false)
   const [skipFiles, setSkipFiles] = useState(false)
   const [batchSize, setBatchSize] = useState(500)
@@ -571,10 +573,10 @@ function RestoreTab() {
       if (older) fd.append('older_versions', older)
       if (addMissing) fd.append('add_missing', 'true')
       if (extendTerminologies) fd.append('extend_terminologies', 'true')
-      // A merge may write into a differently-named namespace.
-      if (targetNamespace && targetNamespace !== sources[0]) {
-        fd.append('target_namespace', targetNamespace)
-      }
+      if (alignTemplates) fd.append('align_templates', 'true')
+      if (carryRetirements) fd.append('carry_retirements', 'true')
+      const redirect = mergeTargetField(sources, targetNamespace)
+      if (redirect) fd.append('target_namespace', redirect)
     } else if (dropStaleReporting) {
       // Refused for a merge: its target is live, so a populated reporting
       // schema is expected and dropping it would discard what we merge into.
@@ -586,6 +588,12 @@ function RestoreTab() {
 
   /** Client-side guard for the states the backend would refuse anyway. */
   const optionProblem = (): string | null => {
+    if (mode === 'merge' && namespaces) {
+      const missing = mergeTargets(sources, targetNamespace).filter(t => !existingPrefixes.has(t))
+      if (missing.length) {
+        return `A merge writes into existing namespaces only, and this install has no ${missing.join(', ')}. Use a plain restore to create ${missing.length > 1 ? 'them' : 'it'} from the archive.`
+      }
+    }
     if (mode === 'fresh') {
       if (isMultiArchive) {
         const blank = sources.filter(s => !nsMap[s]?.trim())
@@ -760,6 +768,9 @@ function RestoreTab() {
           olderVersions={olderVersions} setOlderVersions={setOlderVersions}
           addMissing={addMissing} setAddMissing={setAddMissing}
           extendTerminologies={extendTerminologies} setExtendTerminologies={setExtendTerminologies}
+          alignTemplates={alignTemplates} setAlignTemplates={setAlignTemplates}
+          carryRetirements={carryRetirements} setCarryRetirements={setCarryRetirements}
+          namespacesKnown={!!namespaces}
           skipDocuments={skipDocuments} setSkipDocuments={setSkipDocuments}
           skipFiles={skipFiles} setSkipFiles={setSkipFiles}
           batchSize={batchSize} setBatchSize={setBatchSize}
@@ -1108,6 +1119,28 @@ const OLDER_VERSIONS: Array<{ value: OlderVersionsPolicy; label: string; blurb: 
 ]
 
 /**
+ * The namespaces a merge writes into. A multi-namespace archive merges each
+ * namespace into the one of the same name (the platform refuses a redirect for
+ * it); a single-namespace archive goes to the operator's target, or its own.
+ */
+export function mergeTargets(sources: string[], targetNamespace: string): string[] {
+  if (sources.length > 1) return sources
+  const target = targetNamespace.trim() || sources[0]
+  return target ? [target] : []
+}
+
+/**
+ * The target_namespace a merge request carries, or null for none: only a
+ * single-namespace archive redirected to another name. The platform answers
+ * 400 to target_namespace with a multi-namespace archive in merge mode.
+ */
+export function mergeTargetField(sources: string[], targetNamespace: string): string | null {
+  const target = targetNamespace.trim()
+  if (sources.length > 1 || !target || target === sources[0]) return null
+  return target
+}
+
+/**
  * The older_versions value a restore request carries, or null for none. Only a
  * merge whose clash policy appends the archive's version (overwrite, newer)
  * acts on it, and only then is the choice shown, so a request never carries a
@@ -1161,6 +1194,10 @@ function RestoreOptions(p: {
   olderVersions: OlderVersionsPolicy; setOlderVersions: (v: OlderVersionsPolicy) => void
   addMissing: boolean; setAddMissing: (v: boolean) => void
   extendTerminologies: boolean; setExtendTerminologies: (v: boolean) => void
+  alignTemplates: boolean; setAlignTemplates: (v: boolean) => void
+  carryRetirements: boolean; setCarryRetirements: (v: boolean) => void
+  /** Whether the install's namespaces have been read, so a missing target can be told from an unknown one. */
+  namespacesKnown: boolean
   skipDocuments: boolean; setSkipDocuments: (v: boolean) => void
   skipFiles: boolean; setSkipFiles: (v: boolean) => void
   batchSize: number; setBatchSize: (v: number) => void
@@ -1258,17 +1295,44 @@ function RestoreOptions(p: {
       {/* Merge — how conflicts resolve */}
       {p.mode === 'merge' && (
         <div className="space-y-3">
-          <div className="space-y-1">
-            <label className="block text-xs font-medium text-gray-500">Target namespace (optional)</label>
-            <input
-              type="text"
-              value={p.targetNamespace}
-              onChange={e => p.setTargetNamespace(e.target.value)}
-              placeholder={p.sources[0] ?? 'from the archive manifest'}
-              className="w-full max-w-sm border border-gray-200 rounded px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary-light focus:border-primary-light"
-            />
-            <p className="text-[11px] text-gray-400">A merge may write into a differently-named namespace. Leave blank to use the archive's.</p>
-          </div>
+          {p.isMultiArchive ? (
+            <div className="space-y-1.5" data-testid="merge-targets">
+              <span className="block text-xs font-medium text-gray-500">Each namespace merges into itself</span>
+              <div className="space-y-1">
+                {p.sources.map(src => (
+                  <div key={src} className="flex items-center gap-2 text-xs font-mono">
+                    <span className="text-gray-500 w-40 truncate shrink-0" title={src}>{src}</span>
+                    <span className="text-gray-300 shrink-0">→</span>
+                    <span className="text-gray-700">{src}</span>
+                    {p.namespacesKnown && !p.existingPrefixes.has(src) && (
+                      <span className="font-sans text-[11px] text-danger">missing — a merge needs it to exist</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-gray-400">
+                A merge of an archive with several namespaces can&apos;t redirect them: the platform writes each into the
+                namespace of the same name, and every one must already exist.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-gray-500">Target namespace (optional)</label>
+              <input
+                type="text"
+                value={p.targetNamespace}
+                onChange={e => p.setTargetNamespace(e.target.value)}
+                placeholder={p.sources[0] ?? 'from the archive manifest'}
+                className="w-full max-w-sm border border-gray-200 rounded px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary-light focus:border-primary-light"
+              />
+              <p className="text-[11px] text-gray-400">A merge may write into a differently-named namespace. Leave blank to use the archive&apos;s.</p>
+              {p.namespacesKnown && mergeTargets(p.sources, p.targetNamespace).filter(t => !p.existingPrefixes.has(t)).map(t => (
+                <p key={t} className="text-[11px] text-danger">
+                  <span className="font-mono">{t}</span> doesn&apos;t exist on this install — a merge needs an existing namespace.
+                </p>
+              ))}
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <span className="block text-xs font-medium text-gray-500">When a document identity already exists</span>
@@ -1333,6 +1397,18 @@ function RestoreOptions(p: {
             onChange={p.setExtendTerminologies}
             label="Extend terminologies with missing terms"
             blurb="Separate from the above on purpose: new vocabulary in a live terminology is its own decision."
+          />
+          <OptionCheckbox
+            checked={p.alignTemplates}
+            onChange={p.setAlignTemplates}
+            label="Align templates by value, not version number"
+            blurb="For an archive from another install, whose template version numbers don't line up with this one's. Each archive version maps onto the target version that can take its documents, and its documents are re-pinned there; documents no target version can take are listed and not merged."
+          />
+          <OptionCheckbox
+            checked={p.carryRetirements}
+            onChange={p.setCarryRetirements}
+            label="Retire terms the archive has retired"
+            blurb="Retires the target's active terms that are retired in the archive, with the archive's reason and replacement. Without this they stay active and are reported as kept: deprecating a live term changes the target's definitions, which a merge does only when asked."
           />
         </div>
       )}
