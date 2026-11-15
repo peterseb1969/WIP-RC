@@ -129,3 +129,37 @@ merge, and the panel never said which namespaces would be written.
 
 Tests: tsc clean; unit 415/415 (4 new); new E2E restore-merge spec passes (three-namespace archive, one deleted); full E2E 81 passed, 4 failed, 8 not run, all failures outside this change (terminology create sends extensible, which the platform now refuses; system backups are now version 2; a registry synonym count), the merge spec passing in every run
 Discovered: WIP's def-store now refuses extensible on terminology create, the system backup format moved to version 2, and the registry spec's synonym check fails; RC needs to follow all three
+
+## f7cfcdc — fix: RC follows @wip/client 0.108 and @wip/react 0.26.20; scaffold refresh
+**Time:** 2026-11-15 01:38
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 39 changed, +579/-274
+**Tests:** not recorded
+**Why:** The scaffold refresh brings @wip/client 0.108.29, @wip/react 0.26.20 and
+@wip/proxy 0.9.1. The client's types now follow API changes RC still
+relied on, and twelve sites stopped compiling; two of them were already
+refused at runtime.
+
+- Terminologies no longer carry extensible: nothing read it, and
+  def-store now refuses it with 422. Create, edit and the detail line
+  drop it. (Creating a terminology from RC was failing on this.)
+- A term's value can't be updated (also a 422). The edit row shows it
+  read-only and says how to rename: create the new term, then deprecate
+  or merge the old one into it.
+- A reporting row count is null when the platform didn't take one
+  (another kind of view, or a count that took too long). The PostgreSQL
+  page shows "not counted" with the platform's note, never 0, and pages
+  an uncounted table while each page comes back full.
+- The audit action is the AuditAction union. The Activity filter is typed
+  and offers every action, restored and merged included.
+- An integrity summary's checks_not_run is a map of skipped checks. The
+  summary grid shows only the counts, adds the four new ones
+  (misplaced document refs, identity not verifiable, mandatory fields
+  missing, nested templates not found), and lists the checks that didn't
+  run, which make a result incomplete.
+
+CLAUDE.md takes the refresh's new lines (claim a case before working on
+it, the stale-caveat rule, two wording updates) and keeps RC's own.
+
+Tests: tsc clean; unit 417/417 (2 new); full E2E on wip.localhost 87 passed, 3 failed, 3 not run, the failures being the system backup's version 2 and a registry synonym check, both outside this change; terminology create passes again
+Discovered: the system backup format moved to version 2, which RC's System tab refuses, and the registry spec's synonym count no longer matches

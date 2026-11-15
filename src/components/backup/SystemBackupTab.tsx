@@ -79,6 +79,12 @@ function ReportView({ report }: { report: SystemRestoreReport }) {
           <AlertTriangle size={12} className="shrink-0 mt-0.5" /> <span>{w}</span>
         </p>
       ))}
+      {report.scope_read_grants && report.scope_read_grants.length > 0 && (
+        <p className="text-xs text-gray-600" data-testid="scope-read-grants" title={report.scope_read_grants.join('\n')}>
+          A version 1 backup gave keys read on their namespaces through the key alone. {report.dry_run ? 'Applying would write' : 'Wrote'}{' '}
+          {report.scope_read_grants.length} read grant{report.scope_read_grants.length === 1 ? '' : 's'} for that, counted under Grants below.
+        </p>
+      )}
       {report.salt_adopted && (
         <p className="text-xs text-gray-600">
           {report.dry_run ? 'Applying would adopt' : 'Adopted'} the archive&apos;s key salt, so its key hashes work on this stack.
@@ -211,7 +217,7 @@ function SystemRestoreCard() {
       {archive && (
         <>
           <p className="text-xs text-gray-500" data-testid="archive-summary">
-            Taken {new Date(archive.created_at).toLocaleString()}
+            Version {archive.version}, taken {new Date(archive.created_at).toLocaleString()}
             {archive.source.oidc_issuer ? ` on ${archive.source.oidc_issuer}` : ''}: {archive.api_keys.length} keys,{' '}
             {archive.grants.length} grants, {archive.reservations.length} reservations, {archive.attachments.length} attachments.
           </p>

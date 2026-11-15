@@ -39,10 +39,17 @@ describe('parseArchive', () => {
     expect('archive' in r && r.archive.attachments).toEqual([])
   })
 
+  it('reads versions 1 and 2', () => {
+    for (const version of [1, 2]) {
+      const r = parseArchive(JSON.stringify({ ...archive, version }))
+      expect('archive' in r && r.archive.version).toBe(version)
+    }
+  })
+
   it('says why a file is not one', () => {
     expect(parseArchive('{nope')).toEqual({ error: expect.stringMatching(/not JSON/) })
     expect(parseArchive(JSON.stringify({ format: 'wip-backup' }))).toEqual({ error: expect.stringMatching(/Restore tab/) })
-    expect(parseArchive(JSON.stringify({ ...archive, version: 2 }))).toEqual({ error: expect.stringMatching(/version 2/) })
+    expect(parseArchive(JSON.stringify({ ...archive, version: 3 }))).toEqual({ error: expect.stringMatching(/version 3; this console reads versions 1 and 2/) })
     expect(parseArchive(JSON.stringify({ ...archive, grants: null }))).toEqual({ error: 'The archive has no grants list.' })
   })
 })

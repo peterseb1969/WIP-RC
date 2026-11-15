@@ -20,6 +20,10 @@ test.describe('registry', () => {
   let ns = ''
   let acme = ''
   let duplicate = ''
+  // The synonyms a new document's entry starts with (its identity values and
+  // its own {ns, type, template, identity_hash} value synonym, today two). The
+  // platform decides how many; the test counts relative to it.
+  let baseline = 0
 
   test.beforeAll(async () => {
     ns = run().namespace
@@ -50,9 +54,16 @@ test.describe('registry', () => {
     await expect(page.getByRole('heading', { name: 'Entry Detail' })).toBeVisible()
   }
 
+  const synonymCount = async (page: Page): Promise<number> => {
+    const heading = page.getByRole('heading', { name: /^Synonyms \(\d+\)$/ })
+    await expect(heading).toBeVisible()
+    return Number(/\((\d+)\)/.exec((await heading.textContent()) ?? '')![1])
+  }
+
   test('add a synonym; the registry resolves it to the entry', async ({ page }) => {
     await openEntry(page, acme)
-    await expect(page.getByRole('heading', { name: /Synonyms \(1\)/ })).toBeVisible()
+    baseline = await synonymCount(page)
+    expect(baseline).toBeGreaterThan(0)
     await page.getByRole('button', { name: 'Synonym', exact: true }).click()
     // Defaults to the entry's own namespace and (plural) entity type.
     await expect(page.getByLabel('Namespace', { exact: true })).toHaveValue(ns)
@@ -61,7 +72,7 @@ test.describe('registry', () => {
     await page.getByLabel('Entity Type').selectOption({ label: 'document' })
     await page.getByLabel('Composite Key (JSON)').fill(JSON.stringify(ERP_KEY))
     await page.getByRole('button', { name: 'Add', exact: true }).click()
-    await expect(page.getByRole('heading', { name: /Synonyms \(2\)/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: `Synonyms (${baseline + 1})` })).toBeVisible()
 
     const found = await lookupByKey(ERP_KEY)
     expect(found.status).toBe('found')
@@ -79,7 +90,7 @@ test.describe('registry', () => {
     await openEntry(page, acme)
     const synonym = page.locator('div.flex.items-start', { hasText: ERP_KEY.erp_id })
     await synonym.getByRole('button', { name: 'Remove synonym' }).click()
-    await expect(page.getByRole('heading', { name: /Synonyms \(1\)/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: `Synonyms (${baseline})` })).toBeVisible()
     expect((await lookupByKey(ERP_KEY)).status).toBe('not_found')
   })
 

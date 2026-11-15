@@ -61,8 +61,11 @@ export function parseArchive(text: string): { archive: SystemArchive } | { error
   if (!a || typeof a !== 'object' || a.format !== 'wip-system-backup') {
     return { error: 'This is not a WIP system backup (format "wip-system-backup"). Namespace backups are restored on the Restore tab.' }
   }
-  if (a.version !== 1) {
-    return { error: `This system backup has version ${String(a.version)}; this console reads version 1.` }
+  // Version 2: every read a key has is a grant in the archive. Version 1: a
+  // runtime key's namespaces list gave read by itself; restoring it writes
+  // that read as grants (the report's scope_read_grants).
+  if (a.version !== 1 && a.version !== 2) {
+    return { error: `This system backup has version ${String(a.version)}; this console reads versions 1 and 2.` }
   }
   for (const k of ['api_keys', 'grants', 'reservations'] as const) {
     if (!Array.isArray(a[k])) return { error: `The archive has no ${k} list.` }

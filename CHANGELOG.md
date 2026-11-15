@@ -1,5 +1,16 @@
 # RC-Console — Changelog
 
+## 2026-11-15 — Current client libraries; system backups of version 2
+
+- Changed: adopted @wip/client 0.108.29, @wip/react 0.26.20 and @wip/proxy 0.9.1 (scaffold refresh).
+- Fixed: creating or editing a terminology sent `extensible`, which the platform no longer has and refuses (422). It is gone from the forms and the detail line.
+- Changed: a term's value is read-only when editing the term: the platform refuses a change to it. The edit row says how to rename (create the new term, then deprecate or merge the old one).
+- Fixed: the PostgreSQL page shows "not counted" for a table or entity the platform didn't count, with its reason, instead of failing on a missing count, and pages through an uncounted table.
+- Changed: the Activity page's action filter offers every audit action, `restored` and `merged` included.
+- Changed: a namespace validation result shows four more counts (misplaced document references, identities not verifiable, mandatory fields missing, nested templates not found) and lists the checks that couldn't run, which make the result incomplete.
+- Fixed: the System tab refused system backups of version 2, which the platform now writes. It reads versions 1 and 2, shows the version, and says how many read grants restoring a version 1 backup writes.
+- Tests: the registry E2E counts an entry's synonyms relative to what it starts with (a new document's entry now has two).
+
 ## 2026-11-13 — Merging an archive with several namespaces
 
 - Fixed: a merge of an archive holding several namespaces offered one "Target namespace" field, which the platform refuses for such an archive (400). The merge panel now lists each namespace merging into itself, with no redirect field, and RC never sends the field for such an archive.
