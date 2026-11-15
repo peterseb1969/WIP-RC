@@ -74,7 +74,13 @@ test.describe('system auth state', () => {
     await form.getByLabel('Name *').fill(PROBE)
     await form.getByLabel('Upstream *').fill('http://wip-registry:8001')
     await form.getByRole('button', { name: 'Attach' }).click()
-    await expect(form.getByRole('alert')).toContainText("install's own services")
+    const refusal = form.getByRole('alert')
+    await expect(refusal).toBeVisible()
+    // An install without an app edge refuses every attachment write; RC says so.
+    if ((await refusal.textContent())?.includes("doesn't serve attached apps")) {
+      test.skip(true, 'this install runs no app edge, so attachments cannot be written')
+    }
+    await expect(refusal).toContainText("install's own services")
 
     // A name that resolves nowhere is accepted, with the Registry's warning.
     await form.getByLabel('Upstream *').fill('http://rc-e2e-probe-upstream.invalid:8080')
