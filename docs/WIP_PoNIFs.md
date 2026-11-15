@@ -88,7 +88,7 @@ For `updateTemplate()`, the default should be to keep the previous version activ
 
 **Sensible default:** `@wip/client` should warn (not error) when creating a document against a template with zero identity fields. The warning should say: *"Template X has no identity fields. Every submission will create a new document. If you intend updates, add identity fields to the template."*
 
-**The resolved-referent feed (DECISION-2, CASE-847).** A term- or reference-typed identity field contributes the canonical ID of what it **resolves to** — the resolved `term_id`, the referenced document's `document_id` — never the submitted spelling. Two writers naming the same term by different aliases (`ClinTrial`, `clintrial`, `ct`) produce **one** identity, not a fork; renaming a term does not fork documents either. Case sensitivity is the vocabulary's call: two case-variant TERMS stay distinct, two aliases of one term merge. The rule is **fail-closed**: a write whose identity field cannot be resolved (Def-Store/Registry outage) is rejected rather than hashed from the spelling — non-identity term fields keep their degrade-to-warning behavior. The rule holds at any depth: a dotted identity path into an object field (`address.country`) follows its leaf field's type in the nested template. Accepted cost: two genuinely different things aliased onto one term now merge; that is an alias-curation problem the merge makes visible, not something a hasher can solve.
+**The resolved-referent feed (DECISION-2, CASE-847).** A term- or reference-typed identity field contributes the canonical ID of what it **resolves to** — the resolved `term_id`, the referenced document's `document_id` — never the submitted spelling. Two writers naming the same term by different aliases (`ClinTrial`, `clintrial`, `ct`) produce **one** identity, not a fork. Case sensitivity is the vocabulary's call: two case-variant TERMS stay distinct, two aliases of one term merge. The rule is **fail-closed**: a write whose identity field cannot be resolved (Def-Store/Registry outage) is rejected rather than hashed from the spelling. Non-identity term fields are no exception: a term value Def-Store cannot check is never written (no validation, no storage), and the write is refused as an outage (`dependency_unavailable`) instead of being admitted with a warning. The rule holds at any depth: a dotted identity path into an object field (`address.country`) follows its leaf field's type in the nested template. Accepted cost: two genuinely different things aliased onto one term now merge; that is an alias-curation problem the merge makes visible, not something a hasher can solve.
 
 **What's NOT in the identity hash:**
 
@@ -121,9 +121,9 @@ For `updateTemplate()`, the default should be to keep the previous version activ
 
 **The feature:** Any entity in WIP can have multiple identifiers (synonyms) registered in the Registry. A synonym can be any key-value pair: `{"erp_id": "SAP-001"}`, `{"iban": "CH93 0076..."}`, `{"gandalf_name": "Mithrandir"}`. All synonyms resolve to the same canonical WIP ID. Lookup by any synonym is O(1), as fast as lookup by canonical ID.
 
-Additionally, two WIP IDs can be declared as synonyms of each other (merge), and a WIP ID can be deprecated in favour of another (redirect). The Registry maintains the full resolution chain. A single real-world entity can have multiple WIP IDs, not just one.
+Additionally, two WIP IDs can be merged: the deprecated entry goes inactive, records the entry it was merged into, and its ID resolves to that entry from then on — through any chain of merges. Its keys (its ID, its primary key, its synonyms) move to the surviving entry. A single real-world entity can have multiple WIP IDs, not just one.
 
-**Note on merge reversibility:** Merges are currently effectively one-way. Removing the synonym removes the link, but the deprecated entry remains inactive — there is no inactive → active transition endpoint in the Registry. A reactivation endpoint is planned as a future feature to enable clean unmerge operations. Merging is reversible — delete the synonym that linked the two IDs and they separate again.
+**Merges are one-way.** There is no unmerge: the deprecated entry's keys belong to the survivor afterwards, and nothing brings the deprecated entry back.
 
 An entity can have multiple WIP IDs. This is not a bug or an edge case — it's a legitimate state. Different systems may have independently created Registry entries for the same real-world entity before anyone knew they were the same.
 
@@ -133,7 +133,7 @@ An entity can have multiple WIP IDs. This is not a bug or an edge case — it's 
 - Most systems have one ID per entity. Two at most (internal + external). The idea of an entity with an unlimited number of identifiers, all equally valid for lookup, doesn't match any ORM or API framework's assumptions.
 - The assumption that one entity = one WIP ID is deeply ingrained. In reality, an entity can have as many WIP IDs as you want — and merging them (making one a synonym of another) is how you reconcile duplicates discovered after the fact. This is a PoNIF within the PoNIF.
 - Synonym resolution happens transparently during document creation. If a reference field contains a value that matches a synonym, it resolves. The developer might not even know synonyms are being used — which is both the power and the confusion.
-- Merging two WIP IDs is reversible (delete the synonym to unmerge), but developers trained on "merge = permanent destructive operation" will be afraid to use it, or conversely, will be surprised that an unmerge is possible.
+- Merging two WIP IDs is one-way, but nothing is lost: the merged-away ID keeps resolving, to the survivor, so references stored before the merge stay valid.
 
 **What goes wrong:**
 - A developer assumes each entity has exactly one WIP ID. They discover two IDs for the same entity and panic, thinking the data is corrupt. It's not — it's the normal state before reconciliation. The merge operation exists precisely for this.
@@ -154,7 +154,7 @@ An entity can have multiple WIP IDs. This is not a bug or an edge case — it's 
 
 **What goes wrong:** On Day 4, the FIN_IMPORT template was updated from v1 (PDF-only) to v2 (PDF + CSV). v1 was deactivated. The document store continued validating against cached v1, rejecting CSV uploads. Only a service restart cleared the cache. The debugging took 25 minutes because the template showed the correct (v2) definition in every inspection tool — the bug was invisible except in the validation behaviour.
 
-**Sensible default:** This was fixed during the experiment: versioned template lookups are cached permanently (immutable), "latest" resolution uses a 5-second TTL. But the incident demonstrates that cache invalidation is a PoNIF in its own right — the developer expects changes to take effect immediately, the system serves stale data until the cache expires.
+**Sensible default:** This was fixed during the experiment: a pinned version's schema is cached (a version's schema never changes) while its active/inactive status is re-read within about 5 seconds, and "latest" resolution uses a 5-second TTL. But the incident demonstrates that cache invalidation is a PoNIF in its own right — the developer expects changes to take effect immediately, the system serves stale data until the cache expires.
 
 *This PoNIF was identified by Constellation-Claude during its review of this document — itself an example of the collaborative review process catching gaps.*
 
@@ -201,7 +201,7 @@ This is a deliberate exception to PoNIF #2 ("Template Versioning — Update Does
 - Code that loads `version=N-1` to compute a diff against `version=N` returns nothing on a `versioned: false` edge type — there is no previous version.
 - `get_document_versions(id)` returns a list of length 1 forever. Code that paginates or filters this list silently does the wrong thing.
 - Audit-trail assumptions (compliance flows, change history UIs) treat `versioned: false` data the same as everything else and produce gaps.
-- Concurrency on the in-place path needs `if_match` (existing OCC token); naive overwrite logic loses concurrent updates.
+- Concurrency on the in-place path needs `if_match`, and the token is the document's `revision`, not its version (which never moves here). Each in-place write moves `revision` on; naive overwrite logic, or `if_match` set from `version`, loses concurrent updates.
 
 **Sensible default:** `template.versioned` defaults to `true` — the conservative default that preserves history. Code reading documents should check `template.versioned` (or equivalently, that `get_document_versions` returns more than one row) before assuming history exists. If you need history on a relationship, build the edge type with `versioned: true`. The flag is immutable after creation, so the choice is permanent — pick deliberately.
 

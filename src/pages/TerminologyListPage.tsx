@@ -23,7 +23,6 @@ function CreateTerminologyForm({ defaultNamespace, onClose }: { defaultNamespace
   const [nsOverride, setNsOverride] = useState(defaultNamespace)
   const [caseSensitive, setCaseSensitive] = useState(false)
   const [allowMultiple, setAllowMultiple] = useState(false)
-  const [extensible, setExtensible] = useState(true)
   const [mutable, setMutable] = useState(true)
   const [showMetadata, setShowMetadata] = useState(false)
   const [metaSource, setMetaSource] = useState('')
@@ -59,7 +58,6 @@ function CreateTerminologyForm({ defaultNamespace, onClose }: { defaultNamespace
       namespace: nsOverride,
       case_sensitive: caseSensitive,
       allow_multiple: allowMultiple,
-      extensible,
       mutable,
       metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
       created_by: 'rc-console',
@@ -136,15 +134,6 @@ function CreateTerminologyForm({ defaultNamespace, onClose }: { defaultNamespace
               className="rounded border-gray-300"
             />
             Allow multiple
-          </label>
-          <label className="flex items-center gap-1.5 text-sm text-gray-600">
-            <input
-              type="checkbox"
-              checked={extensible}
-              onChange={e => setExtensible(e.target.checked)}
-              className="rounded border-gray-300"
-            />
-            Extensible
           </label>
           <label className="flex items-center gap-1.5 text-sm text-gray-600">
             <input

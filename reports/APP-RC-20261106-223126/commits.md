@@ -102,3 +102,30 @@ has one. TermFieldInput and ReferenceFieldInput keep it optional; they
 have callers without a namespace.
 
 Tests: tsc clean against the vendored @wip/client 0.88.0 (not yet against the client that requires it, which has no tarball); unit 411/411; E2E files, nested objects and namespaces 11/11 on wip.localhost
+
+## 8ea392f — fix: a merge of an archive with several namespaces lists each into itself; merge offers align and retire options
+**Time:** 2026-11-14 12:54
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 4 changed, +191/-15
+**Tests:** not recorded
+**Why:** The merge panel offered one "Target namespace" field for any archive and
+sent it whenever it differed from the archive's first namespace. The
+platform answers 400 to target_namespace for an archive holding several
+namespaces in merge mode, since it writes each namespace into the one of
+the same name. So for such an archive the field could only break the
+merge, and the panel never said which namespaces would be written.
+
+- A multi-namespace archive: the panel lists each namespace merging into
+  itself, with no redirect field, and RC never sends target_namespace.
+- A single-namespace archive keeps the redirect field.
+- Either way, a target namespace this install doesn't have is flagged,
+  and the merge is refused before any request: the platform refuses a
+  merge into a missing namespace (document-store's merge checks every
+  target exists).
+- New merge options, with the platform's own descriptions:
+  align_templates (match templates by value, for an archive from another
+  install whose version numbers don't line up) and carry_retirements
+  (retire the target's terms the archive has retired).
+
+Tests: tsc clean; unit 415/415 (4 new); new E2E restore-merge spec passes (three-namespace archive, one deleted); full E2E 81 passed, 4 failed, 8 not run, all failures outside this change (terminology create sends extensible, which the platform now refuses; system backups are now version 2; a registry synonym count), the merge spec passing in every run
+Discovered: WIP's def-store now refuses extensible on terminology create, the system backup format moved to version 2, and the registry spec's synonym check fails; RC needs to follow all three

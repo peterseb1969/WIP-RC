@@ -1,7 +1,7 @@
 <!-- card-sources: what this card condenses; checked by components/mcp-server/tests/test_card_drift.py
-wip://data-model sha256:fe9df0a23aa33572 reviewed:85d8b349
-wip://conventions sha256:abd3719f9b6eaae4 reviewed:63b3c0e9
-docs/WIP_PoNIFs.md sha256:3d8ca0d430f1d065 reviewed:e752beeb
+wip://data-model sha256:7dcd6ecce0ba72cd reviewed:8dca5042
+wip://conventions sha256:1645316f51e9e5a4 reviewed:01f4764f
+docs/WIP_PoNIFs.md sha256:5834cbc38977bdad reviewed:57e75bd9
 docs/design/ontology-support.md sha256:06666e3c8f3a3cc1 reviewed:ea985986
 docs/slash-commands/app-builder/wip-implement.md sha256:1afef1d1999621a1 reviewed:809f9059
 docs/slash-commands/app-builder/wip-design-model.md sha256:88c3300b894dc3ca reviewed:809f9059
@@ -24,6 +24,7 @@ docs/slash-commands/app-builder/wip-design-model.md sha256:88c3300b894dc3ca revi
 - `type: array` → `array_item_type`; `array_terminology_ref` / `array_template_ref` / `array_file_config` for term / object / file items; an array of references must set `reference_type`.
 - Terms: `value` (unique within terminology), `label`, optional `description`, `names` or `aliases`.
 - `full_text_indexed: true` only on string fields with reporting sync enabled.
+- Field names: no `.`, `"` or NUL.
 
 ## Identity fields — the hash decides create vs update
 - `create_document` is an upsert: same identity hash → new version of the same document; different hash → new document.
@@ -34,7 +35,7 @@ docs/slash-commands/app-builder/wip-design-model.md sha256:88c3300b894dc3ca revi
 - Empty `identity_fields` = append-only: every create makes a new document, and `update_document` (PATCH) is rejected with `append_only`. Use it only for event logs and similar.
 - Do not add a synthetic identity field to a template that should be append-only.
 - A term- or reference-typed identity field hashes the resolved referent's canonical ID, not the spelling: aliases of one term are one identity. If it cannot be resolved the write is rejected (fail-closed); an ambiguous name on an identity field is rejected too.
-- `identity_fields` cannot change across template versions (`identity_fields_immutable`). Changing identity is a fork: declare a new template value. Get it right in Phase 2.
+- `identity_fields` and their types are fixed (`identity_fields_immutable`); new identity = new template value. Get it right in Phase 2.
 - PATCH cannot change identity fields (`identity_field_change`) — create a new document instead.
 
 ## `metadata.*` is never identity or structure
@@ -52,8 +53,8 @@ docs/slash-commands/app-builder/wip-design-model.md sha256:88c3300b894dc3ca revi
 - `activate_template` validates and activates, cascading to referenced drafts. All-or-nothing: if any template in the chain fails, none activate. `dry_run=true` validates only.
 
 ## Template versions
-- `create_template` is an upsert on (namespace, value): identical → `unchanged`; any difference → `updated`, new version N+1 with a diff in `details`. It never errors on a same-name create — read the status.
-- `usage`, `versioned` and edge endpoint lists cannot change on a re-post (`immutable_property`).
+- `create_template` upserts on (namespace, value): identical → `unchanged`; any difference → `updated`, version N+1, diff in `details`. Read the status; only a draft onto an existing value errors.
+- `usage`, `versioned`, `reporting.table_name` and edge endpoint lists never change (`immutable_property`).
 - The old version STAYS ACTIVE. Retire it with `deactivate_template(template_id, version=N)` — `version` is required.
 - Always pass `template_version` in `create_document`; without it WIP picks "latest active", which may be the wrong one.
 - "Latest" resolution is cached for 5 s — after a template change, wait or pin the version.
@@ -66,8 +67,8 @@ docs/slash-commands/app-builder/wip-design-model.md sha256:88c3300b894dc3ca revi
 - Do not set `target_templates` on `source_ref`/`target_ref` — it is derived from the template-level lists and discarded.
 - Properties of the interaction itself (role, quantity) are further fields.
 - An edge lives in its source's namespace (`cross_namespace_relationship` otherwise); its target may be in another namespace the reference gates allow. Archived endpoints are rejected.
-- `versioned: false` (any template with identity fields; edges are the typical use) = updates overwrite in place, documents stay at version 1, no history. It requires non-empty `identity_fields`; declare them explicitly, e.g. `[source_ref, target_ref]` (`create_edge_type` fills that in when omitted; `create_template` does not). Add a third field (e.g. `role`) to allow several edges between one pair.
-- `usage` and `versioned` are immutable after creation — choose deliberately.
+- `versioned: false` (any template with identity fields; typically edges) = updates overwrite in place, documents stay at version 1, no history. It requires non-empty `identity_fields`; declare them explicitly, e.g. `[source_ref, target_ref]` (`create_edge_type` fills it in; `create_template` does not). A third field (e.g. `role`) allows several edges per pair. PATCH: `if_match` = `revision`, not `version`.
+- Choose `usage` and `versioned` deliberately.
 - To let new templates take part, widen with `add_edge_type_endpoints` — never delete and recreate (strands existing edges). Endpoints cannot be removed.
 - Query with `get_document_relationships` and `traverse_documents`; these work only on `usage: "relationship"` templates.
 

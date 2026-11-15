@@ -959,7 +959,10 @@ function ValidateTab() {
 // Namespace integrity result (validate jobs)
 // ---------------------------------------------------------------------------
 
-const SUMMARY_LABELS: Array<[keyof NamespaceIntegrityResult['summary'], string]> = [
+/** The summary's counts; checks_not_run is a map of skipped checks, shown on its own. */
+type SummaryCount = Exclude<keyof NamespaceIntegrityResult['summary'], 'checks_not_run'>
+
+const SUMMARY_LABELS: Array<[SummaryCount, string]> = [
   ['total_documents', 'Documents'],
   ['documents_checked', 'Checked'],
   ['documents_with_issues', 'With issues'],
@@ -967,8 +970,12 @@ const SUMMARY_LABELS: Array<[keyof NamespaceIntegrityResult['summary'], string]>
   ['orphaned_term_refs', 'Orphaned term refs'],
   ['inactive_template_refs', 'Inactive template refs'],
   ['orphaned_document_refs', 'Orphaned document refs'],
+  ['misplaced_document_refs', 'Misplaced document refs'],
   ['orphaned_file_refs', 'Orphaned file refs'],
   ['identity_hash_mismatches', 'Identity hash mismatches'],
+  ['identity_unverified', 'Identity not verifiable'],
+  ['mandatory_fields_missing', 'Mandatory fields missing'],
+  ['nested_templates_not_found', 'Nested templates not found'],
 ]
 
 /**
@@ -1038,6 +1045,13 @@ function IntegrityResultCard({ result }: { result: NamespaceIntegrityResult }) {
           )
         })}
       </div>
+
+      {Object.keys(summary.checks_not_run ?? {}).length > 0 && (
+        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5" data-testid="checks-not-run">
+          <span className="font-medium">Checks that did not run</span>, because a service could not answer, so the result is incomplete:{' '}
+          {Object.entries(summary.checks_not_run).map(([check, n]) => `${check} (${n.toLocaleString()})`).join(', ')}
+        </div>
+      )}
 
       {issues.length > 0 && (
         <div className="space-y-1">

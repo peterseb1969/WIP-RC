@@ -153,7 +153,7 @@ wip-deploy install \
 
 What you should know:
 
-- TLS is self-signed (Caddy generates and rotates the cert in `<data-dir>/caddy/`). Browsers will prompt you to accept the cert once.
+- TLS is self-signed (Caddy generates and rotates the cert in its own data volume, `<install>_wip-caddy-data` — §5.1). Browsers will prompt you to accept the cert once.
 - Random secrets are generated and stored in the secrets backend (default file backend at `~/.wip-deploy/<install-name>/secrets/`, mode `0600`, directory mode `0700`).
 - A single starter API key is created. You can promote it to per-service keys later (see §4 *Authentication*).
 
@@ -306,6 +306,7 @@ for their grants. Records have two authors:
 | Changed through the API | No — 409, `error_code: managed_by_deployer`; change them with wip-deploy | Yes |
 | Plaintext kept by | The install's secret backend; the app gets it as `WIP_API_KEY` | Nobody: shown once at creation |
 | After a MongoDB wipe or restore | Re-imported by the Registry at its next start (and every 10 s) | Gone unless restored from a backup |
+| Access on a listed namespace | The grants the file declares: an entry with `grants` (`{}` included, which every rendered key file writes) reads each listed namespace it gives no higher level; an entry without `grants` imports none, its grants then stay under the API, and its listed namespaces give it nothing until one is made | Its grant there only: the `namespaces` list is a scope and gives nothing. Creating the key writes a grant on each listed namespace (`grant_permission`, else `read`); the access ends with the grant — revoked, purged by a namespace deletion, or written orphaned by a restore |
 | Use case | App keys, standing agent and service keys | Apps wip-deploy does not manage, temporary keys |
 
 **Only the Registry reads the key file.** The deployer renders it into a
@@ -340,10 +341,22 @@ wip-deploy install --target dev \
 For each declared key the deployer generates a random plaintext into the
 install's secret backend (`~/.wip-deploy/<name>/secrets/<key>-api-key`,
 stable across re-applies) and renders it into the key file. `namespaces` is
-the key's read scope; `grants` gives per-namespace `read`/`write`/`admin`
-and must stay within `namespaces`. A key that declares `grants` has them
-owned by the file: the API refuses to change them. A key without `grants`
-keeps Registry grants you set through the API. Because the Registry
+the namespaces the key may act in; `grants` gives per-namespace
+`read`/`write`/`admin` and must stay within `namespaces`. Whether a key
+declares `grants` decides who owns its grants:
+
+- **Declared** (`{}` included): the file owns them. The key reads each of
+  `namespaces` and holds the declared levels; the API refuses to change
+  them (`managed_by_deployer`), and a grant set through the API on a
+  namespace the file does not declare is removed at the next import.
+- **Not declared**: the key is rendered without `grants`, and its grants
+  stay under the API. The file grants it nothing, not even read on its
+  `namespaces`: give it access with `create_grant` / `POST
+  /api/registry/namespaces/{ns}/grants`, or declare `grants` (`{}` for read
+  on each of `namespaces`).
+
+The keys the deployer derives (an app's key, the canary, the app edge's)
+always declare theirs. Because the Registry
 re-imports the file at every start, a spec-declared key keeps working, at
 full declared scope, after any Mongo rebuild (redeploy with a fresh volume,
 `nuke --remove-data`, or the wipe-and-restore remediation ritual). Console
@@ -403,15 +416,15 @@ curl -k -X DELETE https://<host>:8443/api/registry/api-keys/my-app \
   -H "X-API-Key: <admin-key>"
 ```
 
-Other services discover key changes via the Registry's `/api/registry/api-keys/sync` endpoint, polled every 30 seconds. After creating or revoking a key, allow up to 30 seconds for non-Registry services to pick up the change.
+Other services discover key changes via the Registry's `/api/registry/api-keys/sync` endpoint, polled every 30 seconds. Where the install runs NATS, the Registry also announces every key and grant change (`wip.cache.access.changed`), and each service syncs its keys and drops its cached grants at once — a created, narrowed or revoked key takes effect everywhere within a few seconds. Without NATS, or for a service that missed the message, allow up to 30 seconds (the poll; the 30 s grant cache for a grant change). Under a Registry outage a service keeps its last copy for up to 90 seconds (three missed polls) before refusing runtime keys with 503, so a key revoked during an outage keeps working there for that long.
 
 ### 4.5 Namespace scoping and privileged groups
 
 API keys carry a `namespaces` field that scopes their access. The rule is:
 
-- **Privileged groups** — `wip-admins` and `wip-services` — are exempt from namespace scoping. A key in either group has access across all namespaces.
+- **Privileged groups** — `wip-admins` and `wip-services` — are exempt from namespace scoping. A key in either group has access across all namespaces, and is never scoped: it carries no `namespaces` list, not even an empty one. The Registry refuses the combination on create and update (422), in the install's key file (the import refuses the file) and in a system restore (the key is skipped, `scoped_privileged_key`); `wip-deploy` refuses a privileged group on a spec key. A key stored with both before the rule is named in the Registry's startup log and under `scoped_privileged_keys` in its `/health`: drop the group (`PATCH groups`), or revoke it and create it again without the list. A key that needs a namespace scope has no privileged group and gets its access through grants.
 - **Every other key** must declare `namespaces` explicitly. Non-privileged keys without a namespace scope receive 403 on every request.
-- **Single-namespace keys** get a convenience: omit the `namespace` query parameter and the server derives it from the key's scope. Multi-namespace keys must always pass `namespace` explicitly.
+- **Single-namespace keys** get a convenience: omit the `namespace` query parameter and the server derives it from the key's scope. A key scoped to one namespace plus `wip` counts as single-namespace while its permission on `wip` is read (the Registry's answer, API grants included), which is what every app key the deployer derives holds; a key that may write or administer `wip` derives nothing. Multi-namespace keys must always pass `namespace` explicitly.
 
 **Giving an app another namespace on one install.** Each app runs with a key of its own, scoped to the namespaces its manifest declares (`spec.namespaces`, `spec.namespace_access`). Adding a namespace to that scope is an operator decision for one install, not a manifest edit:
 
@@ -591,35 +604,72 @@ forwards the user's identity and the receiving service trusts proxy headers.
 
 ## 5. Storage and Backup
 
-### 5.1 Default layout
+### 5.1 What the data sits in: named volumes
 
-WIP creates a per-service tree under the data directory:
+Every service's data lives in a **named container volume**. The deployer does not
+create a host directory tree for it, and `~/.wip-deploy/<install>/` holds only
+rendered config (`docker-compose.yaml`, `.env`, `config/`, `secrets/`) — not data.
+An install named `wip` gets these volumes:
 
 ```
-<WIP_DATA_DIR>/
-├── mongodb/    # MongoDB data files
-├── postgres/   # PostgreSQL data files
-├── nats/       # NATS JetStream persistence
-├── garage/     # Garage object storage
-├── dex/        # Dex SQLite + state
-└── caddy/      # TLS certificates + runtime config
+wip_wip-mongodb-data      MongoDB data files
+wip_wip-postgres-data     PostgreSQL data files
+wip_wip-nats-jetstream    NATS JetStream persistence
+wip_wip-garage-meta       Garage metadata            (with garage enabled)
+wip_wip-garage-data       Garage objects             (with garage enabled)
+wip_wip-dex-db            Dex SQLite + state
+wip_wip-caddy-data        TLS certificates + runtime config
+wip_wip-caddy-config      Caddy config
 ```
 
-### 5.2 Choosing where data lives
-
-By default the data directory is `<repo-root>/data/`. Override with:
+The name is `<install>_` — the compose project, pinned to the install name by the
+rendered file's top-level `name:` — followed by the volume the component declares.
+Where that lives is the engine's business; ask it:
 
 ```bash
-# Pass to the deployer at install time
-wip-deploy install --preset standard --target compose --hostname wip-pi.local \
-  --data-dir /mnt/wip-data
+podman volume inspect wip_wip-mongodb-data --format '{{.Name}}  {{.Mountpoint}}'
 ```
 
-`WIP_DATA_DIR` is the underlying env var the deployer writes into `.env`. If you want to relocate after the install, stop services, move the tree, update `.env`, and recreate.
+A mountpoint looks like
+`<engine storage path>/volumes/wip_wip-mongodb-data/_data` — under the home of the
+user (or VM) that runs podman. Resolve it with the command above rather than
+assuming a path when you back it up or move it.
+
+### 5.2 Putting storage on another filesystem
+
+There is no data-directory option: `wip-deploy` refuses `--data-dir`, because no
+target renders it. Relocation happens one level down, at the engine — create the
+volume yourself as a bind mount of your fast disk, and the render reuses the
+volume that already exists (it declares each one with no options of its own):
+
+```bash
+sudo mkdir -p /mnt/wip-data/mongodb
+sudo chown "$USER:$USER" /mnt/wip-data/mongodb
+podman volume create --opt type=none --opt o=bind \
+  --opt device=/mnt/wip-data/mongodb  wip_wip-mongodb-data
+
+wip-deploy install --name wip ...      # otherwise the same command as before
+```
+
+Two properties to plan around:
+
+- **Create the volumes before the first apply that uses them.** The deployer
+  never moves data: a service started against a fresh volume simply sees none.
+  To move an existing install's data, stop the stack, copy the old mountpoint
+  onto the new device, create the volume, then apply.
+- **A volume you created survives `compose down -v`.** That removes the volumes
+  compose itself created, not ones it only reused (verified on podman-compose
+  1.6.0) — one more reason to keep database storage on volumes you own.
+
+The bind target's ownership has to suit the service's user inside the container —
+see §5.4.
 
 ### 5.3 Network storage (NFS / GlusterFS / Ceph)
 
-Mount the remote share at `/mnt/wip-data` (or wherever) and use `--data-dir` exactly as above. NFS works well for backup hosts and shared storage. GlusterFS and Ceph are options if you want HA across nodes; they're more involved than this guide covers — your `fstab` for NFS:
+Mount the remote share wherever you like and point the bind-mounted volumes at it,
+as in §5.2 — there is no `--data-dir` to hand it to. NFS works well for backup
+hosts and shared storage. GlusterFS and Ceph are options if you want HA across
+nodes; they're more involved than this guide covers — your `fstab` for NFS:
 
 ```
 nas.local:/exports/wip-data  /mnt/wip-data  nfs  defaults,_netdev  0  0
@@ -627,53 +677,72 @@ nas.local:/exports/wip-data  /mnt/wip-data  nfs  defaults,_netdev  0  0
 
 ### 5.4 Container user mapping (Dex)
 
-Dex runs as UID 1001 inside the container. With rootless podman, the host UID is mapped through the user namespace; the deployer handles this on a fresh install. If you set up storage manually and Dex won't start ("unable to open database file"), set ownership explicitly:
+Dex runs as UID 1001 inside the container. With rootless podman, the host UID is mapped through the user namespace; the deployer handles this on a fresh install, where Dex's state sits in the volume podman created for it. If you created that volume yourself (§5.2) and Dex won't start ("unable to open database file"), set ownership on the volume's mountpoint explicitly:
 
 ```bash
-podman unshare chown 1001:1001 <WIP_DATA_DIR>/dex
-podman restart wip-dex
+podman unshare chown 1001:1001 \
+  "$(podman volume inspect <install>_wip-dex-db --format '{{.Mountpoint}}')"
+podman restart <install>_wip-dex
 ```
+
+Containers carry the install name — `<install>_wip-<component>`, so `qwen_wip-dex`
+on an install named `qwen`. There is no `default_wip-dex` unless the install is
+called `default`.
 
 Do **not** use `chmod 777` to "fix" permission errors on auth data.
 
 ### 5.5 Backup
 
-The recommended quick backup is a stop-and-tar:
+For anything you intend to restore, prefer the **logical** per-namespace archive
+(§5.6): portable across instances and versions, and it needs no host access.
+What follows is the physical route — a whole-host snapshot that comes back on the
+same engine and the same platform version.
+
+Data lives in volumes (§5.1), so a physical backup exports volumes; podman
+handles the user-namespace mapping that a plain `tar` of the mountpoint would not:
 
 ```bash
 podman stop -a
-tar czf wip-backup-"$(date +%Y%m%d)".tar.gz -C "$WIP_DATA_DIR" .
-wip-deploy install --preset <your-preset> --target compose --hostname <your-host>   # restart
+podman volume ls --format '{{.Name}}' | grep "^<install>_wip-"
+podman volume export <install>_wip-mongodb-data -o mongodb.tar
+podman volume export <install>_wip-postgres-data -o postgres.tar
+# … each volume the install owns; `podman volume import VOLUME file.tar` restores
+podman-compose -f ~/.wip-deploy/<install>/docker-compose.yaml up -d
 ```
 
-Hot backups for the heavyweights:
+Hot backups for the two databases, without stopping the stack:
 
 ```bash
-# MongoDB
-podman exec wip-mongodb mongodump --out /data/db/backup
-cp -r "$WIP_DATA_DIR/mongodb/backup" "./mongodb-backup-$(date +%Y%m%d)"
+# MongoDB writes its dump inside its own data volume, so bring it out with
+# `podman cp` — there is no host directory it appeared in.
+podman exec <install>_wip-mongodb mongodump --out /data/db/backup
+podman cp "<install>_wip-mongodb:/data/db/backup" "./mongodb-backup-$(date +%Y%m%d)"
 
 # PostgreSQL
-podman exec wip-postgres pg_dump -U wip wip_reporting \
+podman exec <install>_wip-postgres pg_dump -U wip wip_reporting \
   > "wip-reporting-$(date +%Y%m%d).sql"
 ```
 
-For offsite storage, encrypt the backup:
+For offsite storage, encrypt before the archive leaves the host (§7.1):
 
 ```bash
-tar czf - "$WIP_DATA_DIR" \
+podman volume export <install>_wip-mongodb-data \
   | gpg --symmetric --cipher-algo AES256 \
   > "wip-backup-$(date +%Y%m%d).tar.gz.gpg"
 ```
 
 ### 5.6 Logical export/import — the wip-toolkit CLI
 
-The tar backups above are physical (whole data directory, same platform
+The exports above are physical (whole volumes, same engine and same platform
 version back). For **logical, per-namespace** data management — portable
 archives, namespace cloning, scripted/headless workflows — use the
 `wip-toolkit` CLI. It is a separate surface from the React Console's
 backup/restore (which uses document-store's engine); the CLI is for
-headless, scripted, and composable use.
+headless, scripted, and composable use. Document-store's backup carries
+every entity in every status except the inactive template versions nothing
+in the archive needs. A version a document is pinned to, or that a carried
+template extends or pins as a nested template, is always kept, and a template whose versions are all
+inactive keeps its highest. `include_inactive_templates` keeps every version.
 
 ```bash
 # Export one namespace to a portable ZIP archive (v3 format;
@@ -838,10 +907,15 @@ in §5.5.
   holding that id) is written as it was. Any other grant is written
   **orphaned**, with the id: on a name nobody holds here, and on a name held
   here by *another* namespace (a namespace or reservation of the same name
-  with another id, such as another owner's reservation). An orphan counts as
-  no grant until it is activated, and the report lists it. (A key whose own
-  `namespaces` list names the prefix still reads it, as any such key does
-  without a grant.) A grant the archive holds orphaned never replaces one
+  with another id, such as another owner's reservation). A grant archived
+  with **no** id was given while no namespace held its name on the source (a
+  key-file grant, or a key created listing a namespace not yet created): it
+  is written effective, as it was, for the namespace that takes the name
+  later, and skipped (`unrelated_namespace_here`) where a namespace of the
+  name is here already. An orphan counts as
+  no grant until it is activated, and the report lists it. A key's own
+  `namespaces` list does not stand in for it: the list is the key's scope
+  and gives no access by itself. A grant the archive holds orphaned never replaces one
   that is effective here. An orphan is activated when a namespace **with its
   id** is created, by whoever creates it, which the ID-preserving namespace
   restore does; or when a namespace admin activates it (`POST
@@ -853,19 +927,48 @@ in §5.5.
   restored in either order, and re-running the system restore is safe. A
   disaster recovery done with a *fresh* restore (new ids, a copy) leaves the
   grants orphaned: activate them on the copy if they should apply there.
+- **Version 1 archives: key scopes come back as read grants.** Backups write
+  `version: 2`. A `version: 1` archive was mostly made while a runtime key's
+  `namespaces` list gave read by itself, so it holds no grant where a key
+  relied on that. The restore writes a `read` grant for each such key and
+  listed namespace, lists those written under `scope_read_grants` and warns.
+  Only a key the restore leaves as the archive's gets one: a key of this
+  install that shares the name (a config key, one wip-deploy manages) is
+  skipped (`scope_key_not_restored`). Where the archive records the
+  namespace's id (a reservation's or an effective grant's), the grant is
+  restored like any archived grant, orphaned where the name here belongs to
+  another namespace. Where it records none, the name places it: effective
+  where a namespace of the name is here; orphaned under the reservation's id
+  where only a reservation is, so it becomes read when that namespace is
+  created; skipped (`scope_namespace_absent`) where nothing of the name is,
+  or only an install's reservation (which holds no id yet). For those, run
+  the system restore again after the namespace's restore. **Not every
+  version 1 archive predates the change:** develop builds of 2026-11-08 to
+  2026-11-13 (in no release) already read only through grants and still
+  wrote version 1, so restoring their archives also gives back any read
+  revoked in that window. Review the list in the dry run. A `version: 2`
+  archive gets no such grants. A Registry from before version 2 refuses a
+  version 2 archive.
 - **Archives without namespace ids are refused**, system and namespace
-  archives alike. To bring one forward, restore it on a WIP from before
+  archives alike. A namespace archive whose manifest records no namespace
+  config at all (the namespace had no Registry record when it was backed up)
+  is the exception: nothing in it names a namespace, so it is restored under
+  the id and settings this install gives the namespace, with a job warning. To bring one forward, restore it on a WIP from before
   namespace ids, start this version (its startup gives every namespace and
   reservation an id, and deletes orphaned grants it cannot match), and back
   up again.
 - **A namespace restore creates namespaces as the requester.** A platform
   admin's namespace restore applies the archive's namespace settings. Anyone
   else's never changes a namespace's settings: an existing namespace keeps
-  its own, and a missing one is created with the requester's own key, as
-  reserved (so a reservation's holder gets the reservation's settings, and
-  anyone else is refused). Each archive setting not applied is a warning on
-  the job. Creating a namespace this way needs an API key; a login can
-  restore only into a namespace that exists. One consequence for disaster
+  its own, and a missing one is created with the requester's own
+  credential, as reserved (so a reservation's holder gets the reservation's
+  settings, and anyone else is refused). Each archive setting not applied is
+  a warning on the job. Every namespace create or configure goes out with
+  the requester's credential, never document-store's key: an API key, or an
+  OIDC login's bearer token, which the Registry validates itself. A login
+  forwarded by a gateway has no credential of its own to pass on, so it can
+  restore only into an existing namespace, and not as a platform admin
+  (whose restore always configures the namespace). One consequence for disaster
   recovery: a reservation holder's restore of a missing namespace gets the
   reservation's `id_config`, not the archive's, so a prefixed id scheme is
   not carried over and new ids are minted the reservation's way from then
@@ -874,8 +977,14 @@ in §5.5.
 - **The restored namespace's id.** A platform admin's ID-preserving restore
   re-creates the namespace under its archived `namespace_id`, unless a
   namespace on this install already holds that id (restoring beside the
-  original makes a copy, with a new id; the job warns). Onto a name reserved
-  here for another id it is refused (409): release the reservation first. A
+  original makes a copy, with a new id; the job warns). Onto a name a runtime
+  key reserved here for another id it is refused (409), so restore a
+  namespace's data before creating the keys that reserve its name; to restore
+  now, a platform admin releases that reservation
+  (`DELETE /api/registry/reservations/{prefix}`) and the key reserves the name
+  again afterwards. A name this install reserves for one of its apps holds no
+  id while no namespace of it exists, so the app can stay installed: delete
+  the namespace, then restore it, before the app's bootstrap re-creates it. A
   reservation holder's restore creates the namespace under the reservation's
   id, and a fresh restore under a new one; the job warns when the namespace
   is not the archived one, since the archive's orphaned grants then stay
@@ -1069,10 +1178,14 @@ they run. Without the edge:
 - records already active stay active but are not served, so their apps go
   offline until the edge is back. Reads say so: every attachment in a list or
   get carries `served` (true when it is active and an edge runs) and, when
-  false, `not_served_reason`: `inactive`, `upstream_invalid` (a record
-  stored before the host rule below: the edge refuses its host),
-  `no_app_edge`, or `policy_unavailable` (the attach policy file cannot be
-  used, so the edge serves nothing). `served` is not a reachability check: the Registry never
+  false, `not_served_reason`: `inactive`, `name_invalid` (a record stored
+  while a name could end with a hyphen: no origin can carry it and the edge
+  refuses it; deactivate it and attach the app again under a valid name),
+  `upstream_invalid` (a record stored before the host rule below: the edge
+  refuses its host),
+  `no_app_edge`, or `policy_unavailable` (the Registry cannot use the attach
+  policy file; the app edge reads the file on its own, so what it serves may
+  differ). `served` is not a reachability check: the Registry never
   calls an upstream, and the edge can still refuse a record when it resolves
   it;
 - a system restore skips the archive's active attachments
@@ -1113,7 +1226,9 @@ curl -k -X POST https://<host>/api/registry/attachments/deactivate \
 ```
 
 - **One record per app**, keyed by `name`, owning the origin
-  `<name>.<hostname>`. The route fields match a manifest's route:
+  `<name>.<hostname>`. The name is that origin's first DNS label: lowercase
+  letters, digits and inner hyphens, 2 to 41 characters, starting with a
+  letter and ending with a letter or digit. The route fields match a manifest's route:
   `auth_required`, `allowed_groups`, `upstream_host_header`, `streaming`.
   An attachment is served at its origin's root, so there is no prefix
   setting; a record stored with `strip_prefix`,
@@ -1121,15 +1236,17 @@ curl -k -X POST https://<host>/api/registry/attachments/deactivate \
   the Registry's startup, and a system archive carrying them is refused
   (restore it on an install from before, and back that install up again). Then `upstream_tls` (`verify`, and
   an optional `ca_pem` holding the CA certificate itself), `display_name`,
-  `ui_only` and `health`. Writes are bulk upserts and always answer 200
-  with per-item results. **Never deleted:** deactivate it, and write it
+  `ui_only` and `health`. Writes are bulk upserts: a request whose body
+  validates answers 200 with per-item results; an item the request schema
+  refuses rejects the whole request with 422, and nothing is written. **Never deleted:** deactivate it, and write it
   again to revive it.
 - **A write replaces the whole record.** `auth_required` and
   `allowed_groups` are required on every write (`[]` means any logged-in
   user). A client that sends only some fields fails with 422 rather than
   silently opening the app to more users. Send the full record you read.
 - **The upstream is scheme, host and optional port only:** no path,
-  credentials, query or fragment. The router proxies every path of the
+  credentials, query or fragment, and no port 0 (omit the port for the
+  scheme's default). The router proxies every path of the
   app's origin to the same path on the upstream.
 - **The host is an IP literal or a DNS name of RFC 1123 labels:** letters,
   digits and inner hyphens, 1 to 63 characters each. An underscore (common
@@ -1152,7 +1269,9 @@ curl -k -X POST https://<host>/api/registry/attachments/deactivate \
 - **Refused upstreams** (`forbidden`, `details.rule: upstream_blocked`):
   anything resolving to one of the install's own hosts (the deployer
   renders them into `WIP_ATTACH_POLICY_FILE`: its containers and services,
-  its public hostname, and on k8s the API server's names), or to a
+  its public hostname, on k8s the API server's names, and on compose and
+  dev the host's container aliases `host.containers.internal` and
+  `host.docker.internal`), or to a
   loopback, link-local (cloud metadata), unspecified or multicast address,
   or to the cloud metadata addresses outside link-local (`fd00:ec2::254`,
   `100.100.100.200`). IPv4-mapped IPv6 addresses count as the IPv4 address
@@ -1163,6 +1282,14 @@ curl -k -X POST https://<host>/api/registry/attachments/deactivate \
   umbrella on another). The authoritative check is the router edge's, when
   it resolves the upstream. A host that doesn't resolve from the Registry
   is accepted with a warning.
+- **On compose and dev, the host is refused too.** The host publishes the
+  front door's port, so an upstream on it loops back through the front
+  door. The edge refuses the host's addresses as well as its aliases: its
+  default gateway on the install's network, read at start. An app running
+  directly on the compose host cannot be attached; run it in a container on
+  the install's network (`<install>_wip-network`) instead. An install host that stops
+  resolving for a moment (a container being recreated) keeps blocking the
+  addresses it last resolved to.
 - **On k8s,** a blocked name resolves to its Service's ClusterIP, so an
   upstream given as a WIP *pod* IP isn't caught by the name check. The
   rendered NetworkPolicy `app-edge-egress` takes the edge out of the
@@ -1225,10 +1352,10 @@ If host-level encryption isn't possible, the alternatives are weaker but availab
 - **MongoDB Community** does not support encryption at rest. Either upgrade to Enterprise or rely on host-level encryption.
 - **PostgreSQL** has no built-in at-rest encryption. `pgcrypto` does column-level encryption inside the database, with the usual key-management trade-offs.
 
-Encrypt **backups** before they leave the host:
+Encrypt **backups** before they leave the host (the volume export of §5.1):
 
 ```bash
-tar czf - "$WIP_DATA_DIR" \
+podman volume export <install>_wip-mongodb-data \
   | gpg --symmetric --cipher-algo AES256 \
   > backup.tar.gz.gpg
 ```
@@ -1251,7 +1378,7 @@ services (MongoDB, PostgreSQL, NATS, Garage, Dex) are not restarted this way.
 |---|---|---|
 | The install's **master key** (`secrets/api-key`), read by every service and app | install secret | `wip-deploy rotate-key --secret api-key --name <install>` |
 | **Declared keys** (`auth.api_keys`, e.g. agent keys) | install secret + rendered `api-keys.json` | `wip-deploy rotate-key <key-name> --name <install>` |
-| **Runtime keys** (console / `POST /api/registry/api-keys`) | Registry (MongoDB, bcrypt hash) | revoke + create a new one; other services see the change within the 30 s key sync |
+| **Runtime keys** (console / `POST /api/registry/api-keys`) | Registry (MongoDB, bcrypt hash) | revoke + create a new one; other services see the change within a few seconds (NATS), at most the 30 s key sync |
 
 `rotate-key` names the secret file that holds the new value
 (`~/.wip-deploy/<name>/secrets/<secret>`), not the value itself, so the key
@@ -1333,6 +1460,11 @@ Add `--live` to also test the running install through its public URL:
 wip-deploy verify --security --live --name <name>
 ```
 
+- The Registry must report that its last pass imported the install's key
+  file. A refused file (a key named twice) imports none of it, and a pass
+  that failed partway may have applied some; either way the previous keys
+  keep serving while the apply reports success. A Registry still starting,
+  or one whose image does not report the import, fails the check too.
 - Every protected route must refuse a request without credentials, and
   health probes must answer without one.
 - reporting-sync must run on its unprivileged PostgreSQL roles.
@@ -1352,7 +1484,7 @@ release claims.
 
 ### 7.4 Ongoing health monitoring
 
-Every WIP service exposes `/health`, `/metrics`, and `/health/integrity`, but in a non-techie deployment nobody is watching them. `wip-toolkit status` aggregates these and exits non-zero on anomalies — wire it to cron + email and the install will tell you when something is wrong:
+Every WIP service exposes `/health` (and document-store, template-store and reporting-sync a `/health/integrity` check), but in a non-techie deployment nobody is watching them. `wip-toolkit status` aggregates these and exits non-zero on anomalies — wire it to cron + email and the install will tell you when something is wrong:
 
 ```cron
 */5 * * * *  /usr/local/bin/wip-toolkit --proxy --host wip.local status --quiet --json | mail -E -s "WIP status alert" you@example.com
@@ -1451,7 +1583,7 @@ If using SSH stdio and the connection drops:
 | 404 on `/api/<svc>/...` calls | §3.2 Caddy `handle` vs `handle_path` | Use `handle`, not `handle_path` |
 | Health probe says "200" but the service isn't really up | §3.3 Caddy 200-on-unmatched | Validate by content, not just status code |
 | Env change didn't take effect | §7.2 Key rotation | `wip-deploy redeploy --name <install>` (or `podman-compose down && podman-compose up -d`) — a `restart` keeps the old env |
-| "unable to open database file" on Dex | §5.4 Container user mapping | `podman unshare chown 1001:1001 <data-dir>/dex` |
+| "unable to open database file" on Dex | §5.4 Container user mapping | `podman unshare chown 1001:1001 "$(podman volume inspect <install>_wip-dex-db --format '{{.Mountpoint}}')"` |
 | App returns 502 calling WIP from inside its container | §6.3 gotcha 2 | Use `http://wip-caddy:8080`, not `https://wip-caddy:8443` |
 | App's static assets return 404 with MIME-type errors | §6.3 gotcha 1 | Rebuild the image with Vite's default base `/` |
 | Non-privileged API key gets 403 on every call | §4.5 Namespace scoping | Add a `namespaces` field; or put the key in `wip-admins` / `wip-services` |

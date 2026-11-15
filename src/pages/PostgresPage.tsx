@@ -63,6 +63,16 @@ interface HistoryEntry {
 const HISTORY_KEY = 'rc-console:pg-query-history'
 const MAX_HISTORY = 50
 
+
+/**
+ * A reporting row count as shown. The platform leaves a count null when it
+ * didn't take one (another kind of view, or a count that took too long, with
+ * row_count_note saying which), so null reads "not counted", never 0.
+ */
+export function rowCountLabel(count: number | null, unit: string): string {
+  return count === null ? `${unit} not counted` : `${count.toLocaleString()} ${unit}`
+}
+
 function loadHistory(): HistoryEntry[] {
   try {
     return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
@@ -215,7 +225,7 @@ function TableRow({
           {label && <span className="ml-2 text-[10px] text-gray-400 font-normal">{label}</span>}
         </div>
         <div className="text-xs text-gray-400">
-          {table.column_count} cols · {table.row_count.toLocaleString()} rows
+          {table.column_count} cols · <span title={table.row_count_note}>{rowCountLabel(table.row_count, 'rows')}</span>
         </div>
       </div>
       <KindBadge kind={table.kind} />
@@ -480,7 +490,7 @@ function EntityGroup({
         <div className="flex-1 min-w-0">
           <div className="truncate font-medium text-gray-700">{entity.entity}</div>
           <div className="text-xs text-gray-400">
-            {entity.row_count.toLocaleString()} docs · {entity.versions.length} version{entity.versions.length !== 1 ? 's' : ''}
+            {rowCountLabel(entity.row_count, 'docs')} · {entity.versions.length} version{entity.versions.length !== 1 ? 's' : ''}
           </div>
         </div>
         {entity.legacy_table && (
@@ -744,9 +754,12 @@ function TableDetail({ table }: { table: ReportTable }) {
   )
 
   const totalRows = table.row_count
-  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize))
   const columns = pageData?.columns ?? []
   const rows = pageData?.rows ?? []
+  // Not counted (row_count null): offer the next page while this one is full.
+  const totalPages = totalRows === null
+    ? (rows.length === pageSize ? page + 1 : page)
+    : Math.max(1, Math.ceil(totalRows / pageSize))
 
   const handleExport = async () => {
     setExporting(true)
@@ -766,7 +779,7 @@ function TableDetail({ table }: { table: ReportTable }) {
       <div className="flex items-center justify-between">
         <div className="text-sm text-gray-500">
           <span className="font-mono font-medium text-gray-700">{table.qualified_name}</span>
-          {' — '}{table.column_count} columns, {totalRows.toLocaleString()} rows
+          {' — '}{table.column_count} columns, <span title={table.row_count_note}>{rowCountLabel(totalRows, 'rows')}</span>
         </div>
         <button
           onClick={handleExport}

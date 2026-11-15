@@ -12,7 +12,7 @@ RC-Console is a React + TypeScript replacement for WIP's existing Vue 3 admin co
 
 WIP is the backend. This app is a frontend that maps a domain onto WIP's primitives (terminologies, templates, documents) and presents them to users.
 
-**Verify before asserting any factual claim.** Any factual claim a cheap check could falsify — a file's contents, a function's location, a date, a count, a previous case's content — must be checked, not asserted from memory. "I'm pretty sure" is fabrication if you haven't run the check. The pattern has been observed across BE-YAC and FRanC; it is agent-agnostic.
+**Verify before asserting any factual claim.** Any factual claim a cheap check could falsify — a file's contents, a function's location, a date, a count, a previous case's content — must be checked, not asserted from memory. "I'm pretty sure" is fabrication if you haven't run the check. Caveats count too: an inherited "couldn't verify this live" caveat is a claim about the environment when it was written, not now — check it before you repeat it. The pattern has been observed across BE-YAC and FRanC; it is agent-agnostic.
 
 - **Wake-up reading has a quality bar and a ceiling.** A wake-load reading must describe behavior that is **present, current, generally-scoped, and enforced**, with a **reconciliation path** for when reality moves. Five ways it drifts, each with its own fix — name the mode before choosing the fix:
   - **MISSING** — the reading isn't in the wake-load → add it.
@@ -73,7 +73,7 @@ Do this as early as you can. Under the master key every call is allowed, so a ca
 3. **Verify** with `wip-deploy install --target dev --app <name> --app-source <name>=~/Development/WIP-<name>` — SPA must load at `https://<label>.wip.localhost:8443/` on the first try, container healthy, no manual env patching.
 4. **If something breaks**, find the failure signature in the paper's "What breaks when you skip step N" annex. Once `/check-app-deployability` ships, run it before considering your scaffold done.
 
-The contract is target-agnostic — compose, k8s, and apps-only installs satisfy the same contract.
+The contract is target-agnostic — compose, k8s and dev installs satisfy the same contract.
 
 ## Process
 
@@ -106,6 +106,7 @@ Otherwise start with:
 - `/wip-report` — Capture fireside chat or trigger session summary
 - `/wip-deploy redeploy|verify` — Redeploy this YAC's own source to the running dev install (or smoke-only). Subset of BE-YAC's `/wip-deploy` — install is BE-YAC's territory
 - `/wip-case file|list|read|respond|comment|close|implement` — Cross-agent case management. **All KB reads/writes go through the served client — never a raw gateway curl:** `kbc kb-write.py <TYPE> …` (writes) / `kbc case-fetch.py …` (reads); the served playbook (`~/.cache/wip-kb-client/case-workflow.md`) is the version-matched source of truth for each verb. The gateway mints the `CASE-<n>` number + synonym and persists edges, but status-transition validity is enforced caller-side and a respond/close/implement is two writes (response doc + `CASE_RECORD --patch status=…`). Cases live in the KB, not on disk — never `Write` a case file with a hand-picked number; never reason about "the next number".
+- **Claim a case before you work on it.** `kbc kb-write.py CLAIM acquire <n> <kind>` (`respond`, `implement`, `fix`, `review`) before you start; a refusal that names a holder means the case is theirs — ask or wait, never work around it, while any other failure (a transport error, a key the KB refused) is reported as that, not as a claim. Renew on long work, park while you wait on a decision, release when you are done or stop. `kbc case-fetch.py case <n>` shows a case's claims first: check them before you pick a case. This holds however the work starts — through `/wip-case` or from a plain request to fix a case.
 
 **Context management:** When context reaches ~70-80%, the human should tell you to run `/wip-wake` or save state (DESIGN.md, memory files) before compaction hits.
 
@@ -208,7 +209,7 @@ Key commands:
 
 Remote WIP instances:
 ```bash
-wip-toolkit --host kb.internal --proxy export kb /tmp/kb-backup.zip
+wip-toolkit --host prod.internal --proxy export kb /tmp/kb-backup.zip
 ```
 
 ## Session Awareness

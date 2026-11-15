@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { useActivity, useWipClient, useTerminologies } from '@wip/react'
 import { useQuery } from '@tanstack/react-query'
+import type { AuditAction } from '@wip/client'
 import LoadingState from '@/components/common/LoadingState'
 import ErrorState from '@/components/common/ErrorState'
 import Pagination from '@/components/common/Pagination'
@@ -123,9 +124,12 @@ function ActivityFeed() {
 // Terminology Audit Log Tab
 // ---------------------------------------------------------------------------
 
+/** Every action the terminology audit log records, as the platform names them. */
+const AUDIT_ACTIONS: AuditAction[] = ['created', 'updated', 'deprecated', 'deleted', 'restored', 'merged']
+
 function AuditLogTab() {
   const [selectedTerminology, setSelectedTerminology] = useState('')
-  const [actionFilter, setActionFilter] = useState('')
+  const [actionFilter, setActionFilter] = useState<AuditAction | ''>('')
   const [page, setPage] = useState(1)
 
   const { data: terminologies } = useTerminologies({ status: 'active', page_size: 1000 })
@@ -167,14 +171,13 @@ function AuditLogTab() {
         </select>
         <select
           value={actionFilter}
-          onChange={e => { setActionFilter(e.target.value); setPage(1) }}
+          onChange={e => { setActionFilter(e.target.value as AuditAction | ''); setPage(1) }}
           className="border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-primary-light"
         >
           <option value="">All actions</option>
-          <option value="created">Created</option>
-          <option value="updated">Updated</option>
-          <option value="deprecated">Deprecated</option>
-          <option value="deleted">Deleted</option>
+          {AUDIT_ACTIONS.map(a => (
+            <option key={a} value={a}>{a[0]!.toUpperCase() + a.slice(1)}</option>
+          ))}
         </select>
         <RefreshButton onRefresh={() => refetch({ cancelRefetch: false })} refreshing={isFetching && !isLoading} label="Refresh audit log" variant="plain" size={14} />
         <span className="text-xs text-gray-400 ml-auto"><RefreshingValue refreshing={isFetching && !isLoading}>{data?.total ?? 0} entries</RefreshingValue></span>

@@ -139,7 +139,8 @@ const client = createWipClient({
   // Optional: retry config for GET requests (default: 2 retries with exponential backoff)
   retry: { maxRetries: 2, baseDelayMs: 500, maxDelayMs: 5_000 },
 
-  // Optional: called on 401/403 responses (e.g., redirect to login)
+  // Optional: called on 401 — the credentials were refused (e.g., redirect to login).
+  // Not on 403: that refuses an action to a valid identity, and signing in again cannot help.
   onAuthError: () => { window.location.href = '/login' },
 })
 
@@ -157,7 +158,7 @@ client.setAuth(new OidcAuthProvider(() => oidcManager.getAccessToken()))
 
 The `OidcAuthProvider` takes a callback, not a static token. It calls your function on every request, so token refresh is handled by your OIDC library. The provider has **zero OIDC dependencies** — bring your own library (oidc-client-ts, Auth0, etc.).
 
-API key auth headers are cached internally for performance (the key is static; the cache clears on a 401/403 or `setAuth()`). OIDC headers call your `getToken` callback fresh on every request, so a token your OIDC library rotates is always current — the transport never pins a stale bearer.
+API key auth headers are cached internally for performance (the key is static; the cache clears on a 401/403 or `setAuth()`). To rotate a key on a live client, call `client.setAuth(new ApiKeyAuthProvider(newKey))`. OIDC headers call your `getToken` callback fresh on every request, so a token your OIDC library rotates is always current — the transport never pins a stale bearer.
 
 ---
 
@@ -177,7 +178,7 @@ for typing and subclassing; in normal use you reach them through the
 client properties above rather than constructing them directly. The
 sections below document each service's methods through those properties.
 
-All services route through the `baseUrl`. The Caddy reverse proxy routes `/api/def-store/*`, `/api/template-store/*`, etc. to the correct service port. The client always sends requests to `baseUrl + /api/<service>/...` — Caddy is required to route them correctly. In browser apps behind the `@wip/proxy` mount, use ``baseUrl: `${import.meta.env.BASE_URL}wip` `` — a deployed app lives under `/apps/<name>/`, so a bare `'/wip'` works only for an app served at `/`. Use `baseUrl: ''` for direct Caddy access. In Node.js scripts, use `baseUrl: 'https://your-host:8443'`.
+All services route through the `baseUrl`. The Caddy reverse proxy routes `/api/def-store/*`, `/api/template-store/*`, etc. to the correct service port. The client always sends requests to `baseUrl + /api/<service>/...` — Caddy is required to route them correctly. In browser apps behind the `@wip/proxy` mount, use ``baseUrl: `${import.meta.env.BASE_URL}wip` `` — a deployed app is served at the root of its own origin (`https://<label>.<host>/`), so with Vite's default base that is `/wip`. Use `baseUrl: ''` for direct Caddy access. In Node.js scripts, use `baseUrl: 'https://your-host:8443'`.
 
 ---
 
@@ -298,7 +299,7 @@ const imported = await client.defStore.importTerminology({
 
 // Export
 const exported = await client.defStore.exportTerminology('COUNTRY', {
-  format: 'json',              // or 'csv'
+  format: 'json',              // or 'csv', which resolves to the CSV text
   includeRelations: true,
   includeInactive: false,
   includeMetadata: true,
@@ -341,11 +342,13 @@ await client.defStore.createTermRelations([
 ], 'wip')
 
 // Traversal
+// namespace is required on all four traversal calls (the service answers 422 without it).
 const ancestors = await client.defStore.getAncestors('ALZHEIMERS_DISEASE', {
   relation_type: 'is_a',
+  namespace: 'wip',
   max_depth: 10,
 })
-const descendants = await client.defStore.getDescendants('NEUROLOGY', { max_depth: 3 })
+const descendants = await client.defStore.getDescendants('NEUROLOGY', { namespace: 'wip', max_depth: 3 })
 
 // Direct neighbors (depth 1 by definition — no max_depth).
 // relation_type defaults to is_a on the server; pass another type to
@@ -497,8 +500,10 @@ const bulk = await client.documents.createDocuments([
 // Document versions
 const versions = await client.documents.getVersions('my-document-id')
 
-// Look up by identity hash
-const byIdentity = await client.documents.getDocumentByIdentity('abc123hash')
+// Look up by identity hash. A hash is unique only within a template and
+// namespace: pass both (templateId takes a value or id), or a hash several
+// documents share answers 409 (WipConflictError) with the candidates.
+const byIdentity = await client.documents.getDocumentByIdentity('abc123hash', false, 'my-ns', 'PATIENT')
 
 // Delete (soft-delete); re-posting the document's full data brings it back
 await client.documents.deleteDocument('my-document-id', 'user@example.com')
@@ -541,7 +546,7 @@ const results = await client.documents.queryDocuments(
 )
 ```
 
-`getDocument(id, version?, namespace?)` and `getDocumentByIdentity(hash, includeInactive?, namespace?)` take the same optional trailing argument. A **single-namespace key** derives the namespace automatically, so you can omit it.
+`getDocument(id, version?, namespace?)` and `getDocumentByIdentity(hash, includeInactive?, namespace?, templateId?)` take the same optional namespace argument. A **single-namespace key** derives the namespace automatically, so you can omit it.
 
 ### Table View & CSV Export
 
@@ -588,7 +593,11 @@ if (preview.failed === 0) {
   })
 }
 // Per-document outcome in results[i]: status 'updated' | 'error'
-// (error_code 'validation_failed' | 'identity_fields_changed')
+// (error_code 'validation_failed', or 'identity_hash_stale': the stored identity
+// hash is not the one the document's identity produces under to_version; re-hash
+// the namespace (rehashIdentities, below) or create new documents).
+// Versions that declare different identity_fields reject the whole call
+// (HTTP 409, 'identity_fields_changed'), not per document.
 ```
 
 ### Maintenance: Rehashing Identities
@@ -634,13 +643,16 @@ In React, use `useRehashIdentities()` from `@wip/react`.
 Files are stored in an S3-compatible object store (Garage) and tracked in MongoDB. The File-Store is part of the Document-Store service (same port 8004).
 
 ```typescript
-// Upload a file (accepts File or Blob)
+// Upload a file (accepts File or Blob) into a namespace, which is required
 const file = await client.files.uploadFile(myFile, 'report.pdf', {
   description: 'Monthly report',
   tags: ['report', 'monthly'],
   category: 'reports',
   allowed_templates: ['REPORT'],      // restrict which templates can reference this file
-})
+}, 'my-app')
+// Without metadata: uploadFile(myFile, 'report.pdf', undefined, 'my-app')
+// Every other file method takes a trailing namespace for resolving a file
+// synonym; a key that can read several namespaces must pass it.
 // file: FileEntity { file_id, filename, content_type, size_bytes, checksum, ... }
 
 // List files
@@ -671,6 +683,12 @@ await client.files.hardDeleteFile('FILE-001')        // permanent: removes from 
 // Bulk delete
 await client.files.deleteFiles(['FILE-001', 'FILE-002'])
 
+// Bring soft-deleted files back under the same id (no re-upload). Status is
+// 'reactivated', or 'unchanged' for a file that was not deleted; invalid_state
+// (details.rule 'storage_missing') when the bytes are gone — upload them again.
+const back = await client.files.reactivateFile('FILE-001')
+await client.files.reactivateFiles(['FILE-001', 'FILE-002'])
+
 // Find which documents reference a file
 const refs = await client.files.getFileDocuments('FILE-001')
 
@@ -678,8 +696,10 @@ const refs = await client.files.getFileDocuments('FILE-001')
 const orphans = await client.files.listOrphans({ older_than_hours: 24 })
 const dupes = await client.files.findByChecksum('sha256hash')
 const integrity = await client.files.checkIntegrity()
-// integrity.status: 'healthy' | 'warning' | 'error'
-// integrity.issues: [{ type: 'orphan_file' | 'missing_storage' | 'broken_reference', ... }]
+// integrity.status: 'healthy' | 'warning' | 'error' | 'incomplete'
+//   (incomplete: some stored objects could not be checked, nothing worse found)
+// integrity.issues: [{ type: 'orphan_file' | 'missing_storage' | 'broken_reference'
+//                           | 'unreclaimed_file', ... }]
 ```
 
 ---
@@ -705,7 +725,13 @@ await client.registry.updateNamespace('my-app', {
 })
 await client.registry.archiveNamespace('my-app')
 await client.registry.restoreNamespace('my-app')
-await client.registry.deleteNamespace('my-app', 'admin@wip.local')
+const deletion = await client.registry.deleteNamespace('my-app', 'admin@wip.local')
+// deletion.status: 'completed' | 'completed_with_warnings' | 'in_progress'.
+// in_progress means a step was deferred: it is NOT done yet.
+if (deletion.status === 'in_progress') {
+  await client.registry.resumeDeletion('my-app')        // or let the Registry's recovery loop finish it
+}
+const journal = await client.registry.getDeletionStatus('my-app')  // per-step detail (platform admins)
 
 // Initialize the default WIP namespaces (one-time setup)
 await client.registry.initializeWipNamespace()
@@ -765,7 +791,7 @@ Reporting-Sync maintains a PostgreSQL mirror of MongoDB data via NATS events. Us
 
 ```typescript
 // Health check
-const healthy = await client.reporting.healthCheck()  // returns boolean
+const healthy = await client.reporting.healthCheck()  // true only when status is 'healthy'; degraded is false
 
 // Cross-service search (queries PostgreSQL)
 const results = await client.reporting.search({
@@ -788,16 +814,22 @@ const integrity = await client.reporting.getIntegrityCheck({
 // integrity.issues: [{ type, severity, entity_id, field_path, message }]
 
 // Recent activity
+// namespace is required for a key that can read several namespaces (400 otherwise);
+// the same holds for getTermDocuments and getReferencedBy (a trailing namespace).
 const activity = await client.reporting.getRecentActivity({
   types: 'document,template',
   limit: 20,
+  namespace: 'my-app',
 })
 // activity.activities: [{ type, action, entity_id, timestamp, user, version }]
+// activity.incomplete_sources: entity types whose service could not be read —
+// their activity is missing, not absent. Check it before reading "nothing changed".
 
 // Reference tracking
 const refs = await client.reporting.getEntityReferences('document', 'my-document-id')
 const usedBy = await client.reporting.getReferencedBy('terminology', 'COUNTRY', 50)
-const termDocs = await client.reporting.getTermDocuments('COUNTRY:United States', 100)
+// A term is its id or 'ns:TERMINOLOGY:value' — the 2-part 'COUNTRY:United States' is refused
+const termDocs = await client.reporting.getTermDocuments('my-app:COUNTRY:United States', 100)
 ```
 
 ---
@@ -894,7 +926,6 @@ const formFields = templateToFormSchema(template)
 // - fileConfig (for file fields: allowedTypes, maxSizeMb, multiple)
 // - validation (pattern, minLength, maxLength, minimum, maximum, enum)
 // - semanticType ('email', 'url', 'latitude', etc.)
-// - children (for object/group fields)
 // - arrayItemType, arrayTerminologyCode (for array/list fields)
 ```
 

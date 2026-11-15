@@ -192,7 +192,6 @@ function TermRow({
 }) {
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
-  const [editValue, setEditValue] = useState(term.value)
   const [editLabel, setEditLabel] = useState(term.label ?? '')
   const [editDesc, setEditDesc] = useState(term.description ?? '')
   const [editAliases, setEditAliases] = useState(term.aliases?.join(', ') ?? '')
@@ -222,7 +221,6 @@ function TermRow({
   }
 
   const startEdit = () => {
-    setEditValue(term.value)
     setEditLabel(term.label ?? '')
     setEditDesc(term.description ?? '')
     setEditAliases(term.aliases?.join(', ') ?? '')
@@ -237,7 +235,6 @@ function TermRow({
     update.mutate({
       termId: term.term_id,
       data: {
-        value: editValue.trim() || undefined,
         label: editLabel.trim() || undefined,
         description: editDesc.trim() || undefined,
         aliases: editAliases.trim() ? editAliases.split(',').map(a => a.trim()).filter(Boolean) : [],
@@ -256,11 +253,12 @@ function TermRow({
             <label className="block text-xs text-gray-500 mb-0.5">Value</label>
             <input
               type="text"
-              value={editValue}
-              onChange={e => setEditValue(e.target.value)}
-              className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm font-mono focus:outline-none focus:border-primary-light"
-              autoFocus
+              value={term.value}
+              readOnly
+              title="A term's value is its identity and can't be changed. To rename it, create the new term and deprecate this one with it as the replacement, or merge this one into it."
+              className="w-full border border-gray-200 rounded-md px-2 py-1 text-sm font-mono bg-gray-100 text-gray-500"
             />
+            <p className="text-[10px] text-gray-400 mt-0.5">Fixed. To rename, create the new term and deprecate or merge this one into it.</p>
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-0.5">Label</label>
@@ -682,7 +680,6 @@ export default function TerminologyDetailPage() {
   const [editDesc, setEditDesc] = useState('')
   const [editCaseSensitive, setEditCaseSensitive] = useState(false)
   const [editAllowMultiple, setEditAllowMultiple] = useState(false)
-  const [editExtensible, setEditExtensible] = useState(true)
   const [editMutable, setEditMutable] = useState(true)
   const [editShowMeta, setEditShowMeta] = useState(false)
   const [editMetaSource, setEditMetaSource] = useState('')
@@ -712,7 +709,6 @@ export default function TerminologyDetailPage() {
     setEditDesc(terminology.description ?? '')
     setEditCaseSensitive(terminology.case_sensitive)
     setEditAllowMultiple(terminology.allow_multiple ?? false)
-    setEditExtensible(terminology.extensible)
     setEditMutable(terminology.mutable)
     const meta = terminology.metadata
     setEditMetaSource(meta?.source ?? '')
@@ -739,7 +735,6 @@ export default function TerminologyDetailPage() {
         description: editDesc.trim() || undefined,
         case_sensitive: editCaseSensitive,
         allow_multiple: editAllowMultiple,
-        extensible: editExtensible,
         mutable: editMutable,
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
         updated_by: 'rc-console',
@@ -860,15 +855,6 @@ export default function TerminologyDetailPage() {
                   className="rounded border-gray-300"
                 />
                 Allow multiple
-              </label>
-              <label className="flex items-center gap-1.5 text-sm text-gray-600">
-                <input
-                  type="checkbox"
-                  checked={editExtensible}
-                  onChange={e => setEditExtensible(e.target.checked)}
-                  className="rounded border-gray-300"
-                />
-                Extensible
               </label>
               <label className="flex items-center gap-1.5 text-sm text-gray-600">
                 <input
@@ -1014,7 +1000,6 @@ export default function TerminologyDetailPage() {
         )}
         <span>{terminology.case_sensitive ? 'Case sensitive' : 'Case insensitive'}</span>
         <span>{terminology.allow_multiple ? 'Allow multiple' : 'Single value'}</span>
-        <span>{terminology.extensible ? 'Extensible' : 'Fixed'}</span>
         <span>{terminology.mutable ? 'Mutable' : 'Immutable'}</span>
         {terminology.created_at && (
           <span>Created: {new Date(terminology.created_at).toLocaleDateString()}</span>

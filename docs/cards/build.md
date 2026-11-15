@@ -1,14 +1,14 @@
 <!-- card-sources: what this card condenses; checked by components/mcp-server/tests/test_card_drift.py
 docs/technology-stack.md sha256:5590feb0be212b0e reviewed:bb2cdf88
 docs/ui-guidance.md sha256:8667dff0c17994c4 reviewed:a66e110f
-docs/WIP_DevGuardrails.md sha256:0357beaebcec2918 reviewed:bb2cdf88
-libs/wip-client/README.md sha256:d05822e09876c562 reviewed:f13546dc
-libs/wip-react/README.md sha256:eba9b7ae31c577b0 reviewed:bb2cdf88
-libs/wip-proxy/README.md sha256:585feea2b45e5889 reviewed:a8c4e42f
-docs/wip-deployable-app-contract.md sha256:7c74283ddc4de260 reviewed:bb2cdf88
+docs/WIP_DevGuardrails.md sha256:85f58743fe980331 reviewed:8da02dd9
+libs/wip-client/README.md sha256:b213dc7cac7e6493 reviewed:29788a40
+libs/wip-react/README.md sha256:8dcb6b2ba33f1046 reviewed:29788a40
+libs/wip-proxy/README.md sha256:e63cb4241bccc1e7 reviewed:4bb50871
+docs/wip-deployable-app-contract.md sha256:bf1a6ac8c52d79c8 reviewed:9f761e23
 docs/playbooks/app-builder/build-app.md sha256:4d59d990ca82e372 reviewed:43aca6a0
-docs/playbooks/app-builder/bootstrap.md sha256:4bc80d0099e12f0b reviewed:ea985986
-scaffold/templates/claude-md/app.md sha256:d1d9161ab26b0295 reviewed:e106cfec
+docs/playbooks/app-builder/bootstrap.md sha256:6b9cda0da7c6c00d reviewed:06668a40
+scaffold/templates/claude-md/app.md sha256:a97241890b7b5d5e reviewed:95322445
 -->
 # WIP build card — Phase 4: writing the app
 
@@ -42,7 +42,7 @@ scaffold/templates/claude-md/app.md sha256:d1d9161ab26b0295 reviewed:e106cfec
 - Browser, behind your `@wip/proxy` mount: `` `${import.meta.env.BASE_URL}wip` `` (apps are served at `/`, so that is `/wip`).
 - Node (server, scripts): absolute URL only (`WIP_BASE_URL`, e.g. `https://localhost:8443`); relative or empty throws.
 - Every other client fetch (`/api/...`, `/server-api/...`) is prefixed with `import.meta.env.BASE_URL`.
-- Per-deployment values (e.g. namespace) come from `GET <base>/api/app-config` at boot, never `VITE_*`; no API key in any `VITE_*` var.
+- Per-deployment values (e.g. namespace) come from `GET /api/app-config` at boot, never `VITE_*`; no API key in any `VITE_*` var.
 
 ## App origins (`https://<label>.<host>/`)
 - Served at the origin's root, no base path. A browser call to WIP's origin has no session there: it fails.
@@ -60,12 +60,12 @@ router.use('/wip', wipProxy({
 }))
 router.use(express.json())   // body parsers AFTER the proxy
 ```
-- The proxy streams the raw body: a parser such as `express.json()` before it drains the body and an empty one is forwarded. Mount the proxy above every parser, app-level ones included.
+- The proxy streams the raw body: a parser such as `express.json()` before it drains it and the call stalls. Mount the proxy above every parser, app-level ones included.
 - Deployed, the app's own key comes as `WIP_API_KEY`; run locally, `.env`'s `WIP_API_KEY_FILE` wins. Point it at `app-<name>-api-key` once the app is installed.
 - `onMissingKey: 'unavailable'`: no key → `/wip` answers 503 instead of the app dying on start.
+- Key set or rotated while running: `getApiKey: keyFromFile(path)` (or `() => key`) replaces `apiKey`/`apiKeyFile`.
 - Your key spans several namespaces: set `defaultNamespace` or pass `namespace`, or value-form template queries return 422.
 - File downloads: `GET <mount>/files/:fileId/content` through the proxy; storage URLs never reach the browser.
-- All routes are mounted at `/`.
 
 ## TLS in dev
 - WIP serves a self-signed cert, which Node `fetch` rejects. Put `NODE_TLS_REJECT_UNAUTHORIZED=0` in the `dev:server` script **only**, never in `start`/production.
@@ -98,7 +98,7 @@ router.use(express.json())   // body parsers AFTER the proxy
 - G3 Skeleton: `<base>/api/health` must not depend on WIP being reachable (the app contract overrides Guide 3 here).
 - G4 Client lib: single-item methods/hooks throw on item failure; bulk methods return `BulkResponse` (see PoNIF #4 below). Typed errors: `WipValidationError` (400/422), `WipNotFoundError`, `WipConflictError`, `WipAuthError` (401/403), `WipServerError`, `WipNetworkError`, `WipBulkItemError` (`errorCode`, `index`, `details`).
 - G5 Data entry: generate forms with `useFormSchema(templateValue, { namespace })` (term → select via `useTerms`, reference → `resolveReference(client, …)`, file → `useUploadFile`). Files are two-step: upload → link the returned file ID immediately (unlinked files become orphans). Bulk import: preview + column mapping → validate → bulk create → report created/updated/failed per row.
-- G6 Errors: 400/422 → inline field errors, keep form. 401/403 → "session expired", keep form. 404 → message + back link. 5xx/network → persistent banner + retry button. Success toast ~3s. Only GETs auto-retry (502/503/504); writes are retried only by the user.
+- G6 Errors: 400/422 → inline field errors, keep form. 401 → "session expired", keep form. 403 → "not permitted", no re-login. 404 → message + back link. 5xx/network → persistent banner + retry button. Success toast ~3s. Only GETs auto-retry (502/503/504); writes are retried only by the user.
 - G7 Testing: data-layer tests vs live WIP in a test namespace (create, re-create → v2, bad term, bad reference, query, file round-trip). Vitest + Testing Library for components; Playwright for ≥1 create→view→update E2E. Done = all pass + health 200 + README.
 
 ## PoNIF #3 — identity (client consequences)

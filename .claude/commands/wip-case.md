@@ -5,10 +5,12 @@ description: Cross-agent case management — file/list/read/respond/comment/clos
 Cross-agent case workflow (tier 3). Subcommands: `file`, `list`, `read`, `respond`, `comment`, `close`, `implement`.
 
 This stub is deliberately thin: it carries only the tier
-check, the cache-ensure, and the cheap read paths. Every verb procedure,
-gateway endpoint, and format rule lives in the SERVED playbook
-(`~/.cache/wip-kb-client/case-workflow.md`), which version-matches the
-backend by construction — do not reproduce its content here.
+check, the cache-ensure, the cheap read paths, and the claim step. Every
+verb procedure, gateway endpoint, and format rule lives in the SERVED
+playbook (`~/.cache/wip-kb-client/case-workflow.md`), which version-matches
+the backend by construction — do not reproduce its content here. The claim
+step (write verbs, step 0) is the one deliberate exception: it is the gate at
+the moment of acting, so it is stated here as well as in the playbook.
 
 **Pre-flight (do this first, every time):**
 
@@ -16,7 +18,7 @@ backend by construction — do not reproduce its content here.
 2. **Cache-ensure** — `test -f ~/.cache/wip-kb-client/kb-client.sh && command -v kbc >/dev/null`. Both halves matter: every verb below invokes the on-PATH `kbc` shim, which is a separate file from the cached runner and is not self-healed by a flow that never reaches the runner. If either is missing, install the served client using the two facts in `.claude/kb.json`:
    ```bash
    curl -fsSk -H "X-API-Key: $(cat "$(python3 -c 'import json;print(json.load(open(".claude/kb.json"))["kb_api_key_file"])')")" \
-     "$(python3 -c 'import json;print(json.load(open(".claude/kb.json"))["kb_app_url"])')/apps/kb/server-api/kb-client/install" | sh
+     "$(python3 -c 'import json;print(json.load(open(".claude/kb.json"))["kb_app_url"])')/server-api/kb-client/install" | sh
    ```
    If `kbc` still does not resolve after the install (`~/.local/bin` absent from PATH), invoke the runner directly — `bash ~/.cache/wip-kb-client/kb-client.sh <script> …` is the equivalent form; do not loop the install.
 
@@ -61,5 +63,6 @@ If `$ARGUMENTS` starts with `list`:
 
 **All write verbs** (`file` / `respond` / `comment` / `close` / `implement`):
 
+0. **Claim the case first — `respond` and `implement` only, before any analysis or code.** `kbc kb-write.py CLAIM acquire <n> <respond|implement>`. Read the outcome before you go on: exit 0 is your claim; exit 1 is a refusal (`ERROR: rejected — <reason>`), and when the reason names a holder the case is theirs, so stop and tell Peter and never work around it, while any other reason (a key or kind the KB refused) is reported as that reason, not as someone holding the case; exit 2 is a transport failure: report it verbatim and stop, because whether the claim was taken is unknown — `kbc case-fetch.py case <n>` shows the case's claims first, so read it before you retry. Park the claim (`CLAIM park <n> <kind> --note "<what you are waiting on>"`) while you wait on a decision, and release it (`CLAIM release <n> <kind>`) when the response is posted or you stop. Posting a response does not release it.
 1. **Attribution is filled by the client — do not type it.** `kb-write.py` fills `filed_by` / `authored_by` on a `CASE_RECORD` and `author` on a `CASE_RESPONSE` from `.claude/.session-id`; leave those keys out of the frontmatter. A value you do type must be a session ID, or the write is refused. If `.claude/.session-id` is missing, run `/wip-setup` (fresh) or `/wip-wake` (continuation) first.
-2. You MUST Read `~/.cache/wip-kb-client/case-workflow.md` — the served playbook — and execute the verb's write flow from there. The playbook is version-matched to the instance and is the single source of truth for the write surface (it currently writes via `kb-write.py <TYPE>` → `POST kb/write/:type`). Do not guess endpoints, payloads, or status transitions from memory, and do not fall back to retired mechanisms — `add-to-kb.py`, `case_allocate.py`, FS claim helpers, **or the older `/cases/<n>/respond|comment|close` gateway verbs** (all superseded by the served write flow).
+2. You MUST Read `~/.cache/wip-kb-client/case-workflow.md` — the served playbook — and execute the verb's write flow from there. The playbook is version-matched to the instance and is the single source of truth for the write surface, with one exception: how to read an acquire's outcome is step 0's, where the playbook says a refusal always names a holder (it currently writes via `kb-write.py <TYPE>` → `POST kb/write/:type`). Do not guess endpoints, payloads, or status transitions from memory, and do not fall back to retired mechanisms — `add-to-kb.py`, `case_allocate.py`, the old filesystem case-claim helpers (KB claims, step 0, are current), **or the older `/cases/<n>/respond|comment|close` gateway verbs** (all superseded by the served write flow).
