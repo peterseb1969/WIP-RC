@@ -163,3 +163,25 @@ it, the stale-caveat rule, two wording updates) and keeps RC's own.
 
 Tests: tsc clean; unit 417/417 (2 new); full E2E on wip.localhost 87 passed, 3 failed, 3 not run, the failures being the system backup's version 2 and a registry synonym check, both outside this change; terminology create passes again
 Discovered: the system backup format moved to version 2, which RC's System tab refuses, and the registry spec's synonym count no longer matches
+
+## dd151e4 — fix: the System tab reads system backups of version 2; the registry spec counts synonyms from the entry's own start
+**Time:** 2026-11-15 01:46
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 6 changed, +79/-7
+**Tests:** not recorded
+**Why:** The platform now writes system backups at version 2: every read a key
+has is a grant in the archive. In version 1, a runtime key's namespaces
+list gave read by itself, and restoring such a backup writes that read
+as grants (the report's scope_read_grants). RC's System tab accepted
+version 1 only, so a fresh backup from the same install was refused on
+upload. It now reads versions 1 and 2, shows the version in the archive
+summary, and says how many read grants restoring a version 1 backup
+writes.
+
+The registry E2E expected a new document's entry to have one synonym.
+It now has two: its identity values and its own {ns, type, template,
+identity_hash} value synonym. RC showed both correctly. The spec now
+counts relative to what the entry starts with.
+
+Tests: tsc clean; unit 418/418 (1 new); full E2E on wip.localhost 92 passed, 1 failed (the integrity check came back partial while document-store restarted mid-run) and 1/1 on a re-run of that spec
+Discovered: The Integrity page shows "No integrity issues found" in green under a red "Partial" banner when a service didn't answer and no documents were checked
