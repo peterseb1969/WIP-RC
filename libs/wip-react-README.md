@@ -289,7 +289,7 @@ const { data: template } = useTemplateByValue('PATIENT_RECORD', { namespace: 'cl
 |------|---------|-----------|---------|
 | `useDocuments(params?)` | `DocumentListResponse` | 30s | always |
 | `useDocument(id, { version?, namespace? })` | `Document` | 30s | when `id` is truthy |
-| `useQueryDocuments(query, { namespace? })` | `DocumentListResponse` | 30s | when `query.template_id` or `query.filters.length > 0` |
+| `useQueryDocuments(query, { namespace? })` | `DocumentListResponse` | 30s | unless `query.template_id` is present and empty |
 | `useDocumentVersions(id)` | `DocumentVersionResponse` | 30s | when `id` is truthy |
 | `useTableView(templateId, params?)` | `TableViewResponse` | 30s | when `templateId` is truthy |
 | `useDocumentRelationships(id, params?)` | `DocumentListResponse` | 30s | when `id` is truthy |
@@ -388,11 +388,11 @@ mutation too, documented under [Specialized Hooks](#usebulkimport).)
 |------|-------|---------|-------------|
 | `useCreateTerminology()` | `CreateTerminologyRequest` | `BulkResultItem` | `terminologies.all` + `registry.all` (active) |
 | `useUpdateTerminology()` | `{ id, data }` | `BulkResultItem` | `terminologies.all` |
-| `useDeleteTerminology()` | `string` | `BulkResultItem` | `terminologies.all` |
+| `useDeleteTerminology()` | `string` | `BulkResultItem` | `terminologies.all` + `registry.all` (active) |
 | `useCreateTerm(terminologyId, namespace)` | `CreateTermRequest` | `BulkResultItem` | `terms.all` + `terminologies.detail` + `registry.all` (active) |
 | `useUpdateTerm()` | `{ termId, data }` | `BulkResultItem` | `terms.all` |
-| `useDeprecateTerm()` | `{ termId, data }` | `BulkResultItem` | `terms.all` |
-| `useDeleteTerm(terminologyId)` | `string` | `BulkResultItem` | `terms.all` + `terminologies.detail` |
+| `useDeprecateTerm()` | `{ termId, data }` | `BulkResultItem` | `terms.all` + `registry.all` (active) |
+| `useDeleteTerm(terminologyId)` | `string` | `BulkResultItem` | `terms.all` + `terminologies.detail` + `registry.all` (active) |
 | `useCreateTermRelations()` | `{ items, namespace }` | `BulkResponse` | `terms.all` |
 | `useDeleteTermRelations()` | `{ items, namespace }` | `BulkResponse` | `terms.all` |
 
@@ -402,9 +402,9 @@ mutation too, documented under [Specialized Hooks](#usebulkimport).)
 |------|-------|---------|-------------|
 | `useCreateTemplate()` | `CreateTemplateRequest` | `BulkResultItem` | `templates.all` + `registry.all` (active) |
 | `useUpdateTemplate()` | `{ id, data }` | `BulkResultItem` | `templates.all` |
-| `useDeleteTemplate()` | `{ id, updatedBy?, version?, force?, hardDelete? }` | `BulkResultItem` | `templates.all` |
-| `useActivateTemplate()` | `{ id, namespace, dry_run? }` | `ActivateTemplateResponse` | `templates.all` |
-| `useReactivateTemplate()` | `{ id, version, namespace }` | `Template` | `templates.all` |
+| `useDeleteTemplate()` | `{ id, updatedBy?, version?, force?, hardDelete? }` | `BulkResultItem` | `templates.all` + `registry.all` (active) |
+| `useActivateTemplate()` | `{ id, namespace, dry_run? }` | `ActivateTemplateResponse` | `templates.all` + `registry.all` (active) |
+| `useReactivateTemplate()` | `{ id, version, namespace }` | `Template` | `templates.all` + `registry.all` (active) |
 | `useAddEdgeTypeEndpoints()` | `{ id, namespace, addSourceTemplates?, addTargetTemplates? }` | `Template` | `templates.all` |
 
 **Documents**
@@ -415,17 +415,17 @@ mutation too, documented under [Specialized Hooks](#usebulkimport).)
 | `useCreateDocuments()` | `CreateDocumentRequest[]` | `BulkResponse` | `documents.all` + file lists/details + `registry.all` (active) |
 | `useUpdateDocument()` | `{ documentId, patch, ifMatch?, metadataPatch? }` | `BulkResultItem` | `documents.all` + `documents.detail` + `documents.versions` + file lists/details |
 | `useUpdateDocuments()` | `PatchDocumentRequest[]` | `BulkResponse` | `documents.all` + file lists/details |
-| `useDeleteDocument()` | `{ id, updatedBy? }` | `BulkResultItem` | `documents.all` + file lists/details |
+| `useDeleteDocument()` | `{ id, updatedBy? }` | `BulkResultItem` | `documents.all` + file lists/details + `registry.all` (active) |
 
 **Files**
 
 | Hook | Input | Returns | Invalidates |
 |------|-------|---------|-------------|
-| `useUploadFile()` | `{ file, filename?, metadata?, namespace? }` | `FileEntity` | `files.all` + `registry.all` (active) |
+| `useUploadFile()` | `{ file, filename?, metadata?, namespace }` (`namespace` is required: the service refuses an upload without one) | `FileEntity` | `files.all` + `registry.all` (active) |
 | `useUpdateFileMetadata()` | `{ fileId, data }` | `BulkResultItem` | `files.all` |
-| `useDeleteFile()` | `string`, or `{ fileId, namespace?, force? }` (`force` deletes a file documents still reference) | `BulkResultItem` | `files.all` |
-| `useDeleteFiles()` | `string[]`, or `{ fileIds, namespace?, force? }` | `BulkResponse` | `files.all` |
-| `useHardDeleteFile()` | `string` | `void` | `files.all` |
+| `useDeleteFile()` | `string`, or `{ fileId, namespace?, force? }` (`force` deletes a file documents still reference) | `BulkResultItem` | `files.all` + `registry.all` (active) |
+| `useDeleteFiles()` | `string[]`, or `{ fileIds, namespace?, force? }` | `BulkResponse` | `files.all` + `registry.all` (active) |
+| `useHardDeleteFile()` | `string` | `void` | `files.all` + `registry.all` (active) |
 
 **Namespaces & Registry**
 
@@ -519,6 +519,7 @@ const handleUpload = (file: File) => {
   upload.mutate({
     file,
     filename: file.name,
+    namespace: 'clinic',
     metadata: {
       description: 'Patient scan',
       tags: ['radiology'],
@@ -529,6 +530,7 @@ const handleUpload = (file: File) => {
 
 // upload.isPending — show spinner
 // upload.data — FileEntity on success
+// namespace is required — the service refuses an upload that names none
 ```
 
 ### Delete
@@ -635,6 +637,8 @@ function ImportTerms({ terminologyId }: { terminologyId: string }) {
       {data && (
         <div>
           Done: {data.succeeded}/{data.total} imported
+          {data.failed > 0 && ` — ${data.failed} failed`}
+          {data.rejected.length > 0 && ` (${data.rejected.length} batch requests failed)`}
         </div>
       )}
     </div>
@@ -645,11 +649,11 @@ function ImportTerms({ terminologyId }: { terminologyId: string }) {
 **Options:**
 - `writeFn: (batch: T[]) => Promise<BulkResponse>` — the API call for each batch
 - `batchSize?: number` — items per batch (default: 100)
-- `continueOnError?: boolean` — keep processing batches after items fail (default: true). A batch whose request fails (a transport error) always stops the run
+- `continueOnError?: boolean` — keep processing batches after items fail (default: true). A batch whose request fails counts all its items as failed and is listed in `rejected`; it stops the run only when `continueOnError` is false. Either way the mutation settles as a success: read `data.failed` and `data.rejected`, not `isError`, to see what did not land
 - `invalidateKeys?: readonly unknown[]` — query keys to invalidate when the run settles, failure included: batches written before a failure stay written (default: `wipKeys.all`)
 
 **Returns** (extends `UseMutationResult`):
-- `progress: BulkImportProgress | null` — live progress: `{ processed, total, succeeded, failed }`
+- `progress: BulkImportProgress | null` — live progress: `{ processed, total, succeeded, failed, rejected }`, where `rejected` lists each batch whose request failed (`{ offset, size, error }`)
 - `reset()` — clear progress and mutation state
 
 Progress is cleared automatically 2 seconds after completion.

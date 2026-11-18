@@ -1,14 +1,15 @@
 <!-- card-sources: what this card condenses; checked by components/mcp-server/tests/test_card_drift.py
-docs/technology-stack.md sha256:5590feb0be212b0e reviewed:bb2cdf88
+docs/technology-stack.md sha256:5590feb0be212b0e reviewed:ab86795d
 docs/ui-guidance.md sha256:8667dff0c17994c4 reviewed:a66e110f
 docs/WIP_DevGuardrails.md sha256:85f58743fe980331 reviewed:8da02dd9
-libs/wip-client/README.md sha256:b213dc7cac7e6493 reviewed:29788a40
-libs/wip-react/README.md sha256:8dcb6b2ba33f1046 reviewed:29788a40
+docs/WIP_PoNIFs.md sha256:5834cbc38977bdad reviewed:cdbecddf
+libs/wip-client/README.md sha256:26ed95d9edcd30a7 reviewed:c54871ff
+libs/wip-react/README.md sha256:0abbe98414b31b7a reviewed:f8c4ab62
 libs/wip-proxy/README.md sha256:e63cb4241bccc1e7 reviewed:4bb50871
-docs/wip-deployable-app-contract.md sha256:bf1a6ac8c52d79c8 reviewed:9f761e23
+docs/wip-deployable-app-contract.md sha256:a00820fcfbaa290f reviewed:dda7e850
 docs/playbooks/app-builder/build-app.md sha256:4d59d990ca82e372 reviewed:43aca6a0
 docs/playbooks/app-builder/bootstrap.md sha256:6b9cda0da7c6c00d reviewed:06668a40
-scaffold/templates/claude-md/app.md sha256:a97241890b7b5d5e reviewed:95322445
+scaffold/templates/claude-md/app.md sha256:5b1689c74d00df71 reviewed:fc5a10e0
 -->
 # WIP build card — Phase 4: writing the app
 
@@ -16,7 +17,7 @@ scaffold/templates/claude-md/app.md sha256:a97241890b7b5d5e reviewed:95322445
 - TypeScript ^5.8 · Vite ^6 · React ^19.1 · react-router-dom ^7 · `@tanstack/react-query` ^5 · Tailwind CSS ^3.4 (not 4) · lucide-react ^0.46+.
 - `@wip/client` (typed REST), `@wip/react` (TanStack hooks), `@wip/proxy` (Express, injects the API key server-side).
 - Install the vendored `./libs/wip-*.tgz` plus `@tanstack/react-query` (a peer dep you add).
-- `package.json` refs stay relative: `file:libs/wip-<lib>-<version>.tgz`. Never an absolute home-dir path; never hand-edit or re-pack a vendored tarball.
+- `package.json` refs stay relative (`file:libs/wip-<lib>-<version>.tgz`), never a home-dir path; never hand-edit or re-pack a tarball.
 - Router basename is always `import.meta.env.BASE_URL`, never hardcoded.
 
 ## Forbidden
@@ -40,7 +41,7 @@ scaffold/templates/claude-md/app.md sha256:a97241890b7b5d5e reviewed:95322445
 
 ## `baseUrl` rules
 - Browser, behind your `@wip/proxy` mount: `` `${import.meta.env.BASE_URL}wip` `` (apps are served at `/`, so that is `/wip`).
-- Node (server, scripts): absolute URL only (`WIP_BASE_URL`, e.g. `https://localhost:8443`); relative or empty throws.
+- Node (server, scripts): absolute URL only (`WIP_BASE_URL`); relative or empty throws.
 - Every other client fetch (`/api/...`, `/server-api/...`) is prefixed with `import.meta.env.BASE_URL`.
 - Per-deployment values (e.g. namespace) come from `GET /api/app-config` at boot, never `VITE_*`; no API key in any `VITE_*` var.
 
@@ -60,18 +61,18 @@ router.use('/wip', wipProxy({
 }))
 router.use(express.json())   // body parsers AFTER the proxy
 ```
-- The proxy streams the raw body: a parser such as `express.json()` before it drains it and the call stalls. Mount the proxy above every parser, app-level ones included.
+- The proxy streams the raw body: a parser before it (`express.json()`) drains it and the call stalls. Mount it above every parser, app-level included.
 - Deployed, the app's own key comes as `WIP_API_KEY`; run locally, `.env`'s `WIP_API_KEY_FILE` wins. Point it at `app-<name>-api-key` once the app is installed.
 - `onMissingKey: 'unavailable'`: no key → `/wip` answers 503 instead of the app dying on start.
 - Key set or rotated while running: `getApiKey: keyFromFile(path)` (or `() => key`) replaces `apiKey`/`apiKeyFile`.
-- Your key spans several namespaces: set `defaultNamespace` or pass `namespace`, or value-form template queries return 422.
+- `defaultNamespace` covers one endpoint only (`POST /documents/query`); pass `{ namespace }` on every other value-form read, or the search spans namespaces.
 - File downloads: `GET <mount>/files/:fileId/content` through the proxy; storage URLs never reach the browser.
 
 ## TLS in dev
 - WIP serves a self-signed cert, which Node `fetch` rejects. Put `NODE_TLS_REJECT_UNAUTHORIZED=0` in the `dev:server` script **only**, never in `start`/production.
 
 ## UI rules
-- Tokens (`theme.extend.colors`): `primary` (#2B579A, `-light`, `-dark`), `accent`, `success`, `danger`, `surface`, `background`, `text`, `text-muted`. Use classes (`bg-primary`, `text-text-muted`), never hex; add them to `tailwind.config.js` if absent (the query preset ships them). Font: Inter.
+- Tokens (`theme.extend.colors`): `primary` (#2B579A, `-light`, `-dark`), `accent`, `success`, `danger`, `surface`, `background`, `text`, `text-muted`. Use classes (`bg-primary`), never hex; add missing ones to `tailwind.config.js` (the query preset ships them). Font: Inter.
 - Page: `<main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">`, `bg-background` page, `bg-surface` cards.
 - Titles: h1 `text-2xl font-semibold tracking-tight`, h2 `text-xl`, h3/card `text-lg font-semibold`.
 - Radius: `rounded-lg` cards/modals, `rounded-md` buttons/chips, `rounded-full` pills.
@@ -97,8 +98,8 @@ router.use(express.json())   // body parsers AFTER the proxy
 - G1 Gateway: reach WIP only through Caddy routes (via your proxy), never service ports.
 - G3 Skeleton: `<base>/api/health` must not depend on WIP being reachable (the app contract overrides Guide 3 here).
 - G4 Client lib: single-item methods/hooks throw on item failure; bulk methods return `BulkResponse` (see PoNIF #4 below). Typed errors: `WipValidationError` (400/422), `WipNotFoundError`, `WipConflictError`, `WipAuthError` (401/403), `WipServerError`, `WipNetworkError`, `WipBulkItemError` (`errorCode`, `index`, `details`).
-- G5 Data entry: generate forms with `useFormSchema(templateValue, { namespace })` (term → select via `useTerms`, reference → `resolveReference(client, …)`, file → `useUploadFile`). Files are two-step: upload → link the returned file ID immediately (unlinked files become orphans). Bulk import: preview + column mapping → validate → bulk create → report created/updated/failed per row.
-- G6 Errors: 400/422 → inline field errors, keep form. 401 → "session expired", keep form. 403 → "not permitted", no re-login. 404 → message + back link. 5xx/network → persistent banner + retry button. Success toast ~3s. Only GETs auto-retry (502/503/504); writes are retried only by the user.
+- G5 Data entry: forms via `useFormSchema(templateValue, { namespace })`; edit forms pass `version: doc.template_version` (term → `useTerms`, reference → `resolveReference(client, …)`, file → `useUploadFile`). Files: upload, then link its file ID now (an unlinked file is an orphan). Bulk import: preview, map columns → validate → create → report created/updated/failed per row.
+- G6 Errors: 400/422 → inline field errors, keep form. 401 → "session expired", keep form. 403 → "not permitted", no re-login. 404 → message + back link. 5xx/network → persistent banner + retry button. Success toast ~3s. Only GETs auto-retry (502/503/504), never a write.
 - G7 Testing: data-layer tests vs live WIP in a test namespace (create, re-create → v2, bad term, bad reference, query, file round-trip). Vitest + Testing Library for components; Playwright for ≥1 create→view→update E2E. Done = all pass + health 200 + README.
 
 ## PoNIF #3 — identity (client consequences)
@@ -112,7 +113,7 @@ router.use(express.json())   // body parsers AFTER the proxy
 - HTTP 200 ≠ success. Single-item calls/hooks throw `WipBulkItemError` (surfaced as `mutation.error`).
 - Bulk calls/hooks (`createDocuments`, `useCreateDocuments`, `useUpdateDocuments`…) resolve normally even when items fail. Always loop `results[i].status === 'error'` and read `error`/`error_code`.
 - Report both `succeeded` and `failed`; never infer success from the status code or the error count alone.
-- Statuses: `created`, `updated`, `unchanged`, `skipped`, `deleted`, `error`.
+- Statuses: `created`, `updated`, `unchanged`, `skipped`, `deleted`, `error`; some endpoints add their own (`reactivated`, `deprecated`).
 
 ## When the card is not enough
-- `docs/WIP_DevGuardrails.md`, `docs/technology-stack.md`, `docs/ui-guidance.md` (class strings), `docs/WIP_PoNIFs.md`, `libs/wip-{client,react,proxy}-README.md`.
+- `docs/WIP_DevGuardrails.md`, `docs/technology-stack.md`, `docs/ui-guidance.md`, `docs/WIP_PoNIFs.md`, `libs/wip-{client,react,proxy}-README.md`.

@@ -14,7 +14,8 @@ import {
 import Papa from 'papaparse'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTemplates, useWipClient } from '@wip/react'
-import type { FieldDefinition, ImportDocumentsResponse } from '@wip/client'
+import type { BackupJobSnapshot, FieldDefinition, ImportJobResult } from '@wip/client'
+import { awaitImportJob, importReport } from '@/lib/import-job'
 import { useNamespaceFilter } from '@/hooks/use-namespace-filter'
 import { useRouteTemplate } from '@/hooks/use-route-template'
 import LoadingState from '@/components/common/LoadingState'
@@ -334,12 +335,22 @@ function MappingStep({
 // Step 4: Importing
 // ---------------------------------------------------------------------------
 
-function ImportingStep() {
+function ImportingStep({ job }: { job: BackupJobSnapshot | null }) {
+  const sofar = job ? importReport(job) : null
   return (
-    <div className="flex flex-col items-center justify-center py-16">
+    <div className="flex flex-col items-center justify-center py-16" data-testid="import-progress">
       <Loader2 size={32} className="text-primary animate-spin mb-4" />
-      <p className="text-sm text-gray-600">Importing documents...</p>
-      <p className="text-xs text-gray-400 mt-1">This may take a moment for large files.</p>
+      <p className="text-sm text-gray-600">{job ? 'Importing documents…' : 'Uploading the file…'}</p>
+      {job?.message && <p className="text-xs text-gray-500 mt-1">{job.message}</p>}
+      {sofar && (
+        <p className="text-xs text-gray-500 mt-1">
+          {sofar.succeeded} written, {sofar.failed} failed, {sofar.skipped} skipped so far
+          {job?.percent != null ? ` (${Math.round(job.percent)}%)` : ''}
+        </p>
+      )}
+      <p className="text-xs text-gray-400 mt-1">
+        The rows are written on the server{job ? <> by job <span className="font-mono">{job.job_id}</span></> : ''}; leaving this page doesn&apos;t stop it.
+      </p>
     </div>
   )
 }
@@ -350,15 +361,24 @@ function ImportingStep() {
 
 function ResultsStep({
   result,
+  failure,
   templateValue,
   onImportMore,
 }: {
-  result: ImportDocumentsResponse
+  result: ImportJobResult
+  /** A failed job's error: the row it stopped at. The report is then partial. */
+  failure: string | null
   templateValue: string
   onImportMore: () => void
 }) {
   return (
     <div className="space-y-4">
+      {failure && (
+        <div className="flex items-start gap-2 px-4 py-2 bg-danger/5 border border-danger/20 rounded-lg text-sm text-danger" role="alert">
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+          <span>The import stopped: {failure.replace(/\.$/, '')}. The rows below were written before it and stand.</span>
+        </div>
+      )}
       {/* Summary */}
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-gray-50 rounded-lg p-4 text-center">
@@ -412,9 +432,9 @@ function ResultsStep({
                 ))}
               </tbody>
             </table>
-            {result.results.length > 100 && (
+            {result.results_truncated && (
               <p className="text-xs text-gray-400 px-3 py-2 border-t border-gray-100">
-                Showing first 100 of {result.results.length} results.
+                Showing the first {result.results.length} of {result.succeeded} written documents.
               </p>
             )}
           </div>
@@ -437,7 +457,7 @@ function ResultsStep({
                 </tr>
               </thead>
               <tbody className="divide-y divide-red-100">
-                {result.errors.slice(0, 50).map((err, i) => (
+                {result.errors.map((err, i) => (
                   <tr key={i}>
                     <td className="px-3 py-1.5 text-gray-500">{err.row}</td>
                     <td className="px-3 py-1.5 text-danger">{err.error}</td>
@@ -448,6 +468,11 @@ function ResultsStep({
                 ))}
               </tbody>
             </table>
+            {result.errors_truncated && (
+              <p className="text-xs text-gray-400 px-3 py-2 border-t border-danger/20">
+                Showing the first {result.errors.length} of {result.failed} failed rows.
+              </p>
+            )}
           </div>
         </details>
       )}
@@ -511,8 +536,18 @@ export default function DocumentImportPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(templateIdParam)
   const [parsed, setParsed] = useState<ParsedCSV | null>(null)
   const [mapping, setMapping] = useState<Record<string, string>>({})
-  const [importResult, setImportResult] = useState<ImportDocumentsResponse | null>(null)
+  const [importResult, setImportResult] = useState<ImportJobResult | null>(null)
+  const [importFailure, setImportFailure] = useState<string | null>(null)
+  const [importJob, setImportJob] = useState<BackupJobSnapshot | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
+  const leftRef = useRef(false)
+  // Set on mount as well as cleared on unmount: React's development
+  // StrictMode mounts, unmounts and mounts again, and a flag only ever set on
+  // unmount would read "left" for the rest of the page's life.
+  useEffect(() => {
+    leftRef.current = false
+    return () => { leftRef.current = true }
+  }, [])
 
   // By id when known (a picked card, or the list page's link); a bare
   // ?template= value resolves in the selected namespace only.
@@ -545,22 +580,43 @@ export default function DocumentImportPage() {
     if (!template || !parsed || !namespace) return
     setStep('importing')
     setImportError(null)
+    setImportFailure(null)
+    setImportJob(null)
+    let jobId: string | null = null
     try {
       const columnMapping: Record<string, string> = {}
       for (const [csvCol, fieldName] of Object.entries(mapping)) {
         if (fieldName) columnMapping[csvCol] = fieldName
       }
-      const result = await client.documents.importDocuments(parsed.file, parsed.file.name, {
+      // A refusal before any row is written (422, 413, 409) throws here, and
+      // no job exists. Otherwise the answer is the job, polled to its end.
+      const started = await client.documents.importDocuments(parsed.file, parsed.file.name, {
         template_id: template.template_id,
         column_mapping: columnMapping,
         namespace,
         skip_errors: true,
       })
-      setImportResult(result)
-      setStep('results')
+      jobId = started.job_id
+      const done = await awaitImportJob(id => client.documents.getBackupJob(id), started, {
+        onProgress: setImportJob,
+        cancelled: () => leftRef.current,
+      })
+      if (!done) return
       queryClient.invalidateQueries({ queryKey: ['wip', 'documents'] })
+      const report = importReport(done)
+      if (done.status === 'failed' && !report) {
+        setImportError(`The import job ${done.job_id} failed: ${done.error ?? 'no reason given'}`)
+        setStep('mapping')
+        return
+      }
+      setImportResult(report ?? { result_kind: 'import_report', total_rows: 0, succeeded: 0, failed: 0, skipped: 0, results: [], results_truncated: false, errors: [], errors_truncated: false })
+      setImportFailure(done.status === 'failed' ? done.error ?? 'no reason given' : null)
+      setStep('results')
     } catch (err: unknown) {
-      setImportError(err instanceof Error ? err.message : String(err))
+      const msg = err instanceof Error ? err.message : String(err)
+      setImportError(jobId
+        ? `Lost track of import job ${jobId}: ${msg}. It goes on on the server; its outcome is under Backup & Restore, Recent Jobs.`
+        : msg)
       setStep('mapping')
     }
   }, [template, parsed, mapping, namespace, client, queryClient])
@@ -570,6 +626,8 @@ export default function DocumentImportPage() {
     setParsed(null)
     setMapping({})
     setImportResult(null)
+    setImportFailure(null)
+    setImportJob(null)
     setImportError(null)
   }, [templateParam, templateIdParam])
 
@@ -654,11 +712,12 @@ export default function DocumentImportPage() {
         />
       )}
 
-      {step === 'importing' && <ImportingStep />}
+      {step === 'importing' && <ImportingStep job={importJob} />}
 
       {step === 'results' && importResult && template && (
         <ResultsStep
           result={importResult}
+          failure={importFailure}
           templateValue={template.value}
           onImportMore={handleReset}
         />

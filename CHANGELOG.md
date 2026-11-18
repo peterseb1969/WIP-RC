@@ -1,5 +1,13 @@
 # RC-Console — Changelog
 
+## 2026-11-18 — Document import follows the import job
+
+- Changed: a CSV/XLSX document import now runs as a job on the platform: the request answers with the job, and the rows are written in the background. The import page follows the job to its end. While it runs, it shows the job's progress, the counts written so far and the job's ID; leaving the page doesn't stop the import.
+- Changed: the results show the job's report. The "showing the first N" notes follow the platform's truncation flags, for written rows and for errors.
+- Added: a failed import shows its error over the partial report, whose rows stand. If the page loses track of the job, it names the job and points to Recent Jobs.
+- Fixed: the Audit Explorer passed "file" to the references calls, which don't take it. A file reference opens the file's page, as file search results already did.
+- Changed: adopted @wip/client 0.108.63 and @wip/react 0.26.24 (scaffold refresh).
+
 ## 2026-11-15 — Current client libraries; system backups of version 2
 
 - Changed: adopted @wip/client 0.108.29, @wip/react 0.26.20 and @wip/proxy 0.9.1 (scaffold refresh).

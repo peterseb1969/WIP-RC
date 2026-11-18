@@ -185,3 +185,15 @@ counts relative to what the entry starts with.
 
 Tests: tsc clean; unit 418/418 (1 new); full E2E on wip.localhost 92 passed, 1 failed (the integrity check came back partial while document-store restarted mid-run) and 1/1 on a re-run of that spec
 Discovered: The Integrity page shows "No integrity issues found" in green under a red "Partial" banner when a service didn't answer and no documents were checked
+
+## 70fbc17 — test: the attachment E2E skips itself on an install without an app edge
+**Time:** 2026-11-15 15:08
+**Author:** Peter S <189785956+peterseb1969@users.noreply.github.com>
+**Files:** 1 changed, +7/-1
+**Tests:** not recorded
+**Why:** An install that runs no app edge refuses every attachment write with
+no_app_edge, and RC says the install doesn't serve attached apps. The
+test assumed an app edge and failed on dev-test, which has none. It now
+reads RC's refusal and skips the rest of itself with that reason.
+
+Tests: full E2E on dev-test 92/93 before (this test the one failure), system-auth 3 passed and 1 skipped after; prod-test 93/93; wip.localhost system-auth 4/4

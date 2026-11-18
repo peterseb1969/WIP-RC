@@ -94,7 +94,7 @@ It prints each service's image, and in SOURCE the rule that decided its tag:
 |---|---|
 | `pin` | a per-service tag: `--image-tag NAME=TAG`, `add-app --tag` or `app-deploy --tag` |
 | `base` | the install-wide `--tag` |
-| `manifest` | the tag in the component's or app's manifest (used when no `--tag` is set) |
+| `manifest` | the tag in the manifest: an app's pin always (apps are tagged in their own repos); a component's only when no `--tag` is set |
 | `latest` | nothing set a tag |
 | `upstream` | an infrastructure image's own version (mongo, postgres, dex…); the install-wide tag never changes it |
 | `source` | dev target only: built locally as `<name>:dev`; no tag applies |
@@ -306,7 +306,7 @@ for their grants. Records have two authors:
 | Changed through the API | No — 409, `error_code: managed_by_deployer`; change them with wip-deploy | Yes |
 | Plaintext kept by | The install's secret backend; the app gets it as `WIP_API_KEY` | Nobody: shown once at creation |
 | After a MongoDB wipe or restore | Re-imported by the Registry at its next start (and every 10 s) | Gone unless restored from a backup |
-| Access on a listed namespace | The grants the file declares: an entry with `grants` (`{}` included, which every rendered key file writes) reads each listed namespace it gives no higher level; an entry without `grants` imports none, its grants then stay under the API, and its listed namespaces give it nothing until one is made | Its grant there only: the `namespaces` list is a scope and gives nothing. Creating the key writes a grant on each listed namespace (`grant_permission`, else `read`); the access ends with the grant — revoked, purged by a namespace deletion, or written orphaned by a restore |
+| Access on a listed namespace | The grants the file declares: an entry with `grants` (`{}` included, which every key the deployer derives carries) reads each listed namespace it gives no higher level; an entry without `grants`, as a spec key that declares none is rendered, imports none, its grants then stay under the API, and its listed namespaces give it nothing until one is made | Its grant there only: the `namespaces` list is a scope and gives nothing. Creating the key writes a grant on each listed namespace (`grant_permission`, else `read`); the access ends with the grant — revoked, purged by a namespace deletion, or written orphaned by a restore |
 | Use case | App keys, standing agent and service keys | Apps wip-deploy does not manage, temporary keys |
 
 **Only the Registry reads the key file.** The deployer renders it into a
@@ -405,7 +405,10 @@ curl -k -H "X-API-Key: <admin-key>" https://<host>:8443/api/registry/api-keys
 # Get a single key
 curl -k -H "X-API-Key: <admin-key>" https://<host>:8443/api/registry/api-keys/my-app
 
-# Update metadata (PATCH; only fields you include change)
+# Update metadata (PATCH). A field left out, or sent as null, is unchanged —
+# except expires_at: null removes the expiry (the key never expires). An
+# expiry already past is refused (422, error_code validation_failed) and the
+# key is left as it was.
 curl -k -X PATCH https://<host>:8443/api/registry/api-keys/my-app \
   -H "X-API-Key: <admin-key>" \
   -H "Content-Type: application/json" \
@@ -436,7 +439,7 @@ wip-deploy app-namespace remove wip-kb kb-research
 ```
 
 - The addition is kept in the install's saved spec, so `redeploy` keeps it. Other installs and the app's manifest are untouched.
-- Nothing restarts: the app keeps its key, and its scope changes in the key file. The Registry re-imports it within about 10 seconds (about a minute on k8s, while the Secret propagates), and the other services follow within one key sync (30 seconds). The Registry reads the reservation on the next upsert.
+- Nothing restarts: the app keeps its key, and its scope changes in the key file. The Registry re-imports it within about 10 seconds (about a minute on k8s, while the Secret propagates), and the other services follow within a few seconds where the install runs NATS, otherwise within one key sync (30 seconds). The Registry reads the reservation on the next upsert.
 - An owned namespace may be created by the app's own key, with the settings given here (`--setting deletion_mode=full`, `--setting isolation_mode=strict`, `--setting allowed_external_refs=a,b`, `--setting id_config=<json>`). The app may send its own description; any other setting must match. Or create it yourself with the master key and let the app use it.
 - `remove` takes the namespace away from the app at once, even while it holds the app's data. The namespace and its data stay; deleting them is a separate admin action.
 - An app holding the master key (`privileged_key`) takes no additions, and a namespace its manifest already declares cannot be added again.
@@ -818,7 +821,8 @@ in §5.5.
   - grants and reservations are deleted;
   - attachments are deactivated, never deleted.
 
-  It is stack-wide, since every system backup is. It never removes:
+  A whole-stack archive's mirror is stack-wide; a scoped archive's (`--namespace`
+  backups) removes only within its scope. It never removes:
   - records the install's files manage, or grants to a key whose grants the
     key file declares;
   - the bootstrap grants;
@@ -864,6 +868,12 @@ in §5.5.
 - **Restored records are unmanaged** (`origin: restored`). Where the install's
   own key file or reservations file declares the same key, grant or prefix,
   the Registry's import takes it over on its next pass (§4.3).
+- **An install's reservation of a name with no namespace travels with no
+  namespace id**, because it holds none here (see "The restored namespace's
+  id" below). A restore skips such a record (`managed_on_source`): this
+  install's deployer reserves its own names. The prefix is still named in the
+  file, so a mirror keeps a reservation of that name here rather than
+  releasing it.
 - **The install's files win.** A restore never replaces a record wip-deploy
   manages on this instance, a grant to a key whose grants the key file
   declares, or a key named like a loaded config key, even with `--overwrite`.
@@ -904,9 +914,9 @@ in §5.5.
 - **Either order.** Every namespace has a `namespace_id`, its identity apart
   from its name, and the archive records the one each grant is for. A grant
   whose namespace is here (a namespace, active or archived, or a reservation,
-  holding that id) is written as it was. Any other grant is written
-  **orphaned**, with the id: on a name nobody holds here, and on a name held
-  here by *another* namespace (a namespace or reservation of the same name
+  holding that id) is written as it was. Any other grant **with an id** is
+  written **orphaned**, with the id: on a name nobody holds here, and on a name
+  held here by *another* namespace (a namespace or reservation of the same name
   with another id, such as another owner's reservation). A grant archived
   with **no** id was given while no namespace held its name on the source (a
   key-file grant, or a key created listing a namespace not yet created): it

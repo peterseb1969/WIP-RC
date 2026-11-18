@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Search,
   ChevronRight,
@@ -417,6 +417,7 @@ function IncomingRefRow({ ref_, onInspect }: { ref_: IncomingReference; onInspec
 export default function AuditExplorerPage() {
   const client = useWipClient()
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
   const [searchResults, setSearchResults] = useState<SearchResult[] | null>(null)
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
@@ -454,10 +455,13 @@ export default function AuditExplorerPage() {
   }, [client, setSearchParams, searchOptions])
 
   const handleInspect = useCallback(async (type: string, id: string) => {
+    // The references endpoints cover documents, templates, terminologies and
+    // terms only; a file (a document's file field) opens on its own page.
+    if (type === 'file') { navigate(entityLink(type, id)); return }
     setInspecting(true)
     setSearchParams(prev => { prev.set('type', type); prev.set('id', id); return prev }, { replace: true })
     try {
-      const entityType = type as 'document' | 'template' | 'terminology' | 'term' | 'file'
+      const entityType = type as 'document' | 'template' | 'terminology' | 'term'
       const [outgoing, incoming] = await Promise.all([
         client.reporting.getEntityReferences(entityType, id),
         client.reporting.getReferencedBy(entityType, id),
@@ -470,7 +474,7 @@ export default function AuditExplorerPage() {
     } finally {
       setInspecting(false)
     }
-  }, [client, setSearchParams])
+  }, [client, setSearchParams, navigate])
 
   // Restore from URL params on mount
   useEffect(() => {
